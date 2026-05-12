@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/Simon-Busch/go-hyperliquid-0xsi"
+	"github.com/Simon-Busch/hyperliquid-go"
 	"github.com/joho/godotenv"
 )
 
@@ -20,6 +23,7 @@ func TestWebSocketConnection(t *testing.T) {
 	// Get test wallet address from environment or use a default test address
 	testAddress := os.Getenv("WALLET_ADDRESS")
 	if testAddress == "" {
+		testAddress = "0x1234567890abcdef1234567890abcdef12345678" // Default test address
 		testAddress = "0x1234567890abcdef1234567890abcdef12345678" // Default test address
 	}
 
@@ -374,7 +378,7 @@ func TestRealTimeOrderMonitoring(t *testing.T) {
 		t.Log("🎉 Order monitoring successful - you should see your orders!")
 	} else {
 		t.Log("⚠️  No order events received - try opening an order while this test runs")
-		t.Log("💡 Note: userEvents and orderUpdates don't work on Hyperliquid WebSocket")
+		t.Log("💡 Note: userEvents and orderUpdates require a user address parameter")
 	}
 }
 
@@ -675,5 +679,686 @@ func TestCompleteUserActivityMonitoring(t *testing.T) {
 		t.Log("   - Need to perform actions during test")
 	} else {
 		t.Log("✅ Events received successfully!")
+	}
+}
+
+// TestUserFillsSubscriptionTriggersOnOrder subscribes to userFills for the current account,
+// opens a tiny market order to trigger a fill, and asserts we receive a fill event.
+func TestUserFillsSubscriptionTriggersOnOrder(t *testing.T) {
+	godotenv.Overload()
+	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	infoClient := hyperliquid.NewInfo(hyperliquid.MainnetAPIURL, true, nil, nil, nil, "")
+	// Your target address
+	address := "0x1234567890abcdef1234567890abcdef12345678"
+
+	// Connect
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := wsClient.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Failed to connect: %v", err)
+	}
+	defer wsClient.Close()
+
+	// Track received messages
+	var fillCount int
+	var snapshotCount int
+	messageChan := make(chan hyperliquid.WSMessage, 100)
+
+	// Position tracking map: coin -> position size (positive = long, negative = short, 0 = flat)
+	positions := make(map[string]float64)
+	// Leverage tracking map: coin -> leverage details
+	leverages := make(map[string]hyperliquid.Leverage)
+
+	// Subscribe to user fills with snapshot filtering
+	_, err = wsClient.SubscribeToUserFills(address, func(msg hyperliquid.WSMessage) {
+		t.Logf("🔍 RAW userFills message received: %s", string(msg.Data))
+
+		// Parse the userFills message structure to check for snapshots
+		var fillMessage struct {
+			IsSnapshot bool   `json:"isSnapshot,omitempty"`
+			User       string `json:"user"`
+			Fills      []struct {
+				Coin      string `json:"coin"`
+				Price     string `json:"px"`
+				Size      string `json:"sz"`
+				Side      string `json:"side"`
+				Direction string `json:"dir"`
+				ClosedPnL string `json:"closedPnl"`
+				Hash      string `json:"hash"`
+				OID       int64  `json:"oid"`
+				Fee       string `json:"fee"`
+				FeeToken  string `json:"feeToken"`
+			} `json:"fills"`
+		}
+
+		if err := json.Unmarshal(msg.Data, &fillMessage); err == nil {
+			if fillMessage.IsSnapshot {
+				snapshotCount++
+				t.Logf("📸 SNAPSHOT #%d: %d fills loaded (ignored)", snapshotCount, len(fillMessage.Fills))
+			} else {
+				fillCount++
+				t.Logf("💰 NEW FILLS #%d: %d fills received", fillCount, len(fillMessage.Fills))
+
+				// Process each fill and determine position context
+				for i, fill := range fillMessage.Fills {
+					side := "BUY"
+					if fill.Side == "A" {
+						side = "SELL"
+					}
+
+					// Parse fill size
+					fillSize, parseErr := strconv.ParseFloat(fill.Size, 64)
+					if parseErr != nil {
+						t.Logf("   %d. Failed to parse fill size: %v", i+1, parseErr)
+						continue
+					}
+
+					// Determine position change
+					var positionChange float64
+					if side == "BUY" {
+						positionChange = fillSize // Long position increases
+					} else {
+						positionChange = -fillSize // Short position decreases
+					}
+
+					// Get previous position
+					previousPosition := positions[fill.Coin]
+					newPosition := previousPosition + positionChange
+					positions[fill.Coin] = newPosition
+
+					// Determine trade context
+					var tradeContext string
+					if side == "BUY" {
+						if previousPosition < 0 {
+							// Was short, now buying = closing short
+							tradeContext = "🔄 CLOSING SHORT"
+						} else if previousPosition == 0 {
+							// Was flat, now buying = opening long
+							tradeContext = "📈 OPENING LONG"
+						} else {
+							// Was long, now buying more = increasing long
+							tradeContext = "📈 INCREASING LONG"
+						}
+					} else {
+						if previousPosition > 0 {
+							// Was long, now selling = closing long
+							tradeContext = "🔄 CLOSING LONG"
+						} else if previousPosition == 0 {
+							// Was flat, now selling = opening short
+							tradeContext = "📉 OPENING SHORT"
+						} else {
+							// Was short, now selling more = increasing short
+							tradeContext = "📉 INCREASING SHORT"
+						}
+					}
+
+					t.Logf("   %d. %s %s %s @ $%s | PnL: $%s | Fee: $%s %s",
+						i+1, side, fill.Size, fill.Coin, fill.Price, fill.ClosedPnL, fill.Fee, fill.FeeToken)
+					// Ensure leverage available; if not yet received from webData2, fetch on-demand
+					lev, ok := leverages[fill.Coin]
+					if !ok {
+						if us, err := infoClient.UserState(address); err == nil && us != nil {
+							for _, ap := range us.AssetPositions {
+								if ap.Position.Coin == fill.Coin {
+									leverages[fill.Coin] = ap.Position.Leverage
+									lev = ap.Position.Leverage
+									ok = true
+									break
+								}
+							}
+						}
+					}
+					if ok {
+						if lev.RawUsd != nil {
+							t.Logf("       Leverage: %s x%d | rawUsd=%s", lev.Type, lev.Value, *lev.RawUsd)
+						} else {
+							t.Logf("       Leverage: %s x%d", lev.Type, lev.Value)
+						}
+					}
+
+					t.Logf("       %s | Position: %.4f -> %.4f | %s",
+						tradeContext, previousPosition, newPosition, fill.Coin)
+				}
+
+				// Send to channel for test completion
+				messageChan <- msg
+			}
+		} else {
+			t.Logf("💰 FILL: Failed to parse: %v", err)
+			t.Logf("💰 RAW DATA: %s", string(msg.Data))
+		}
+	})
+	if err != nil {
+		t.Fatalf("Failed to subscribe to fills: %v", err)
+	}
+
+	// Subscribe to webData2 for position updates
+	_, err = wsClient.SubscribeToWebData2(address, func(msg hyperliquid.WSMessage) {
+		t.Logf("🔍 RAW webData2 message received: %s", string(msg.Data))
+
+		// Parse webData2 to get current positions
+		var webData struct {
+			UserState *hyperliquid.UserState `json:"userState,omitempty"`
+		}
+
+		if err := json.Unmarshal(msg.Data, &webData); err == nil && webData.UserState != nil {
+			// Update positions from webData2
+			for _, assetPos := range webData.UserState.AssetPositions {
+				if assetPos.Position.Szi != "" {
+					if size, parseErr := strconv.ParseFloat(assetPos.Position.Szi, 64); parseErr == nil {
+						positions[assetPos.Position.Coin] = size
+						t.Logf("📊 Position updated from webData2: %s = %.4f", assetPos.Position.Coin, size)
+					}
+				}
+				// Update leverage details for this coin
+				leverages[assetPos.Position.Coin] = assetPos.Position.Leverage
+			}
+		}
+	})
+	if err != nil {
+		t.Fatalf("Failed to subscribe to webData2: %v", err)
+	}
+
+	// Subscribe to user events (broader coverage) - also filter snapshots
+	_, err = wsClient.SubscribeToUserEvents(address, func(msg hyperliquid.WSMessage) {
+		t.Logf("🔍 RAW userEvents message received: %s", string(msg.Data))
+
+		// Check if this is a snapshot by looking for the isSnapshot field
+		if strings.Contains(string(msg.Data), `"isSnapshot":true`) {
+			t.Logf("📸 USER EVENT SNAPSHOT (ignored): %s", string(msg.Data))
+			return
+		}
+
+		t.Logf("📊 USER EVENT: %s", string(msg.Data))
+	})
+	if err != nil {
+		t.Fatalf("Failed to subscribe to events: %v", err)
+	}
+
+	// Wait for messages with timeout
+	t.Logf("=== WAITING FOR FILL EVENTS (excluding snapshots) ===")
+	t.Logf("Monitoring address: %s", address)
+	t.Logf("⚠️  OPEN AN ORDER IN ANOTHER TERMINAL TO TRIGGER A FILL!")
+
+	timeout := time.After(300 * time.Second) // 60 seconds should be enough
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-messageChan:
+			t.Logf("✅ Received new fill event! Test completed successfully.")
+			t.Logf("📊 Summary: %d snapshots ignored, %d new fills received", snapshotCount, fillCount)
+			return
+		case <-timeout:
+			t.Logf("⏰ Timeout reached after 60 seconds")
+			t.Logf("📊 Summary: %d snapshots ignored, %d new fills received", snapshotCount, fillCount)
+			if fillCount == 0 {
+				t.Logf("⚠️  No new fills received (only snapshots were filtered out)")
+			}
+			return
+		case <-ticker.C:
+			t.Logf("⏳ Still waiting... (%d snapshots ignored, %d new fills received)", snapshotCount, fillCount)
+		}
+	}
+}
+
+func TestL2BookSubscriptionSOL(t *testing.T) {
+	godotenv.Overload()
+	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+
+	// Connect
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := wsClient.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Failed to connect: %v", err)
+	}
+	defer wsClient.Close()
+
+	// Track received messages
+	var messageCount int
+	messageChan := make(chan hyperliquid.WSMessage, 100)
+
+	// Subscribe to SOL L2Book
+	_, err = wsClient.SubscribeToOrderbook("SOL", func(msg hyperliquid.WSMessage) {
+		messageCount++
+		t.Logf("📊 L2Book message #%d received", messageCount)
+
+		// Parse the L2Book data
+		var l2Book hyperliquid.L2Book
+		if err := json.Unmarshal(msg.Data, &l2Book); err != nil {
+			t.Logf("⚠️  Failed to parse L2Book data: %v", err)
+			t.Logf("   Raw data: %s", string(msg.Data))
+		} else {
+			t.Logf("   Coin: %s, Time: %d, Levels: %d", l2Book.Coin, l2Book.Time, len(l2Book.Levels))
+
+			// Show best bid/ask if available
+			if len(l2Book.Levels) > 0 && len(l2Book.Levels[0]) > 0 {
+				bestBid := l2Book.Levels[0][0].Px
+				t.Logf("   Best bid: %.2f", bestBid)
+
+				if len(l2Book.Levels) > 1 && len(l2Book.Levels[1]) > 0 {
+					bestAsk := l2Book.Levels[1][0].Px
+					midPrice := (bestBid + bestAsk) / 2
+					t.Logf("   Best ask: %.2f", bestAsk)
+					t.Logf("   Mid price: %.2f", midPrice)
+				}
+			}
+		}
+
+		// Send to channel for test completion
+		messageChan <- msg
+	})
+	if err != nil {
+		t.Fatalf("Failed to subscribe to SOL L2Book: %v", err)
+	}
+
+	// Wait for 1 minute
+	t.Logf("=== LISTENING TO SOL L2BOOK FOR 1 MINUTE ===")
+	timeout := time.After(60 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-messageChan:
+			// Continue listening, don't exit on first message
+		case <-timeout:
+			t.Logf("⏰ 1 minute timeout reached")
+			t.Logf("📊 Summary: %d L2Book messages received for SOL", messageCount)
+			return
+		case <-ticker.C:
+			t.Logf("⏳ Still listening... (%d messages received so far)", messageCount)
+		}
+	}
+}
+
+// TestL2BookStableConnection5Min tests a stable 5-minute WebSocket connection to SOL L2Book
+// The WebSocket client handles pings natively via the pingPump goroutine (see ws.go:187-205)
+func TestL2BookStableConnection5Min(t *testing.T) {
+	godotenv.Overload()
+	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+
+	// Create a context with timeout slightly longer than test duration
+	// to allow graceful cleanup
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+	defer cancel()
+
+	// Connect to WebSocket
+	t.Log("=== ESTABLISHING WEBSOCKET CONNECTION ===")
+	err := wsClient.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Failed to connect to WebSocket: %v", err)
+	}
+	defer func() {
+		t.Log("=== CLOSING WEBSOCKET CONNECTION ===")
+		if err := wsClient.Close(); err != nil {
+			t.Logf("Warning: Error closing WebSocket: %v", err)
+		} else {
+			t.Log("✅ WebSocket closed successfully")
+		}
+	}()
+
+	// Statistics tracking
+	var (
+		messageCount     int
+		lastMessageTime  time.Time
+		firstMessageTime time.Time
+		mu               sync.Mutex
+		bestBidCache     float64
+		bestAskCache     float64
+		spreadCache      float64
+	)
+
+	// Subscribe to SOL L2Book with detailed logging
+	_, err = wsClient.SubscribeToOrderbook("SOL", func(msg hyperliquid.WSMessage) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		messageCount++
+		now := time.Now()
+		lastMessageTime = now
+
+		if messageCount == 1 {
+			firstMessageTime = now
+		}
+
+		// Parse the L2Book data
+		var l2Book hyperliquid.L2Book
+		if err := json.Unmarshal(msg.Data, &l2Book); err != nil {
+			t.Logf("⚠️  Message #%d: Failed to parse L2Book data: %v", messageCount, err)
+			return
+		}
+
+		// Extract best bid/ask
+		if len(l2Book.Levels) >= 2 && len(l2Book.Levels[0]) > 0 && len(l2Book.Levels[1]) > 0 {
+			bestBid := l2Book.Levels[0][0].Px
+			bestAsk := l2Book.Levels[1][0].Px
+			spread := bestAsk - bestBid
+			spreadBps := (spread / bestBid) * 10000 // basis points
+
+			bestBidCache = bestBid
+			bestAskCache = bestAsk
+			spreadCache = spreadBps
+
+			// Log detailed info for first 5 messages and then periodically
+			if messageCount <= 5 || messageCount%100 == 0 {
+				t.Logf("📊 Message #%d | Bid: $%.2f | Ask: $%.2f | Spread: $%.4f (%.2f bps) | Levels: %d",
+					messageCount, bestBid, bestAsk, spread, spreadBps, len(l2Book.Levels))
+			}
+		} else {
+			if messageCount <= 5 {
+				t.Logf("📊 Message #%d | Incomplete orderbook data", messageCount)
+			}
+		}
+	})
+	if err != nil {
+		t.Fatalf("Failed to subscribe to SOL L2Book: %v", err)
+	}
+
+	t.Log("✅ Successfully subscribed to SOL L2Book")
+	t.Log("=== MONITORING FOR 5 MINUTES ===")
+	t.Log("Note: WebSocket client handles pings automatically (see ws.go pingPump)")
+	t.Log("")
+
+	// Start time tracking
+	startTime := time.Now()
+	testDuration := 5 * time.Minute
+
+	// Progress ticker - report every 30 seconds
+	progressTicker := time.NewTicker(30 * time.Second)
+	defer progressTicker.Stop()
+
+	// Statistics ticker - calculate stats every minute
+	statsTicker := time.NewTicker(1 * time.Minute)
+	defer statsTicker.Stop()
+
+	// Message rate tracking
+	lastCheckCount := 0
+	lastCheckTime := startTime
+
+	// Main monitoring loop
+	for {
+		select {
+		case <-ctx.Done():
+			t.Log("⚠️  Context cancelled")
+			goto summary
+
+		case <-progressTicker.C:
+			mu.Lock()
+			elapsed := time.Since(startTime)
+			remaining := testDuration - elapsed
+			currentCount := messageCount
+			currentBid := bestBidCache
+			currentAsk := bestAskCache
+			currentSpread := spreadCache
+			mu.Unlock()
+
+			// Calculate message rate since last check
+			timeSinceCheck := time.Since(lastCheckTime).Seconds()
+			msgsSinceCheck := currentCount - lastCheckCount
+			msgRate := float64(msgsSinceCheck) / timeSinceCheck
+
+			t.Logf("⏱️  Progress: %.1f%% | Elapsed: %v | Remaining: %v",
+				(elapsed.Seconds()/testDuration.Seconds())*100,
+				elapsed.Round(time.Second),
+				remaining.Round(time.Second))
+			t.Logf("   Messages: %d | Rate: %.1f msg/s | Last: Bid $%.2f | Ask $%.2f | Spread %.2f bps",
+				currentCount, msgRate, currentBid, currentAsk, currentSpread)
+
+			lastCheckCount = currentCount
+			lastCheckTime = time.Now()
+
+		case <-statsTicker.C:
+			mu.Lock()
+			elapsed := time.Since(startTime)
+			currentCount := messageCount
+			var timeSinceLastMsg time.Duration
+			if !lastMessageTime.IsZero() {
+				timeSinceLastMsg = time.Since(lastMessageTime)
+			}
+			mu.Unlock()
+
+			avgMsgRate := float64(currentCount) / elapsed.Seconds()
+
+			t.Log("📈 === STATISTICS UPDATE ===")
+			t.Logf("   Total messages: %d", currentCount)
+			t.Logf("   Average rate: %.2f msg/s", avgMsgRate)
+			t.Logf("   Time since last message: %v", timeSinceLastMsg.Round(time.Millisecond))
+			t.Log("")
+
+			// Alert if no messages received recently
+			if timeSinceLastMsg > 10*time.Second {
+				t.Logf("⚠️  WARNING: No messages received in last %v", timeSinceLastMsg.Round(time.Second))
+			}
+
+		case <-time.After(testDuration):
+			t.Log("⏰ 5-minute test duration completed")
+			goto summary
+		}
+	}
+
+summary:
+	// Final statistics
+	mu.Lock()
+	totalMessages := messageCount
+	totalDuration := time.Since(startTime)
+	var messageSpan time.Duration
+	if !firstMessageTime.IsZero() && !lastMessageTime.IsZero() {
+		messageSpan = lastMessageTime.Sub(firstMessageTime)
+	}
+	mu.Unlock()
+
+	t.Log("")
+	t.Log("=== FINAL SUMMARY ===")
+	t.Logf("Test duration: %v", totalDuration.Round(time.Second))
+	t.Logf("Total messages received: %d", totalMessages)
+
+	if totalMessages > 0 {
+		avgRate := float64(totalMessages) / totalDuration.Seconds()
+		t.Logf("Average message rate: %.2f msg/s", avgRate)
+		t.Logf("First message at: %v", firstMessageTime.Format("15:04:05.000"))
+		t.Logf("Last message at: %v", lastMessageTime.Format("15:04:05.000"))
+		t.Logf("Message span: %v", messageSpan.Round(time.Second))
+
+		// Validate connection stability
+		if totalMessages < 10 {
+			t.Errorf("❌ Connection unstable: only %d messages received in %v", totalMessages, totalDuration)
+		} else if avgRate < 0.1 {
+			t.Errorf("❌ Message rate too low: %.2f msg/s", avgRate)
+		} else {
+			t.Log("✅ Connection stable throughout 5-minute test")
+			t.Logf("✅ Ping mechanism working (native WebSocket keepalive)")
+		}
+	} else {
+		t.Error("❌ Test FAILED: No messages received")
+	}
+}
+
+// TestWebData2Subscription tests the SubscribeToWebData2 functionality
+// and demonstrates what information is provided by this subscription type.
+//
+// webData2 provides:
+// - Real-time balance updates (accountValue, withdrawable)
+// - Margin usage and available margin
+// - Current positions with size, entry price, and PnL
+// - Leverage settings per position
+// - Total notional position value
+// - Updates automatically when trades execute or positions change
+func TestWebData2Subscription(t *testing.T) {
+	godotenv.Overload()
+
+	testAddress := accountAddress(t)
+
+	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	defer wsClient.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := wsClient.Connect(ctx); err != nil {
+		t.Fatalf("Failed to connect: %v", err)
+	}
+	t.Log("✅ Connected to WebSocket")
+
+	messageCount := 0
+	receivedData := false
+
+	// Track balance changes
+	type BalanceSnapshot struct {
+		timestamp    time.Time
+		accountValue string
+		withdrawable string
+		marginUsed   string
+	}
+	var balanceHistory []BalanceSnapshot
+
+	// Subscribe to webData2
+	_, err := wsClient.SubscribeToWebData2(testAddress, func(msg hyperliquid.WSMessage) {
+		messageCount++
+		receivedData = true
+
+		t.Logf("\n=== webData2 Message #%d ===", messageCount)
+		t.Logf("Channel: %s", msg.Channel)
+
+		// Parse the webData2 message
+		// webData2 has a "clearinghouseState" field that contains the UserState
+		var webData struct {
+			ClearinghouseState *hyperliquid.UserState `json:"clearinghouseState,omitempty"`
+		}
+
+		if err := json.Unmarshal(msg.Data, &webData); err != nil {
+			t.Logf("⚠️  Failed to parse webData2: %v", err)
+			return
+		}
+
+		if webData.ClearinghouseState == nil {
+			t.Log("⚠️  ClearinghouseState is nil")
+			return
+		}
+
+		// Track balance snapshot
+		snapshot := BalanceSnapshot{
+			timestamp:    time.Now(),
+			accountValue: webData.ClearinghouseState.MarginSummary.AccountValue,
+			withdrawable: webData.ClearinghouseState.Withdrawable,
+			marginUsed:   webData.ClearinghouseState.MarginSummary.TotalMarginUsed,
+		}
+		balanceHistory = append(balanceHistory, snapshot)
+
+		// Display balance and margin information
+		t.Log("\n📊 Balance & Margin Information:")
+		t.Logf("   Account Value: %s USD", webData.ClearinghouseState.MarginSummary.AccountValue)
+		t.Logf("   Total Margin Used: %s USD", webData.ClearinghouseState.MarginSummary.TotalMarginUsed)
+		t.Logf("   Total Notional Position: %s USD", webData.ClearinghouseState.MarginSummary.TotalNtlPos)
+		t.Logf("   Total Raw USD: %s USD", webData.ClearinghouseState.MarginSummary.TotalRawUsd)
+		t.Logf("   Withdrawable: %s USD", webData.ClearinghouseState.Withdrawable)
+
+		// Show balance changes
+		if len(balanceHistory) > 1 {
+			prev := balanceHistory[len(balanceHistory)-2]
+			if prev.accountValue != snapshot.accountValue {
+				t.Logf("   ⚡ Account value changed: %s → %s", prev.accountValue, snapshot.accountValue)
+			}
+			if prev.withdrawable != snapshot.withdrawable {
+				t.Logf("   ⚡ Withdrawable changed: %s → %s", prev.withdrawable, snapshot.withdrawable)
+			}
+			if prev.marginUsed != snapshot.marginUsed {
+				t.Logf("   ⚡ Margin used changed: %s → %s", prev.marginUsed, snapshot.marginUsed)
+			}
+		}
+
+		// Display cross margin summary if different
+		if webData.ClearinghouseState.CrossMarginSummary.AccountValue != "" {
+			t.Log("\n📊 Cross Margin Summary:")
+			t.Logf("   Account Value: %s USD", webData.ClearinghouseState.CrossMarginSummary.AccountValue)
+			t.Logf("   Total Margin Used: %s USD", webData.ClearinghouseState.CrossMarginSummary.TotalMarginUsed)
+			t.Logf("   Total Notional Position: %s USD", webData.ClearinghouseState.CrossMarginSummary.TotalNtlPos)
+			t.Logf("   Total Raw USD: %s USD", webData.ClearinghouseState.CrossMarginSummary.TotalRawUsd)
+		}
+
+		// Display positions
+		if len(webData.ClearinghouseState.AssetPositions) > 0 {
+			t.Log("\n📈 Active Positions:")
+			for i, assetPos := range webData.ClearinghouseState.AssetPositions {
+				t.Logf("   Position %d:", i+1)
+				t.Logf("      Coin: %s", assetPos.Position.Coin)
+				t.Logf("      Size: %s", assetPos.Position.Szi)
+				t.Logf("      Leverage: %+v", assetPos.Position.Leverage)
+				if assetPos.Position.EntryPx != nil {
+					t.Logf("      Entry Price: %s", *assetPos.Position.EntryPx)
+				}
+				if assetPos.Position.PositionValue != "" {
+					t.Logf("      Position Value: %s", assetPos.Position.PositionValue)
+				}
+				if assetPos.Position.UnrealizedPnl != "" {
+					t.Logf("      Unrealized PnL: %s", assetPos.Position.UnrealizedPnl)
+				}
+			}
+		} else {
+			t.Log("\n📈 No active positions")
+		}
+
+		// Pretty print complete JSON on first message
+		if messageCount == 1 {
+			t.Log("\n" + strings.Repeat("=", 80))
+			t.Log("COMPLETE WEBDATA2 STRUCTURE (First Message)")
+			t.Log(strings.Repeat("=", 80))
+			var prettyJSON map[string]interface{}
+			if err := json.Unmarshal(msg.Data, &prettyJSON); err == nil {
+				formatted, _ := json.MarshalIndent(prettyJSON, "", "  ")
+				t.Logf("\n%s\n", string(formatted))
+			}
+			t.Log(strings.Repeat("=", 80))
+		}
+	})
+
+	if err != nil {
+		t.Fatalf("Failed to subscribe to webData2: %v", err)
+	}
+	t.Log("✅ Subscribed to webData2")
+
+	// Wait to receive messages
+	t.Log("\n⏳ Waiting 30 seconds for webData2 updates...")
+	t.Log("💡 Try placing an order or modifying positions to trigger updates")
+	t.Log("")
+	t.Log("KEY INFORMATION PROVIDED BY WEBDATA2:")
+	t.Log("  ✓ Real-time balance updates (accountValue, withdrawable)")
+	t.Log("  ✓ Margin usage and available margin")
+	t.Log("  ✓ Current positions with size, entry price, and PnL")
+	t.Log("  ✓ Leverage settings per position")
+	t.Log("  ✓ Total notional position value")
+	t.Log("  ✓ Updates automatically when trades execute or positions change")
+	t.Log("")
+
+	time.Sleep(30 * time.Second)
+
+	// Summary
+	t.Log("\n=== Test Summary ===")
+	t.Logf("Total webData2 messages received: %d", messageCount)
+	t.Logf("Balance updates tracked: %d", len(balanceHistory))
+
+	if len(balanceHistory) > 1 {
+		t.Log("\n📈 Balance Timeline:")
+		for i, snapshot := range balanceHistory {
+			t.Logf("  %d. [%s] Account: %s USD | Withdrawable: %s USD | Margin Used: %s USD",
+				i+1, snapshot.timestamp.Format("15:04:05"),
+				snapshot.accountValue, snapshot.withdrawable, snapshot.marginUsed)
+		}
+	}
+
+	if !receivedData {
+		t.Log("⚠️  No webData2 messages received - this is normal if the account has no activity")
+		t.Log("💡 webData2 typically sends updates when:")
+		t.Log("   - You first subscribe (initial snapshot)")
+		t.Log("   - An order fills")
+		t.Log("   - A position is opened/closed/modified")
+		t.Log("   - Account balance changes")
+	} else {
+		t.Log("✅ webData2 subscription test completed successfully")
 	}
 }

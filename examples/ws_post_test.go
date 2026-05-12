@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	hyperliquid "github.com/Simon-Busch/go-hyperliquid-0xsi"
+	hyperliquid "github.com/Simon-Busch/hyperliquid-go"
 )
 
 // TestWebSocketPostInfo tests sending info requests via WebSocket POST
@@ -174,7 +174,7 @@ func TestWebSocketPostTimeout(t *testing.T) {
 // TestWebSocketPostVsHTTP compares WebSocket POST with HTTP for the same request
 func TestWebSocketPostVsHTTP(t *testing.T) {
 	// Create Info client for HTTP requests
-	info := hyperliquid.NewInfo(hyperliquid.MainnetAPIURL, true, nil, nil)
+	info := hyperliquid.NewInfo(hyperliquid.MainnetAPIURL, true, nil, nil, nil, "")
 
 	// Get meta via HTTP
 	httpStart := time.Now()

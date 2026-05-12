@@ -3,7 +3,7 @@ package examples
 import (
 	"testing"
 
-	hyperliquid "github.com/Simon-Busch/go-hyperliquid-0xsi"
+	hyperliquid "github.com/Simon-Busch/hyperliquid-go"
 )
 
 // TestXYZDexGoldPosition tests querying positions on the xyz builder dex

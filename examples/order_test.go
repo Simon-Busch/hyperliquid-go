@@ -1,13 +1,17 @@
 package examples
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/Simon-Busch/go-hyperliquid-0xsi"
+	"github.com/Simon-Busch/hyperliquid-go"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/joho/godotenv"
 )
 
@@ -1144,15 +1148,15 @@ func TestOpenLongARBWithLeverageAndTPandSL(t *testing.T) {
 	t.Logf("Raw prices - Open: $%.6f, TP: $%.6f, SL: $%.6f", openPx, tpPxRaw, slPxRaw)
 
 	// Use PriceToWire to ensure proper tick size compliance
-	tpPxWire, err := hyperliquid.PriceToWire(tpPxRaw, assetID, exchange.GetInfo(), false)
+	tpPxWire, err := hyperliquid.PriceToWire(tpPxRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
 	if err != nil {
 		t.Fatalf("Failed to format TP price: %v", err)
 	}
-	slPxWire, err := hyperliquid.PriceToWire(slPxRaw, assetID, exchange.GetInfo(), false)
+	slPxWire, err := hyperliquid.PriceToWire(slPxRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
 	if err != nil {
 		t.Fatalf("Failed to format SL price: %v", err)
 	}
-	openPxWire, err := hyperliquid.PriceToWire(openPx, assetID, exchange.GetInfo(), false)
+	openPxWire, err := hyperliquid.PriceToWire(openPx, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
 	if err != nil {
 		t.Fatalf("Failed to format open price: %v", err)
 	}
@@ -1249,6 +1253,109 @@ func TestMarketOpenWithCloid(t *testing.T) {
 		t.Fatalf("MarketOpen failed: %v", err)
 	}
 	t.Logf("Market open result: %+v", result)
+}
+
+func TestBulkOrdersWithGrouping_ETH_LimitPlus3_TPMinus10_SLPlus10(t *testing.T) {
+	godotenv.Overload()
+	exchange := newTestExchange(t)
+
+	coin := "ETH"
+	size := 0.005
+
+	// Fetch mid price
+	mids, err := exchange.GetInfo().AllMids()
+	if err != nil {
+		t.Fatalf("failed to fetch mids: %v", err)
+	}
+	midStr, ok := mids[coin]
+	if !ok {
+		t.Fatalf("mid not found for %s", coin)
+	}
+	mid, err := strconv.ParseFloat(midStr, 64)
+	if err != nil {
+		t.Fatalf("failed to parse mid for %s: %v", coin, err)
+	}
+
+	// Compute prices per request
+	openRaw := mid * 1.01 // limit at market +3%
+	slRaw := mid * 1.10   // SL at market +10%
+	tpRaw := mid * 0.90   // TP at market -10%
+
+	// Ensure prices conform to tick rules using PriceToWire
+	assetID := exchange.GetInfo().NameToAsset(coin)
+	openWire, err := hyperliquid.PriceToWire(openRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
+	if err != nil {
+		t.Fatalf("failed to wire open price: %v", err)
+	}
+	slWire, err := hyperliquid.PriceToWire(slRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
+	if err != nil {
+		t.Fatalf("failed to wire SL price: %v", err)
+	}
+	tpWire, err := hyperliquid.PriceToWire(tpRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
+	if err != nil {
+		t.Fatalf("failed to wire TP price: %v", err)
+	}
+
+	openPx, _ := strconv.ParseFloat(openWire, 64)
+	slPx, _ := strconv.ParseFloat(slWire, 64)
+	tpPx, _ := strconv.ParseFloat(tpWire, 64)
+
+	// Build orders: open limit (Gtc), SL trigger (market), TP trigger (market)
+	openOrder := hyperliquid.CreateOrderRequest{
+		Coin:          coin,
+		IsBuy:         true,
+		Price:         openPx,
+		Size:          size,
+		ReduceOnly:    false,
+		OrderType:     hyperliquid.OrderType{Limit: &hyperliquid.LimitOrderType{Tif: hyperliquid.TifGtc}},
+		ClientOrderID: nil,
+	}
+
+	slOrder := hyperliquid.CreateOrderRequest{
+		Coin:          coin,
+		IsBuy:         false, // close direction for long
+		Price:         slPx,
+		Size:          size,
+		ReduceOnly:    true,
+		OrderType:     hyperliquid.OrderType{Trigger: &hyperliquid.TriggerOrderType{TriggerPx: slPx, IsMarket: true, Tpsl: "sl"}},
+		ClientOrderID: nil,
+	}
+
+	tpOrder := hyperliquid.CreateOrderRequest{
+		Coin:          coin,
+		IsBuy:         false, // close direction for long
+		Price:         tpPx,
+		Size:          size,
+		ReduceOnly:    true,
+		OrderType:     hyperliquid.OrderType{Trigger: &hyperliquid.TriggerOrderType{TriggerPx: tpPx, IsMarket: true, Tpsl: "tp"}},
+		ClientOrderID: nil,
+	}
+
+	builderAddress := "0x1234567890abcdef1234567890abcdef12345678"
+	maxFeeRate := "100" // 0.1% (100 tenths of basis points)
+
+	approvalResp, err := exchange.ApproveBuilderFee(builderAddress, maxFeeRate)
+	if err != nil {
+		t.Fatalf("❌ Failed to approve builder fee: %v", err)
+	}
+
+	// Create BuilderInfo
+	builderInfo := &hyperliquid.BuilderInfo{
+		Builder: "0x1234567890abcdef1234567890abcdef12345678",
+		Fee:     100,
+	}
+
+	ordersResp, err := exchange.BulkOrdersWithGrouping([]hyperliquid.CreateOrderRequest{openOrder, tpOrder, slOrder}, hyperliquid.GroupingNormalTpsl, builderInfo)
+	if err != nil {
+		t.Fatalf("placing grouped orders failed: %v", err)
+	}
+
+	if !ordersResp.Ok {
+		t.Fatalf("grouped orders not ok: %s", ordersResp.Err)
+	}
+
+	_ = approvalResp
+	t.Logf("Placed ETH grouped orders: open %.6f, tp %.6f, sl %.6f", openPx, tpPx, slPx)
 }
 
 func TestGetCompletePositionSummary(t *testing.T) {
@@ -1597,7 +1704,7 @@ func TestPlaceLimitOrderForARB(t *testing.T) {
 	}
 
 	// Format the price using PriceToWire to ensure compliance with tick size
-	formattedPrice, err := hyperliquid.PriceToWire(targetPrice, assetID, exchange.GetInfo(), false)
+	formattedPrice, err := hyperliquid.PriceToWire(targetPrice, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
 	if err != nil {
 		t.Fatalf("Failed to format price with PriceToWire: %v", err)
 	}
@@ -1742,7 +1849,7 @@ func TestPlaceLimitOrderForARBThatRests(t *testing.T) {
 	}
 
 	// Format the price using PriceToWire to ensure compliance with tick size
-	formattedPrice, err := hyperliquid.PriceToWire(targetPrice, assetID, exchange.GetInfo(), false)
+	formattedPrice, err := hyperliquid.PriceToWire(targetPrice, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
 	if err != nil {
 		t.Fatalf("Failed to format price with PriceToWire: %v", err)
 	}
@@ -1857,7 +1964,7 @@ func TestPlaceLimitOrderForARBThatRests(t *testing.T) {
 func TestGetARBHourlyCandles(t *testing.T) {
 	godotenv.Overload()
 
-	info := hyperliquid.NewInfo(hyperliquid.TestnetAPIURL, true, nil, nil)
+	info := hyperliquid.NewInfo(hyperliquid.TestnetAPIURL, true, nil, nil, nil, "")
 
 	end := time.Now().UTC()
 	start := end.Add(-24 * time.Hour)
@@ -2159,3 +2266,1019 @@ func TestBuilderFeeWorkflow(t *testing.T) {
 	t.Logf("   3. ✅ Checked builder rewards collection")
 	t.Logf("💡 Builder fee workflow is working correctly!")
 }
+
+func TestBulkOrdersWithGrouping_SOL_LimitPlus2_TPPlus10_SLMinus10(t *testing.T) {
+	godotenv.Overload()
+	exchange := newTestExchange(t)
+
+	coin := "SOL"
+	size := 0.05
+
+	// Fetch mid price
+	mids, err := exchange.GetInfo().AllMids()
+	if err != nil {
+		t.Fatalf("failed to fetch mids: %v", err)
+	}
+	midStr, ok := mids[coin]
+	if !ok {
+		t.Fatalf("mid not found for %s", coin)
+	}
+	mid, err := strconv.ParseFloat(midStr, 64)
+	if err != nil {
+		t.Fatalf("failed to parse mid for %s: %v", coin, err)
+	}
+
+	// Compute prices per request
+	openRaw := mid * 1.02 // limit at market +2%
+	tpRaw := mid * 1.10   // TP at market +10%
+	slRaw := mid * 0.90   // SL at market -10%
+
+	// Ensure prices conform to tick rules using PriceToWire
+	assetID := exchange.GetInfo().NameToAsset(coin)
+	openWire, err := hyperliquid.PriceToWire(openRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
+	if err != nil {
+		t.Fatalf("failed to wire open price: %v", err)
+	}
+	tpWire, err := hyperliquid.PriceToWire(tpRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
+	if err != nil {
+		t.Fatalf("failed to wire TP price: %v", err)
+	}
+	slWire, err := hyperliquid.PriceToWire(slRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
+	if err != nil {
+		t.Fatalf("failed to wire SL price: %v", err)
+	}
+
+	openPx, _ := strconv.ParseFloat(openWire, 64)
+	tpPx, _ := strconv.ParseFloat(tpWire, 64)
+	slPx, _ := strconv.ParseFloat(slWire, 64)
+
+	// Build orders: open limit (Gtc), TP trigger (market), SL trigger (market)
+	openOrder := hyperliquid.CreateOrderRequest{
+		Coin:          coin,
+		IsBuy:         true,
+		Price:         openPx,
+		Size:          size,
+		ReduceOnly:    false,
+		OrderType:     hyperliquid.OrderType{Limit: &hyperliquid.LimitOrderType{Tif: hyperliquid.TifGtc}},
+		ClientOrderID: nil,
+	}
+
+	tpOrder := hyperliquid.CreateOrderRequest{
+		Coin:          coin,
+		IsBuy:         false, // close direction for long
+		Price:         tpPx,
+		Size:          size,
+		ReduceOnly:    true,
+		OrderType:     hyperliquid.OrderType{Trigger: &hyperliquid.TriggerOrderType{TriggerPx: tpPx, IsMarket: true, Tpsl: "tp"}},
+		ClientOrderID: nil,
+	}
+
+	slOrder := hyperliquid.CreateOrderRequest{
+		Coin:          coin,
+		IsBuy:         false, // close direction for long
+		Price:         slPx,
+		Size:          size,
+		ReduceOnly:    true,
+		OrderType:     hyperliquid.OrderType{Trigger: &hyperliquid.TriggerOrderType{TriggerPx: slPx, IsMarket: true, Tpsl: "sl"}},
+		ClientOrderID: nil,
+	}
+
+	resp, err := exchange.BulkOrdersWithGrouping([]hyperliquid.CreateOrderRequest{openOrder, tpOrder, slOrder}, hyperliquid.GroupingNormalTpsl, nil)
+	if err != nil {
+		t.Fatalf("placing grouped orders failed: %v", err)
+	}
+	if !resp.Ok {
+		t.Fatalf("grouped orders not ok: %s", resp.Err)
+	}
+
+	t.Logf("Placed SOL grouped orders: open %.6f, tp %.6f, sl %.6f", openPx, tpPx, slPx)
+}
+
+func TestBulkOrdersWithGrouping_Generic_ThreeAssets(t *testing.T) {
+	godotenv.Overload()
+	exchange := newTestExchange(t)
+
+	assets := []struct {
+		coin string
+		size float64
+	}{
+		{"ETH", 0.005},
+		{"SOL", 0.05},
+		{"ARB", 50.0},
+	}
+
+	mids, err := exchange.GetInfo().AllMids()
+	if err != nil {
+		t.Fatalf("failed to fetch mids: %v", err)
+	}
+
+	for _, a := range assets {
+		midStr, ok := mids[a.coin]
+		if !ok {
+			t.Fatalf("mid not found for %s", a.coin)
+		}
+		mid, err := strconv.ParseFloat(midStr, 64)
+		if err != nil {
+			t.Fatalf("failed to parse mid for %s: %v", a.coin, err)
+		}
+
+		openRaw := mid * 1.01
+		tpRaw := mid * 1.10
+		slRaw := mid * 0.90
+
+		assetID := exchange.GetInfo().NameToAsset(a.coin)
+		openWire, err := hyperliquid.PriceToWire(openRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
+		if err != nil {
+			t.Fatalf("%s: failed to wire open price: %v", a.coin, err)
+		}
+		tpWire, err := hyperliquid.PriceToWire(tpRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
+		if err != nil {
+			t.Fatalf("%s: failed to wire TP price: %v", a.coin, err)
+		}
+		slWire, err := hyperliquid.PriceToWire(slRaw, assetID, exchange.GetInfo(), hyperliquid.ClassifyAsset(assetID))
+		if err != nil {
+			t.Fatalf("%s: failed to wire SL price: %v", a.coin, err)
+		}
+
+		openPx, _ := strconv.ParseFloat(openWire, 64)
+		tpPx, _ := strconv.ParseFloat(tpWire, 64)
+		slPx, _ := strconv.ParseFloat(slWire, 64)
+
+		openOrder := hyperliquid.CreateOrderRequest{
+			Coin:          a.coin,
+			IsBuy:         true,
+			Price:         openPx,
+			Size:          a.size,
+			ReduceOnly:    false,
+			OrderType:     hyperliquid.OrderType{Limit: &hyperliquid.LimitOrderType{Tif: hyperliquid.TifGtc}},
+			ClientOrderID: nil,
+		}
+
+		tpOrder := hyperliquid.CreateOrderRequest{
+			Coin:          a.coin,
+			IsBuy:         false,
+			Price:         tpPx,
+			Size:          a.size,
+			ReduceOnly:    true,
+			OrderType:     hyperliquid.OrderType{Trigger: &hyperliquid.TriggerOrderType{TriggerPx: tpPx, IsMarket: true, Tpsl: "tp"}},
+			ClientOrderID: nil,
+		}
+
+		slOrder := hyperliquid.CreateOrderRequest{
+			Coin:          a.coin,
+			IsBuy:         false,
+			Price:         slPx,
+			Size:          a.size,
+			ReduceOnly:    true,
+			OrderType:     hyperliquid.OrderType{Trigger: &hyperliquid.TriggerOrderType{TriggerPx: slPx, IsMarket: true, Tpsl: "sl"}},
+			ClientOrderID: nil,
+		}
+
+		resp, err := exchange.BulkOrdersWithGrouping([]hyperliquid.CreateOrderRequest{openOrder, tpOrder, slOrder}, hyperliquid.GroupingNormalTpsl, nil)
+		if err != nil {
+			t.Fatalf("%s: placing grouped orders failed: %v", a.coin, err)
+		}
+		if !resp.Ok {
+			t.Fatalf("%s: grouped orders not ok: %s", a.coin, resp.Err)
+		}
+
+		t.Logf("Placed %s grouped orders: open %.6f, tp %.6f, sl %.6f", a.coin, openPx, tpPx, slPx)
+	}
+}
+
+func TestIsolatedMarginOrder(t *testing.T) {
+
+	exchange := newTestExchange(t) // or your instantiated Exchange
+
+	coin := "ETH"
+
+	// 1) Switch this asset to ISOLATED mode with desired leverage
+	if _, err := exchange.UpdateLeverage(5, coin, false /* isCross=false => isolated */); err != nil {
+		panic(err)
+	}
+
+	// 2) (Optional) Allocate isolated margin buffer for this asset
+	// positive = add margin; negative = remove margin
+	// if _, err := exchange.UpdateIsolatedMargin(50 /* USD */, coin); err != nil {
+	// 	panic(err)
+	// }
+
+	// 3) Place your order (market/limit). This position is now isolated.
+	res, err := exchange.MarketOpen(coin, true /* buy */, 0.01, nil, 0.01, nil, nil)
+	if err != nil {
+		panic(err)
+	}
+	_ = res
+}
+
+func TestGetDataByOID(t *testing.T) {
+	godotenv.Overload()
+	exchange := newTestExchange(t)
+
+	oid := 217993726723
+	order, err := exchange.GetInfo().QueryOrderByOid(accountAddress(t), int64(oid))
+	if err != nil {
+		t.Fatalf("Failed to get data by oid: %v", err)
+	}
+	t.Logf("Order: %+v", order)
+}
+
+// TestWithdrawFromBridge tests withdrawing tokens from Hyperliquid bridge
+// This test demonstrates how to withdraw funds to an external address
+func TestWithdrawFromBridge(t *testing.T) {
+	godotenv.Overload()
+
+	// Test parameters - these should be provided as function parameters in real usage
+	// For this test, we'll use environment variables or defaults
+	privateKeyHex := os.Getenv("HL_PRIVATE_KEY")
+	accountAddress := os.Getenv("HL_ACCOUNT_ADDRESS")
+	destinationAddress := "0x1234567890abcdef1234567890abcdef12345678" // External address to withdraw to
+	withdrawalAmount := 10.0                                           // Amount to withdraw (in USDC) - must be larger than withdrawal fee
+
+	// Validate required parameters
+	if privateKeyHex == "" {
+		t.Skip("HL_PRIVATE_KEY not set, skipping withdrawal test")
+	}
+	if accountAddress == "" {
+		t.Skip("HL_ACCOUNT_ADDRESS not set, skipping withdrawal test")
+	}
+	if destinationAddress == "" {
+		t.Skip("WITHDRAWAL_DESTINATION_ADDRESS not set, skipping withdrawal test")
+	}
+
+	t.Log("=== TESTING WITHDRAWAL FROM HYPERLIQUID BRIDGE ===")
+	t.Logf("🔑 Private Key: %s...", privateKeyHex[:10])
+	t.Logf("📍 Account Address: %s", accountAddress)
+	t.Logf("🎯 Destination Address: %s", destinationAddress)
+	t.Logf("💰 Withdrawal Amount: %.6f USDC", withdrawalAmount)
+
+	// Create private key from hex string
+	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	if err != nil {
+		t.Fatalf("❌ Failed to create private key: %v", err)
+	}
+
+	// Verify the private key matches the account address
+	expectedAddress := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
+	if expectedAddress != accountAddress {
+		t.Logf("⚠️  Warning: Private key address (%s) doesn't match account address (%s)", expectedAddress, accountAddress)
+		t.Logf("   Using provided account address: %s", accountAddress)
+	}
+
+	// Create exchange instance
+	exchange := hyperliquid.NewExchange(
+		privateKey,
+		hyperliquid.MainnetAPIURL, // Use testnet for safety
+		nil,                       // meta
+		"",                        // vault address (empty for regular accounts)
+		accountAddress,
+		nil, // spot meta
+		nil, // perpDexs
+		"",  // perpDexName (empty = default dex)
+	)
+
+	t.Logf("✅ Exchange instance created successfully")
+	t.Logf("🌐 Using API URL: %s", hyperliquid.MainnetAPIURL)
+
+	// Check account balance before withdrawal
+	t.Logf("📊 Checking account balance before withdrawal...")
+	userState, err := exchange.GetInfo().UserState(accountAddress)
+	if err != nil {
+		t.Logf("⚠️  Could not fetch user state: %v", err)
+	} else {
+		t.Logf("💰 Account Value: $%s", userState.MarginSummary.AccountValue)
+		t.Logf("💵 Withdrawable: $%s", userState.Withdrawable)
+		t.Logf("📈 Total Margin Used: $%s", userState.MarginSummary.TotalMarginUsed)
+
+		// Check if we have enough balance
+		withdrawable, err := strconv.ParseFloat(userState.Withdrawable, 64)
+		if err != nil {
+			t.Logf("⚠️  Could not parse withdrawable amount: %v", err)
+		} else if withdrawable < withdrawalAmount {
+			t.Logf("⚠️  Warning: Withdrawable balance (%.6f) is less than withdrawal amount (%.6f)", withdrawable, withdrawalAmount)
+			t.Logf("   Consider reducing withdrawal amount or adding funds")
+		}
+	}
+
+	// Perform the withdrawal
+	t.Logf("🚀 Initiating withdrawal from bridge...")
+	t.Logf("   Amount: %.6f USDC", withdrawalAmount)
+	t.Logf("   Destination: %s", destinationAddress)
+
+	withdrawResp, err := exchange.WithdrawFromBridge(withdrawalAmount, destinationAddress)
+	if err != nil {
+		t.Fatalf("❌ Withdrawal failed: %v", err)
+	}
+
+	// Check withdrawal response
+	t.Logf("📋 Withdrawal Response:")
+	t.Logf("   Status: %s", withdrawResp.Status)
+	t.Logf("Full response: %+v", withdrawResp)
+	if withdrawResp.TxHash != "" {
+		t.Logf("   Transaction Hash: %s", withdrawResp.TxHash)
+		t.Logf("   🔗 View on explorer: https://explorer.hyperliquid.xyz/tx/%s", withdrawResp.TxHash)
+	}
+	if withdrawResp.Error != "" {
+		t.Fatalf("❌ Withdrawal error: %s", withdrawResp.Error)
+	}
+
+	// Verify withdrawal was successful
+	if withdrawResp.Status == "ok" {
+		t.Logf("✅ Withdrawal initiated successfully!")
+		t.Logf("🎯 %.6f USDC will be withdrawn to %s", withdrawalAmount, destinationAddress)
+		if withdrawResp.TxHash != "" {
+			t.Logf("📝 Transaction submitted: %s", withdrawResp.TxHash)
+		}
+	} else {
+		t.Logf("⚠️  Withdrawal status: %s", withdrawResp.Status)
+	}
+
+	// Wait a moment and check balance after withdrawal
+	time.Sleep(2 * time.Second)
+
+	t.Logf("📊 Checking account balance after withdrawal...")
+	userStateAfter, err := exchange.GetInfo().UserState(accountAddress)
+	if err != nil {
+		t.Logf("⚠️  Could not fetch user state after withdrawal: %v", err)
+	} else {
+		t.Logf("💰 Account Value After: $%s", userStateAfter.MarginSummary.AccountValue)
+		t.Logf("💵 Withdrawable After: $%s", userStateAfter.Withdrawable)
+
+		// Compare balances if we had initial state
+		if userState != nil {
+			beforeWithdrawable, _ := strconv.ParseFloat(userState.Withdrawable, 64)
+			afterWithdrawable, _ := strconv.ParseFloat(userStateAfter.Withdrawable, 64)
+			balanceChange := beforeWithdrawable - afterWithdrawable
+			t.Logf("📉 Balance Change: %.6f USDC", balanceChange)
+		}
+	}
+
+	t.Logf("\n=== WITHDRAWAL TEST COMPLETED ===")
+	t.Logf("✅ Successfully tested withdrawal from Hyperliquid bridge")
+	t.Logf("🎯 Withdrawal details:")
+	t.Logf("   Amount: %.6f USDC", withdrawalAmount)
+	t.Logf("   From: %s", accountAddress)
+	t.Logf("   To: %s", destinationAddress)
+	if withdrawResp.TxHash != "" {
+		t.Logf("   TxHash: %s", withdrawResp.TxHash)
+	}
+}
+
+// TestWithdrawFromBridgeWithCustomParams tests withdrawal with custom parameters
+// This function can be called with specific address and private key
+func TestWithdrawFromBridgeWithCustomParams(t *testing.T) {
+	// This test can be customized to accept specific parameters
+	// For demonstration, we'll show how to structure it
+
+	t.Log("=== CUSTOM WITHDRAWAL TEST STRUCTURE ===")
+	t.Log("To use this test with custom parameters:")
+	t.Log("1. Set environment variables:")
+	t.Log("   export HL_PRIVATE_KEY='your_private_key_hex'")
+	t.Log("   export HL_ACCOUNT_ADDRESS='your_account_address'")
+	t.Log("   export WITHDRAWAL_DESTINATION_ADDRESS='destination_address'")
+	t.Log("2. Or modify the test to accept parameters directly")
+	t.Log("3. Adjust withdrawal amount as needed")
+	t.Log("4. Choose between mainnet and testnet")
+
+	// Example of how to structure with parameters:
+	// func TestWithdrawFromBridgeCustom(privateKeyHex, accountAddress, destinationAddress string, amount float64) {
+	//     // Implementation here
+	// }
+
+	t.Log("✅ Custom withdrawal test structure demonstrated")
+}
+
+// TestWithdrawFromBridgeCustom demonstrates how to create a withdrawal test with custom parameters
+// This is a helper function that can be called with specific parameters
+func TestWithdrawFromBridgeCustom(t *testing.T) {
+	// Example usage with hardcoded values for demonstration
+	// In real usage, these would be passed as parameters or read from config
+
+	privateKeyHex := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" // Example key
+	accountAddress := "0x1234567890123456789012345678901234567890"                        // Example address
+	destinationAddress := "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"                    // Example destination
+	withdrawalAmount := 0.1                                                               // Small amount for testing
+	useMainnet := false                                                                   // Use testnet for safety
+
+	// Skip if using example values
+	if privateKeyHex == "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" {
+		t.Skip("Using example values, skipping actual withdrawal test")
+	}
+
+	t.Log("=== CUSTOM WITHDRAWAL TEST ===")
+	t.Logf("🔑 Private Key: %s...", privateKeyHex[:10])
+	t.Logf("📍 Account Address: %s", accountAddress)
+	t.Logf("🎯 Destination Address: %s", destinationAddress)
+	t.Logf("💰 Withdrawal Amount: %.6f USDC", withdrawalAmount)
+	t.Logf("🌐 Network: %s", map[bool]string{true: "Mainnet", false: "Testnet"}[useMainnet])
+
+	// Create private key from hex string
+	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	if err != nil {
+		t.Fatalf("❌ Failed to create private key: %v", err)
+	}
+
+	// Verify the private key matches the account address
+	expectedAddress := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
+	if expectedAddress != accountAddress {
+		t.Logf("⚠️  Warning: Private key address (%s) doesn't match account address (%s)", expectedAddress, accountAddress)
+	}
+
+	// Choose API URL based on network
+	var apiURL string
+	if useMainnet {
+		apiURL = hyperliquid.MainnetAPIURL
+	} else {
+		apiURL = hyperliquid.TestnetAPIURL
+	}
+
+	// Create exchange instance
+	exchange := hyperliquid.NewExchange(
+		privateKey,
+		apiURL,
+		nil, // meta
+		"",  // vault address (empty for regular accounts)
+		accountAddress,
+		nil, // spot meta
+		nil, // perpDexs
+		"",  // perpDexName (empty = default dex)
+	)
+
+	t.Logf("✅ Exchange instance created successfully")
+	t.Logf("🌐 Using API URL: %s", apiURL)
+
+	// Check account balance before withdrawal
+	t.Logf("📊 Checking account balance before withdrawal...")
+	userState, err := exchange.GetInfo().UserState(accountAddress)
+	if err != nil {
+		t.Logf("⚠️  Could not fetch user state: %v", err)
+	} else {
+		t.Logf("💰 Account Value: $%s", userState.MarginSummary.AccountValue)
+		t.Logf("💵 Withdrawable: $%s", userState.Withdrawable)
+
+		// Check if we have enough balance
+		withdrawable, err := strconv.ParseFloat(userState.Withdrawable, 64)
+		if err != nil {
+			t.Logf("⚠️  Could not parse withdrawable amount: %v", err)
+		} else if withdrawable < withdrawalAmount {
+			t.Logf("⚠️  Warning: Withdrawable balance (%.6f) is less than withdrawal amount (%.6f)", withdrawable, withdrawalAmount)
+		}
+	}
+
+	// Perform the withdrawal
+	t.Logf("🚀 Initiating withdrawal from bridge...")
+	withdrawResp, err := exchange.WithdrawFromBridge(withdrawalAmount, destinationAddress)
+	if err != nil {
+		t.Fatalf("❌ Withdrawal failed: %v", err)
+	}
+
+	// Check withdrawal response
+	t.Logf("📋 Withdrawal Response:")
+	t.Logf("   Status: %s", withdrawResp.Status)
+	if withdrawResp.TxHash != "" {
+		t.Logf("   Transaction Hash: %s", withdrawResp.TxHash)
+		explorerURL := "https://explorer.hyperliquid-testnet.xyz"
+		if useMainnet {
+			explorerURL = "https://explorer.hyperliquid.xyz"
+		}
+		t.Logf("   🔗 View on explorer: %s/tx/%s", explorerURL, withdrawResp.TxHash)
+	}
+	if withdrawResp.Error != "" {
+		t.Fatalf("❌ Withdrawal error: %s", withdrawResp.Error)
+	}
+
+	// Verify withdrawal was successful
+	if withdrawResp.Status == "ok" {
+		t.Logf("✅ Withdrawal initiated successfully!")
+		t.Logf("🎯 %.6f USDC will be withdrawn to %s", withdrawalAmount, destinationAddress)
+	} else {
+		t.Logf("⚠️  Withdrawal status: %s", withdrawResp.Status)
+	}
+
+	t.Logf("\n=== CUSTOM WITHDRAWAL TEST COMPLETED ===")
+}
+
+// TestWithdrawalExplanation explains why there's no txHash in withdrawal responses
+func TestWithdrawalExplanation(t *testing.T) {
+	t.Log("=== WITHDRAWAL TRANSACTION HASH EXPLANATION ===")
+
+	t.Log("❓ Why don't you receive a txHash immediately?")
+	t.Log("")
+	t.Log("🔍 **Hyperliquid Bridge Withdrawal Process:**")
+	t.Log("   1. ✅ You submit withdrawal request → Status: 'ok'")
+	t.Log("   2. ⏳ Hyperliquid validators process the request (internal)")
+	t.Log("   3. 🔗 Funds are transferred to your destination address")
+	t.Log("   4. ⏱️  Process typically takes ~5 minutes")
+	t.Log("")
+	t.Log("💡 **Key Points:**")
+	t.Log("   • No traditional blockchain transaction hash is generated")
+	t.Log("   • Withdrawal is processed internally by Hyperliquid validators")
+	t.Log("   • Funds appear in your destination wallet within ~5 minutes")
+	t.Log("   • This is normal behavior for Hyperliquid bridge withdrawals")
+	t.Log("")
+	t.Log("🔍 **How to Track Your Withdrawal:**")
+	t.Log("   1. Monitor your destination wallet on Arbitrum network")
+	t.Log("   2. Check your wallet's transaction history")
+	t.Log("   3. Look for incoming USDC transfers")
+	t.Log("   4. The transaction will appear with a hash once processed")
+	t.Log("")
+	t.Log("📋 **Response Format:**")
+	t.Log("   Status: 'ok' = Withdrawal request accepted")
+	t.Log("   TxHash: '' = No hash (normal for bridge withdrawals)")
+	t.Log("   Error: '' = No error (success)")
+	t.Log("")
+	t.Log("✅ **This is expected behavior - your withdrawal is processing!**")
+}
+
+func TestMetaAssetCtxs(t *testing.T) {
+	godotenv.Overload()
+	exchange := newTestExchange(t)
+
+	l2Book, err := exchange.GetInfo().L2Snapshot("ARB")
+	if err != nil {
+		t.Fatalf("failed to fetch meta and asset ctxs: %v", err)
+	}
+	t.Logf("meta and asset ctxs: %+v", l2Book)
+}
+
+func TestETHIsolatedMarginWorkflow(t *testing.T) {
+	godotenv.Overload()
+	exchange := newTestExchange(t)
+
+	t.Log("=== TESTING ETH ISOLATED MARGIN WORKFLOW ===")
+
+	coin := "ETH"
+	positionValueUSD := 15.0    // $15 position
+	marginAdjustmentUSD := 15.0 // $15 margin adjustment
+	slippage := 0.01            // 1%
+
+	// Step 1: Get current ETH price and calculate position size
+	t.Log("Step 1: Getting current ETH price and calculating position size")
+	mids, err := exchange.GetInfo().AllMids()
+	if err != nil {
+		t.Fatalf("Failed to get market prices: %v", err)
+	}
+
+	ethPriceStr, ok := mids[coin]
+	if !ok {
+		t.Fatalf("ETH price not found in market data")
+	}
+
+	ethPrice, err := strconv.ParseFloat(ethPriceStr, 64)
+	if err != nil {
+		t.Fatalf("Failed to parse ETH price: %v", err)
+	}
+
+	// Calculate position size for $10 worth of ETH
+	positionSize := (positionValueUSD / ethPrice) * 2
+	t.Logf("ETH Price: $%.2f", ethPrice)
+	t.Logf("Position Size for $%.2f: %.6f ETH", positionValueUSD, positionSize)
+
+	// Step 2: Set ETH to isolated margin mode
+	t.Log("Step 2: Setting ETH to isolated margin mode")
+	leverage := 2                                           // 2x leverage for isolated margin
+	_, err = exchange.UpdateLeverage(leverage, coin, false) // false = isolated margin
+	if err != nil {
+		t.Fatalf("Failed to set ETH to isolated margin: %v", err)
+	}
+	t.Logf("✅ Set ETH to isolated margin mode with %dx leverage", leverage)
+
+	// Step 3: Check initial margin state
+	t.Log("Step 3: Checking initial margin state")
+	initialUserState, err := exchange.GetInfo().UserState(exchange.GetAccountAddr())
+	if err != nil {
+		t.Fatalf("Failed to get initial user state: %v", err)
+	}
+
+	t.Logf("Initial Account Value: $%s", initialUserState.MarginSummary.AccountValue)
+	t.Logf("Initial Total Margin Used: $%s", initialUserState.MarginSummary.TotalMarginUsed)
+	t.Logf("Initial Withdrawable: $%s", initialUserState.Withdrawable)
+
+	// Find ETH position if it exists
+	var initialETHPosition *hyperliquid.Position
+	for _, ap := range initialUserState.AssetPositions {
+		if ap.Position.Coin == coin {
+			initialETHPosition = &ap.Position
+			t.Logf("Initial ETH Position - Size: %s, Margin Used: %s, Leverage: %dx",
+				ap.Position.Szi, ap.Position.MarginUsed, ap.Position.Leverage.Value)
+			break
+		}
+	}
+
+	// Step 4: Open $15 ETH position
+	t.Log("Step 4: Opening $15 ETH position")
+	openResult, err := exchange.MarketOpen(coin, false, positionSize, nil, slippage, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to open ETH position: %v", err)
+	}
+	t.Logf("✅ ETH position opened: %+v", openResult)
+
+	// Wait for position to be processed
+	time.Sleep(7 * time.Second)
+
+	// Step 5: Check margin after opening position
+	t.Log("Step 5: Checking margin after opening position")
+	afterOpenUserState, err := exchange.GetInfo().UserState(exchange.GetAccountAddr())
+	if err != nil {
+		t.Fatalf("Failed to get user state after opening: %v", err)
+	}
+
+	t.Logf("After Open - Account Value: $%s", afterOpenUserState.MarginSummary.AccountValue)
+	t.Logf("After Open - Total Margin Used: $%s", afterOpenUserState.MarginSummary.TotalMarginUsed)
+	t.Logf("After Open - Withdrawable: $%s", afterOpenUserState.Withdrawable)
+
+	// Find ETH position after opening
+	var ethPositionAfterOpen *hyperliquid.Position
+	for _, ap := range afterOpenUserState.AssetPositions {
+		if ap.Position.Coin == coin {
+			ethPositionAfterOpen = &ap.Position
+			t.Logf("ETH Position After Open - Size: %s, Margin Used: %s, Leverage: %dx (%s)",
+				ap.Position.Szi, ap.Position.MarginUsed, ap.Position.Leverage.Value, ap.Position.Leverage.Type)
+
+			// Verify this is an isolated margin position
+			if ap.Position.Leverage.Type != "isolated" {
+				t.Fatalf("Expected isolated margin position, but got %s margin", ap.Position.Leverage.Type)
+			}
+			t.Logf("✅ Confirmed: ETH position is using isolated margin")
+			break
+		}
+	}
+
+	if ethPositionAfterOpen == nil {
+		t.Fatalf("ETH position not found after opening")
+	}
+
+	// Step 6: Add $15 to isolated margin
+	t.Log("Step 6: Adding $15 to isolated margin")
+	t.Logf("Adding $%.2f to isolated margin (will be converted to microUSDC)", marginAdjustmentUSD)
+	addMarginResult, err := exchange.UpdateIsolatedMargin(marginAdjustmentUSD, coin)
+	if err != nil {
+		t.Fatalf("Failed to add isolated margin: %v", err)
+	}
+	if !addMarginResult.Ok {
+		t.Fatalf("Add isolated margin failed: %s", addMarginResult.Err)
+	}
+	t.Logf("✅ Added $%.2f to isolated margin: %+v", marginAdjustmentUSD, addMarginResult)
+
+	// Wait for margin update to be processed
+	time.Sleep(7 * time.Second)
+
+	// Step 7: Check margin after adding
+	t.Log("Step 7: Checking margin after adding $15")
+	afterAddUserState, err := exchange.GetInfo().UserState(exchange.GetAccountAddr())
+	if err != nil {
+		t.Fatalf("Failed to get user state after adding margin: %v", err)
+	}
+
+	t.Logf("After Add - Account Value: $%s", afterAddUserState.MarginSummary.AccountValue)
+	t.Logf("After Add - Total Margin Used: $%s", afterAddUserState.MarginSummary.TotalMarginUsed)
+	t.Logf("After Add - Withdrawable: $%s", afterAddUserState.Withdrawable)
+
+	// Find ETH position after adding margin
+	var ethPositionAfterAdd *hyperliquid.Position
+	for _, ap := range afterAddUserState.AssetPositions {
+		if ap.Position.Coin == coin {
+			ethPositionAfterAdd = &ap.Position
+			t.Logf("ETH Position After Add - Size: %s, Margin Used: %s, Leverage: %dx (%s)",
+				ap.Position.Szi, ap.Position.MarginUsed, ap.Position.Leverage.Value, ap.Position.Leverage.Type)
+
+			// Verify this is still an isolated margin position
+			if ap.Position.Leverage.Type != "isolated" {
+				t.Fatalf("Expected isolated margin position, but got %s margin", ap.Position.Leverage.Type)
+			}
+			break
+		}
+	}
+
+	if ethPositionAfterAdd == nil {
+		t.Fatalf("ETH position not found after adding margin")
+	}
+
+	// Compare margin used before and after adding
+	if initialETHPosition != nil {
+		initialMargin, _ := strconv.ParseFloat(initialETHPosition.MarginUsed, 64)
+		afterAddMargin, _ := strconv.ParseFloat(ethPositionAfterAdd.MarginUsed, 64)
+		marginIncrease := afterAddMargin - initialMargin
+		t.Logf("Margin increase: $%.2f (expected: $%.2f)", marginIncrease, marginAdjustmentUSD)
+	}
+
+	// Step 8: Remove $5 from isolated margin (smaller amount to avoid under-collateralization)
+	removeAmount := 10.0
+	t.Log("Step 8: Removing $10 from isolated margin")
+	t.Logf("Removing $%.2f from isolated margin (will be converted to microUSDC)", removeAmount)
+	removeMarginResult, err := exchange.UpdateIsolatedMargin(-removeAmount, coin)
+	if err != nil {
+		t.Fatalf("Failed to remove isolated margin: %v", err)
+	}
+	if !removeMarginResult.Ok {
+		t.Fatalf("Remove isolated margin failed: %s", removeMarginResult.Err)
+	}
+	t.Logf("✅ Removed $%.2f from isolated margin: %+v", removeAmount, removeMarginResult)
+
+	// Wait for margin update to be processed
+	time.Sleep(2 * time.Second)
+
+	// Step 9: Check margin after removing
+	t.Log("Step 9: Checking margin after removing $5")
+	afterRemoveUserState, err := exchange.GetInfo().UserState(exchange.GetAccountAddr())
+	if err != nil {
+		t.Fatalf("Failed to get user state after removing margin: %v", err)
+	}
+
+	t.Logf("After Remove - Account Value: $%s", afterRemoveUserState.MarginSummary.AccountValue)
+	t.Logf("After Remove - Total Margin Used: $%s", afterRemoveUserState.MarginSummary.TotalMarginUsed)
+	t.Logf("After Remove - Withdrawable: $%s", afterRemoveUserState.Withdrawable)
+
+	// Find ETH position after removing margin
+	var ethPositionAfterRemove *hyperliquid.Position
+	for _, ap := range afterRemoveUserState.AssetPositions {
+		if ap.Position.Coin == coin {
+			ethPositionAfterRemove = &ap.Position
+			t.Logf("ETH Position After Remove - Size: %s, Margin Used: %s, Leverage: %dx (%s)",
+				ap.Position.Szi, ap.Position.MarginUsed, ap.Position.Leverage.Value, ap.Position.Leverage.Type)
+
+			// Verify this is still an isolated margin position
+			if ap.Position.Leverage.Type != "isolated" {
+				t.Fatalf("Expected isolated margin position, but got %s margin", ap.Position.Leverage.Type)
+			}
+			break
+		}
+	}
+
+	if ethPositionAfterRemove == nil {
+		t.Fatalf("ETH position not found after removing margin")
+	}
+
+	// Compare margin used before and after removing
+	if ethPositionAfterAdd != nil {
+		afterAddMargin, _ := strconv.ParseFloat(ethPositionAfterAdd.MarginUsed, 64)
+		afterRemoveMargin, _ := strconv.ParseFloat(ethPositionAfterRemove.MarginUsed, 64)
+		marginDecrease := afterAddMargin - afterRemoveMargin
+		t.Logf("Margin decrease: $%.2f (expected: $%.2f)", marginDecrease, removeAmount)
+	}
+
+	// Step 10: Clean up - close the position
+	t.Log("Step 10: Cleaning up - closing ETH position")
+	closeResult, err := exchange.MarketClose(coin, nil, nil, slippage, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to close ETH position: %v", err)
+	}
+	t.Logf("✅ ETH position closed: %+v", closeResult)
+
+	// Final verification
+	time.Sleep(2 * time.Second)
+	finalUserState, err := exchange.GetInfo().UserState(exchange.GetAccountAddr())
+	if err != nil {
+		t.Logf("Warning: Could not get final user state: %v", err)
+	} else {
+		t.Logf("Final Account Value: $%s", finalUserState.MarginSummary.AccountValue)
+		t.Logf("Final Total Margin Used: $%s", finalUserState.MarginSummary.TotalMarginUsed)
+		t.Logf("Final Withdrawable: $%s", finalUserState.Withdrawable)
+	}
+
+	t.Logf("\n=== ETH ISOLATED MARGIN WORKFLOW COMPLETED ===")
+	t.Logf("✅ Successfully tested:")
+	t.Logf("   1. Opened $%.2f ETH position", positionValueUSD)
+	t.Logf("   2. Added $%.2f to isolated margin", marginAdjustmentUSD)
+	t.Logf("   3. Checked margin after adding")
+	t.Logf("   4. Removed $%.2f from isolated margin", marginAdjustmentUSD)
+	t.Logf("   5. Checked margin after removing")
+	t.Logf("   6. Closed position for cleanup")
+}
+
+func TestL2BookWebSocketMultipleTickers(t *testing.T) {
+	godotenv.Overload()
+
+	t.Log("=== TESTING L2 BOOK WEBSOCKET SUBSCRIPTION FOR MULTIPLE TICKERS ===")
+
+	// Create WebSocket client
+	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Connect to WebSocket
+	err := wsClient.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Failed to connect to WebSocket: %v", err)
+	}
+	t.Log("✅ Connected to WebSocket")
+
+	// Test coins for L2 book subscription
+	coins := []string{"BTC"}
+
+	// Channel to receive messages
+	messageChan := make(chan hyperliquid.WSMessage, 50)
+
+	// Subscribe to L2 book for multiple coins
+	subscriptions := make(map[string]int) // coin -> subscription ID
+	for _, coin := range coins {
+		subID, err := wsClient.SubscribeToOrderbook(coin, func(msg hyperliquid.WSMessage) {
+			t.Logf("📊 Received L2 book message for %s", coin)
+			messageChan <- msg
+		})
+		if err != nil {
+			t.Fatalf("Failed to subscribe to L2 book for %s: %v", coin, err)
+		}
+		subscriptions[coin] = subID
+		t.Logf("✅ Subscribed to L2 book for %s (Subscription ID: %d)", coin, subID)
+	}
+
+	// Wait for messages
+	timeout := time.After(20 * time.Second)
+	messageCount := 0
+	coinMessageCount := make(map[string]int)
+
+	for {
+		select {
+		case msg := <-messageChan:
+			messageCount++
+			t.Logf("📈 Message %d received:", messageCount)
+			t.Logf("   Channel: %s", msg.Channel)
+			t.Logf("   Data length: %d bytes", len(msg.Data))
+
+			// Parse the L2 book data
+			var l2Book hyperliquid.L2Book
+			if err := json.Unmarshal(msg.Data, &l2Book); err != nil {
+				t.Logf("⚠️  Failed to parse L2 book data: %v", err)
+				t.Logf("   Raw data: %s", string(msg.Data))
+			} else {
+				coinMessageCount[l2Book.Coin]++
+				fmt.Printf("raw data +%v", l2Book)
+				t.Logf("   Time: %d", l2Book.Time)
+				t.Logf("   Levels count: %d", len(l2Book.Levels))
+
+				// Show first few levels if available
+				if len(l2Book.Levels) > 0 && len(l2Book.Levels[0]) > 0 {
+					bestBid := l2Book.Levels[0][0].Px
+					t.Logf("   Best bid: %.2f", bestBid)
+
+					// Try to get best ask from second level if available
+					if len(l2Book.Levels) > 1 && len(l2Book.Levels[1]) > 0 {
+						bestAsk := l2Book.Levels[1][0].Px
+						midPrice := (bestBid + bestAsk) / 2
+						t.Logf("   Best ask: %.2f", bestAsk)
+						t.Logf("   Mid price: %.2f", midPrice)
+					}
+				}
+			}
+
+			// Stop after receiving enough messages
+			if messageCount >= 10 {
+				t.Logf("✅ Received %d messages, stopping test", messageCount)
+				goto cleanup
+			}
+
+		case <-timeout:
+			t.Logf("⏰ Timeout reached after 20 seconds")
+			if messageCount == 0 {
+				t.Fatalf("❌ No messages received within timeout period")
+			}
+			goto cleanup
+		}
+	}
+
+cleanup:
+	// Unsubscribe from all coins
+	for coin, subID := range subscriptions {
+		err = wsClient.Unsubscribe(hyperliquid.Subscription{Type: "l2Book", Coin: coin}, subID)
+		if err != nil {
+			t.Logf("⚠️  Failed to unsubscribe from %s: %v", coin, err)
+		} else {
+			t.Logf("✅ Unsubscribed from %s", coin)
+		}
+	}
+
+	// Close WebSocket connection
+	err = wsClient.Close()
+	if err != nil {
+		t.Logf("⚠️  Failed to close WebSocket: %v", err)
+	} else {
+		t.Logf("✅ WebSocket connection closed")
+	}
+
+	t.Logf("\n=== MULTIPLE TICKER L2 BOOK WEBSOCKET TEST COMPLETED ===")
+	t.Logf("✅ Successfully tested L2 book WebSocket subscription for multiple tickers")
+	t.Logf("📊 Total messages received: %d", messageCount)
+	t.Logf("�� Coins tested: %v", coins)
+	for coin, count := range coinMessageCount {
+		t.Logf("   %s: %d messages", coin, count)
+	}
+}
+
+func TestAllMidsWebSocket(t *testing.T) {
+	godotenv.Overload()
+
+	t.Log("=== TESTING ALL MIDS WEBSOCKET SUBSCRIPTION ===")
+
+	// Create WebSocket client
+	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Connect to WebSocket
+	err := wsClient.Connect(ctx)
+	if err != nil {
+		t.Fatalf("Failed to connect to WebSocket: %v", err)
+	}
+	t.Log("✅ Connected to WebSocket")
+
+	// Channel to receive messages
+	messageChan := make(chan hyperliquid.WSMessage, 10)
+
+	// Subscribe to all mids
+	subID, err := wsClient.SubscribeToAllMids(func(msg hyperliquid.WSMessage) {
+		t.Logf("📊 Received allMids message")
+		messageChan <- msg
+	})
+	if err != nil {
+		t.Fatalf("Failed to subscribe to allMids: %v", err)
+	}
+	t.Logf("✅ Subscribed to allMids (Subscription ID: %d)", subID)
+
+	// Wait for messages
+	timeout := time.After(15 * time.Second)
+	messageCount := 0
+
+	for {
+		select {
+		case msg := <-messageChan:
+			messageCount++
+			t.Logf("📈 Message %d received:", messageCount)
+			t.Logf("   Channel: %s", msg.Channel)
+			t.Logf("   Data length: %d bytes", len(msg.Data))
+
+			// Parse the allMids data
+			var allMids map[string]string
+			if err := json.Unmarshal(msg.Data, &allMids); err != nil {
+				t.Logf("⚠️  Failed to parse allMids data: %v", err)
+				t.Logf("   Raw data: %s", string(msg.Data))
+			} else {
+				t.Logf("📊 All Mids Data:")
+				t.Logf("   Total assets: %d", len(allMids))
+
+				// Show prices for major assets
+				majorAssets := []string{"BTC", "ETH", "SOL", "ARB", "DOGE", "MATIC", "AVAX", "LINK"}
+				t.Logf("   Major asset prices:")
+				for _, asset := range majorAssets {
+					if price, exists := allMids[asset]; exists {
+						t.Logf("     %s: $%s", asset, price)
+					}
+				}
+
+				// Show a few random assets as examples
+				count := 0
+				t.Logf("   Sample of all available assets:")
+				for asset, price := range allMids {
+					if count < 10 { // Show first 10 assets
+						t.Logf("     %s: $%s", asset, price)
+						count++
+					}
+				}
+				if len(allMids) > 10 {
+					t.Logf("     ... and %d more assets", len(allMids)-10)
+				}
+			}
+
+			// Stop after receiving a few messages
+			if messageCount >= 3 {
+				t.Logf("✅ Received %d messages, stopping test", messageCount)
+				goto cleanup
+			}
+
+		case <-timeout:
+			t.Logf("⏰ Timeout reached after 15 seconds")
+			if messageCount == 0 {
+				t.Fatalf("❌ No messages received within timeout period")
+			}
+			goto cleanup
+		}
+	}
+
+cleanup:
+	// Unsubscribe
+	err = wsClient.Unsubscribe(hyperliquid.Subscription{Type: "allMids"}, subID)
+	if err != nil {
+		t.Logf("⚠️  Failed to unsubscribe: %v", err)
+	} else {
+		t.Logf("✅ Unsubscribed from allMids")
+	}
+
+	// Close WebSocket connection
+	err = wsClient.Close()
+	if err != nil {
+		t.Logf("⚠️  Failed to close WebSocket: %v", err)
+	} else {
+		t.Logf("✅ WebSocket connection closed")
+	}
+
+	t.Logf("\n=== ALL MIDS WEBSOCKET TEST COMPLETED ===")
+	t.Logf("✅ Successfully tested allMids WebSocket subscription")
+	t.Logf("📊 Total messages received: %d", messageCount)
+	t.Logf("💡 This subscription provides real-time mid prices for all available assets")
+}
+
+

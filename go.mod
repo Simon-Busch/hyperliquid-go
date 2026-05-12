@@ -1,4 +1,4 @@
-module github.com/Simon-Busch/go-hyperliquid-0xsi
+module github.com/Simon-Busch/hyperliquid-go
 
 go 1.23.0
 

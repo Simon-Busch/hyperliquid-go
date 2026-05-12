@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	hyperliquid "github.com/Simon-Busch/go-hyperliquid-0xsi"
+	hyperliquid "github.com/Simon-Busch/hyperliquid-go"
 	"github.com/joho/godotenv"
 )
 
