@@ -51,8 +51,12 @@ func New(opts ...Option) (*Client, error) {
 	}
 
 	if !cfg.skipStream {
-		c.Stream = NewStream(cfg.baseURL)
-		c.Stream.SetLogger(cfg.logger)
+		stream, err := NewStream(cfg.baseURL)
+		if err != nil {
+			return nil, err
+		}
+		stream.SetLogger(cfg.logger)
+		c.Stream = stream
 	}
 
 	return c, nil

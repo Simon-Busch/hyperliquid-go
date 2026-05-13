@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"net/url"
 	"strings"
@@ -97,16 +96,17 @@ type pendingRequest struct {
 	responseChan chan WsPostResponseData
 }
 
-// NewStream creates a new WebSocket client for the given base URL.
-// The client is not connected until Connect() is called.
-func NewStream(baseURL string) *Stream {
+// NewStream creates a new WebSocket Stream targeting baseURL. The Stream
+// is not connected until Connect is called. An error is returned if
+// baseURL cannot be parsed as a URL.
+func NewStream(baseURL string) (*Stream, error) {
 	if baseURL == "" {
 		baseURL = MainnetAPIURL
 	}
 
 	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
-		log.Fatalf("invalid URL: %v", err)
+		return nil, fmt.Errorf("hyperliquid: invalid stream URL %q: %w", baseURL, err)
 	}
 	parsedURL.Scheme = "wss"
 	parsedURL.Path = "/ws"
@@ -118,7 +118,7 @@ func NewStream(baseURL string) *Stream {
 		pendingRequests: make(map[int]*pendingRequest),
 		ReconnectWait:   reconnectBaseWait,
 		logger:          nopLogger{},
-	}
+	}, nil
 }
 
 // Connect establishes the WebSocket connection.
