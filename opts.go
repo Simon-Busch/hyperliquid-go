@@ -30,7 +30,8 @@ func WithReduceOnly() PlaceOpt {
 	return func(s *OrderSpec) { s.ReduceOnly = true }
 }
 
-// WithCloid pins a client-supplied order id (32-byte hex).
+// WithCloid pins a client-supplied order id. The value must be a 16-byte
+// identifier encoded as 32 hex characters with a "0x" prefix.
 func WithCloid(cloid string) PlaceOpt {
 	return func(s *OrderSpec) { s.Cloid = cloid }
 }
