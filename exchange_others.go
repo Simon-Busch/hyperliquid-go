@@ -1,6 +1,7 @@
 package hyperliquid
 
 import (
+	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -14,11 +15,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func (e *Trader) UpdateLeverage(leverage int, name string, isCross bool) (*UserState, error) {
+// SetLeverage updates the leverage on coin. mode picks Cross or Isolated
+// margin: Cross maps to isCross=true (shared collateral across positions),
+// Isolated to isCross=false (per-position collateral). leverage is an
+// integer multiple in the range allowed by the asset's margin table.
+func (e *Trader) SetLeverage(coin string, leverage int, mode MarginMode) (*UserState, error) {
 	action := UpdateLeverageAction{
 		Type:     "updateLeverage",
-		Asset:    e.info.NameToAsset(name),
-		IsCross:  isCross,
+		Asset:    e.info.NameToAsset(coin),
+		IsCross:  mode == Cross,
 		Leverage: leverage,
 	}
 
@@ -34,10 +39,13 @@ type DefaultResponse struct {
 	Type string `json:"type"`
 }
 
-func (e *Trader) UpdateIsolatedMargin(amount float64, name string) (*APIResponse[DefaultResponse], error) {
+// AdjustMargin adds or removes isolated-margin collateral on the position
+// in coin. A positive amount increases collateral; a negative amount
+// withdraws it. amount is in USDC (decimal).
+func (e *Trader) AdjustMargin(coin string, amount float64) (*APIResponse[DefaultResponse], error) {
 	action := UpdateIsolatedMarginAction{
 		Type:  "updateIsolatedMargin",
-		Asset: e.info.NameToAsset(name),
+		Asset: e.info.NameToAsset(coin),
 		IsBuy: true,
 		Ntli:  int64(math.Round(amount * 1e6)),
 	}
@@ -170,9 +178,18 @@ func validateAndAdjustPrice(price float64, assetID int) (float64, error) {
 	return roundToTickSize(price, tickSize), nil
 }
 
-// ScheduleCancel schedules cancellation of all open orders
-func (e *Trader) ScheduleCancel(scheduleTime *int64) (*ScheduleCancelResponse, error) {
+// ScheduleCancelAll schedules cancellation of all open orders at deadline.
+// A nil deadline clears any scheduled cancel and lets existing orders rest
+// indefinitely. A non-nil deadline is converted to a Unix-millisecond
+// timestamp before signing.
+func (e *Trader) ScheduleCancelAll(deadline *time.Time) (*ScheduleCancelResponse, error) {
 	timestamp := time.Now().UnixMilli()
+
+	var scheduleTime *int64
+	if deadline != nil {
+		ms := deadline.UnixMilli()
+		scheduleTime = &ms
+	}
 
 	action := ScheduleCancelAction{
 		Type: "scheduleCancel",
@@ -572,29 +589,36 @@ func (e *Trader) WithdrawFromBridge(
 	return &result, nil
 }
 
-// ApproveAgent generates a fresh agent key and approves it to act on the
-// user's behalf. Returns the result and the agent private key hex.
-func (e *Trader) ApproveAgent(name *string) (*AgentApprovalResponse, string, error) {
+// Agent is the typed handle returned by ApproveAgent. Address is the
+// 0x-prefixed agent EOA; PrivateKey is the freshly generated ECDSA key
+// associated with that address — keep it secret.
+type Agent struct {
+	// Address is the lower-case 0x-prefixed hex of the agent EOA.
+	Address string
+	// PrivateKey is the ECDSA private key controlling Address.
+	PrivateKey *ecdsa.PrivateKey
+}
+
+// ApproveAgent generates a fresh agent key, registers it with Hyperliquid
+// under the optional name, and returns the resulting Agent. The empty
+// string disables the agent name field on the wire.
+func (e *Trader) ApproveAgent(name string) (Agent, error) {
 	agentBytes := make([]byte, 32)
 	if _, err := rand.Read(agentBytes); err != nil {
-		return nil, "", fmt.Errorf("generate agent key: %w", err)
+		return Agent{}, fmt.Errorf("generate agent key: %w", err)
 	}
-	agentKey := "0x" + hex.EncodeToString(agentBytes)
-	pk, err := crypto.HexToECDSA(agentKey[2:])
+	agentKeyHex := hex.EncodeToString(agentBytes)
+	pk, err := crypto.HexToECDSA(agentKeyHex)
 	if err != nil {
-		return nil, "", fmt.Errorf("parse agent key: %w", err)
+		return Agent{}, fmt.Errorf("parse agent key: %w", err)
 	}
 	agentAddress := strings.ToLower(crypto.PubkeyToAddress(pk.PublicKey).Hex())
 
 	nonce := time.Now().UnixMilli()
-	agentName := ""
-	if name != nil {
-		agentName = *name
-	}
 	action := map[string]any{
 		"type":         "approveAgent",
 		"agentAddress": agentAddress,
-		"agentName":    agentName,
+		"agentName":    name,
 		"nonce":        nonce,
 	}
 	var result AgentApprovalResponse
@@ -602,9 +626,9 @@ func (e *Trader) ApproveAgent(name *string) (*AgentApprovalResponse, string, err
 		action, approveAgentSignTypes,
 		"HyperliquidTransaction:ApproveAgent", nonce, &result,
 	); err != nil {
-		return nil, "", err
+		return Agent{}, err
 	}
-	return &result, agentKey, nil
+	return Agent{Address: agentAddress, PrivateKey: pk}, nil
 }
 
 // ApproveBuilderFee approves a builder address to charge up to maxFeeRate.
