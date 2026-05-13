@@ -1,5 +1,11 @@
 package hyperliquid
 
+// PlaceMany packages multiple OrderSpec legs into a single signed action.
+// Use the hl.ALO/IOC/GTC/Market/Trigger constructors to build the specs.
+func (t *Trader) PlaceMany(orders ...OrderSpec) (BatchResult, error) {
+	return t.placeMany(orders)
+}
+
 // PlaceALO places an add-liquidity-only (post-only) limit order. Required
 // args are positional; everything else is supplied via options.
 func (t *Trader) PlaceALO(coin string, side Side, size, px float64, opts ...PlaceOpt) (Result, error) {
