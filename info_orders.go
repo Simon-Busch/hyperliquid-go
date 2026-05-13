@@ -80,11 +80,11 @@ func (i *Info) FrontendOpenOrders(address string, dex ...string) ([]FrontendOpen
 	return result, nil
 }
 
-// UserFills retrieves the trailing fill history for address.
-func (i *Info) UserFills(address string) ([]Fill, error) {
+// Fills retrieves the trailing fill history for addr.
+func (i *Info) Fills(addr string) ([]Fill, error) {
 	resp, err := i.client.post("/info", map[string]any{
 		"type": "userFills",
-		"user": address,
+		"user": addr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch user fills: %w", err)
@@ -97,10 +97,9 @@ func (i *Info) UserFills(address string) ([]Fill, error) {
 	return result, nil
 }
 
-// UserFillsByTime retrieves the fill history for address in
-// [startTime, endTime].
-func (i *Info) UserFillsByTime(address string, startTime int64, endTime *int64) ([]Fill, error) {
-	resp, err := i.postTimeRangeRequest("userFillsByTime", address, startTime, endTime, nil)
+// FillsBetween retrieves the fill history for addr in [start, end].
+func (i *Info) FillsBetween(addr string, start int64, end *int64) ([]Fill, error) {
+	resp, err := i.postTimeRangeRequest("userFillsByTime", addr, start, end, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -112,10 +111,11 @@ func (i *Info) UserFillsByTime(address string, startTime int64, endTime *int64) 
 	return result, nil
 }
 
-func (i *Info) QueryOrderByOid(user string, oid int64) (*OrderStatusResponse, error) {
+// Order returns the order status for the supplied (addr, oid) pair.
+func (i *Info) Order(addr string, oid int64) (*OrderStatusResponse, error) {
 	resp, err := i.client.post("/info", map[string]any{
 		"type": "orderStatus",
-		"user": user,
+		"user": addr,
 		"oid":  oid,
 	})
 	if err != nil {
@@ -130,10 +130,10 @@ func (i *Info) QueryOrderByOid(user string, oid int64) (*OrderStatusResponse, er
 	return &result, nil
 }
 
-// QueryFillByOid finds a specific fill by OID from user fills
-// Since there's no direct fill query endpoint, we filter userFills by OID
-func (i *Info) QueryFillByOid(user string, oid int64) (*Fill, error) {
-	fills, err := i.UserFills(user)
+// Fill finds the fill matching (addr, oid) by scanning the user's fill
+// history; there is no direct endpoint for this query.
+func (i *Info) Fill(addr string, oid int64) (*Fill, error) {
+	fills, err := i.Fills(addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch user fills: %w", err)
 	}
@@ -144,13 +144,15 @@ func (i *Info) QueryFillByOid(user string, oid int64) (*Fill, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("fill with OID %d not found for user %s", oid, user)
+	return nil, fmt.Errorf("fill with OID %d not found for user %s", oid, addr)
 }
 
-func (i *Info) QueryOrderByCloid(user, cloid string) (*OpenOrder, error) {
+// OrderByCloid returns the order status for the supplied (addr, cloid)
+// pair.
+func (i *Info) OrderByCloid(addr, cloid string) (*OpenOrder, error) {
 	resp, err := i.client.post("/info", map[string]any{
 		"type": "orderStatus",
-		"user": user,
+		"user": addr,
 		"oid":  cloid,
 	})
 	if err != nil {
@@ -164,10 +166,11 @@ func (i *Info) QueryOrderByCloid(user, cloid string) (*OpenOrder, error) {
 	return &result, nil
 }
 
-func (i *Info) QueryReferralState(user string) (*ReferralState, error) {
+// Referral returns the referral state for addr.
+func (i *Info) Referral(addr string) (*ReferralState, error) {
 	resp, err := i.client.post("/info", map[string]any{
 		"type": "referral",
-		"user": user,
+		"user": addr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch referral state: %w", err)
@@ -180,10 +183,11 @@ func (i *Info) QueryReferralState(user string) (*ReferralState, error) {
 	return &result, nil
 }
 
-func (i *Info) QuerySubAccounts(user string) ([]SubAccount, error) {
+// SubAccounts returns the sub-account list for addr.
+func (i *Info) SubAccounts(addr string) ([]SubAccount, error) {
 	resp, err := i.client.post("/info", map[string]any{
 		"type": "subAccounts",
-		"user": user,
+		"user": addr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch sub accounts: %w", err)
@@ -196,10 +200,11 @@ func (i *Info) QuerySubAccounts(user string) ([]SubAccount, error) {
 	return result, nil
 }
 
-func (i *Info) QueryUserToMultiSigSigners(multiSigUser string) ([]MultiSigSigner, error) {
+// MultiSigSigners returns the signer list for multiSigAddr.
+func (i *Info) MultiSigSigners(multiSigAddr string) ([]MultiSigSigner, error) {
 	resp, err := i.client.post("/info", map[string]any{
 		"type": "userToMultiSigSigners",
-		"user": multiSigUser,
+		"user": multiSigAddr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch multi-sig signers: %w", err)

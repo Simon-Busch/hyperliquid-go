@@ -41,7 +41,7 @@ func (e *Trader) SlippagePrice(
 		price = price * (1 - slippage)
 	}
 
-	asset := e.info.NameToAsset(name)
+	asset := e.info.AssetID(name)
 	szDecimals := e.info.assetToDecimal[asset]
 	class := ClassifyAsset(asset)
 

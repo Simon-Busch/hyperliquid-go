@@ -30,7 +30,7 @@ func (t *Trader) BulkCancel(
 	cancels := make([]CancelOrderWire, len(requests))
 	for i, req := range requests {
 		cancels[i] = CancelOrderWire{
-			Asset:   t.info.NameToAsset(req.Coin),
+			Asset:   t.info.AssetID(req.Coin),
 			OrderID: req.OrderID,
 		}
 	}
@@ -70,7 +70,7 @@ func (t *Trader) BulkCancelByCloids(
 	cancels := make([]CancelByCloidWire, len(requests))
 	for i, req := range requests {
 		cancels[i] = CancelByCloidWire{
-			Asset:    t.info.NameToAsset(req.Coin),
+			Asset:    t.info.AssetID(req.Coin),
 			ClientID: req.Cloid,
 		}
 	}

@@ -37,7 +37,7 @@ type Agent struct {
 func (e *Trader) SetLeverage(coin string, leverage int, mode MarginMode) (*UserState, error) {
 	action := UpdateLeverageAction{
 		Type:     "updateLeverage",
-		Asset:    e.info.NameToAsset(coin),
+		Asset:    e.info.AssetID(coin),
 		IsCross:  mode == Cross,
 		Leverage: leverage,
 	}
@@ -55,7 +55,7 @@ func (e *Trader) SetLeverage(coin string, leverage int, mode MarginMode) (*UserS
 func (e *Trader) AdjustMargin(coin string, amount float64) (*APIResponse[DefaultResponse], error) {
 	action := UpdateIsolatedMarginAction{
 		Type:  "updateIsolatedMargin",
-		Asset: e.info.NameToAsset(coin),
+		Asset: e.info.AssetID(coin),
 		IsBuy: true,
 		Ntli:  int64(math.Round(amount * 1e6)),
 	}

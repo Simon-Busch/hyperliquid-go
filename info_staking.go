@@ -5,10 +5,15 @@ import (
 	"fmt"
 )
 
-func (i *Info) UserStakingSummary(address string) (*StakingSummary, error) {
-	resp, err := i.client.post("/info", map[string]any{
+// InfoStakeGroup exposes the staking-info shortcuts. Accessed via the
+// Info.Stake field, populated by NewInfo.
+type InfoStakeGroup struct{ i *Info }
+
+// Summary returns the staking summary for addr.
+func (g *InfoStakeGroup) Summary(addr string) (*StakingSummary, error) {
+	resp, err := g.i.client.post("/info", map[string]any{
 		"type": "delegatorSummary",
-		"user": address,
+		"user": addr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch staking summary: %w", err)
@@ -21,10 +26,11 @@ func (i *Info) UserStakingSummary(address string) (*StakingSummary, error) {
 	return &result, nil
 }
 
-func (i *Info) UserStakingDelegations(address string) ([]StakingDelegation, error) {
-	resp, err := i.client.post("/info", map[string]any{
+// Delegations returns the active delegations for addr.
+func (g *InfoStakeGroup) Delegations(addr string) ([]StakingDelegation, error) {
+	resp, err := g.i.client.post("/info", map[string]any{
 		"type": "delegations",
-		"user": address,
+		"user": addr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch staking delegations: %w", err)
@@ -37,10 +43,11 @@ func (i *Info) UserStakingDelegations(address string) ([]StakingDelegation, erro
 	return result, nil
 }
 
-func (i *Info) UserStakingRewards(address string) ([]StakingReward, error) {
-	resp, err := i.client.post("/info", map[string]any{
+// Rewards returns the staking reward history for addr.
+func (g *InfoStakeGroup) Rewards(addr string) ([]StakingReward, error) {
+	resp, err := g.i.client.post("/info", map[string]any{
 		"type": "delegatorRewards",
-		"user": address,
+		"user": addr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch staking rewards: %w", err)

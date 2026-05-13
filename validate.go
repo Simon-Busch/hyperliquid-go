@@ -33,7 +33,7 @@ func (t *Trader) validate(spec *OrderSpec) error {
 		return &ValidationError{Field: "Coin", Code: "coin_required", Message: "coin is required"}
 	}
 	if t != nil && t.info != nil {
-		asset := t.info.NameToAsset(spec.Coin)
+		asset := t.info.AssetID(spec.Coin)
 		if asset == 0 && !isFirstAsset(t.info, spec.Coin) {
 			return &ValidationError{Field: "Coin", Code: "unknown_coin", Got: spec.Coin}
 		}

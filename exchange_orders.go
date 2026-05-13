@@ -64,7 +64,7 @@ func newCreateOrderActionWithGrouping(
 ) (OrderAction, error) {
 	orderRequests := make([]OrderWire, len(orders))
 	for i, order := range orders {
-		asset := e.info.NameToAsset(order.Coin)
+		asset := e.info.AssetID(order.Coin)
 		class := ClassifyAsset(asset)
 
 		priceWire, err := PriceToWire(order.Price, asset, e.info, class)
@@ -93,7 +93,7 @@ func newCreateOrderActionWithGrouping(
 		}
 
 		orderRequests[i] = OrderWire{
-			Asset:      e.info.NameToAsset(order.Coin),
+			Asset:      e.info.AssetID(order.Coin),
 			IsBuy:      order.IsBuy,
 			LimitPx:    priceWire,
 			Size:       sizeWire,
@@ -184,7 +184,7 @@ func newModifyOrderAction(
 	e *Trader,
 	modifyRequest ModifyOrderRequest,
 ) (ModifyAction, error) {
-	asset := e.info.NameToAsset(modifyRequest.Order.Coin)
+	asset := e.info.AssetID(modifyRequest.Order.Coin)
 	class := ClassifyAsset(asset)
 
 	priceWire, err := PriceToWire(modifyRequest.Order.Price, asset, e.info, class)
@@ -218,7 +218,7 @@ func newModifyOrderAction(
 		Dex:  e.dex, // Include dex for HIP-3 builder-deployed perps
 		Oid:  modifyRequest.Oid,
 		Order: OrderWire{
-			Asset:      e.info.NameToAsset(modifyRequest.Order.Coin),
+			Asset:      e.info.AssetID(modifyRequest.Order.Coin),
 			IsBuy:      modifyRequest.Order.IsBuy,
 			LimitPx:    priceWire,
 			Size:       sizeWire,

@@ -49,14 +49,9 @@ func (i *Info) AllMidsOn(dex string) (map[string]string, error) {
 
 // Book returns the current L2 order book for coin.
 func (i *Info) Book(coin string) (*L2Book, error) {
-	return i.L2Snapshot(coin)
-}
-
-// L2Snapshot fetches the raw L2 order book for name.
-func (i *Info) L2Snapshot(name string) (*L2Book, error) {
 	resp, err := i.client.post("/info", map[string]any{
 		"type": "l2Book",
-		"coin": i.nameToCoin[name],
+		"coin": i.nameToCoin[coin],
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch L2 snapshot: %w", err)
@@ -72,16 +67,11 @@ func (i *Info) L2Snapshot(name string) (*L2Book, error) {
 // Candles returns historical candles for coin at interval between start
 // and end (Unix millis).
 func (i *Info) Candles(coin, interval string, start, end int64) ([]Candle, error) {
-	return i.CandlesSnapshot(coin, interval, start, end)
-}
-
-// CandlesSnapshot fetches the raw candle stream for name at interval.
-func (i *Info) CandlesSnapshot(name, interval string, startTime, endTime int64) ([]Candle, error) {
 	req := map[string]any{
-		"coin":      i.nameToCoin[name],
+		"coin":      i.nameToCoin[coin],
 		"interval":  interval,
-		"startTime": startTime,
-		"endTime":   endTime,
+		"startTime": start,
+		"endTime":   end,
 	}
 
 	resp, err := i.client.post("/info", map[string]any{

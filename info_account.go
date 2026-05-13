@@ -56,11 +56,11 @@ func (i *Info) UserState(address string, dex ...string) (*UserState, error) {
 	return &result, nil
 }
 
-// SpotUserState retrieves the caller's spot clearinghouse snapshot.
-func (i *Info) SpotUserState(address string) (*SpotClearinghouseState, error) {
+// SpotBalances returns the spot clearinghouse state for addr.
+func (i *Info) SpotBalances(addr string) (*SpotClearinghouseState, error) {
 	resp, err := i.client.post("/info", map[string]any{
 		"type": "spotClearinghouseState",
-		"user": address,
+		"user": addr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch spot user state: %w", err)
@@ -71,11 +71,6 @@ func (i *Info) SpotUserState(address string) (*SpotClearinghouseState, error) {
 		return nil, fmt.Errorf("failed to unmarshal spot user state: %w", err)
 	}
 	return &result, nil
-}
-
-// SpotBalances returns the spot clearinghouse state for addr.
-func (i *Info) SpotBalances(addr string) (*SpotClearinghouseState, error) {
-	return i.SpotUserState(addr)
 }
 
 // Positions returns the open positions for addr, optionally pinned to dex.
@@ -107,11 +102,11 @@ func (i *Info) Position(addr, coin string) (*Position, error) {
 	return nil, nil
 }
 
-// UserFees fetches the fee snapshot for address.
-func (i *Info) UserFees(address string) (*UserFees, error) {
+// Fees returns the fee snapshot for addr.
+func (i *Info) Fees(addr string) (*UserFees, error) {
 	resp, err := i.client.post("/info", map[string]any{
 		"type": "userFees",
-		"user": address,
+		"user": addr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch user fees: %w", err)
@@ -124,14 +119,9 @@ func (i *Info) UserFees(address string) (*UserFees, error) {
 	return &result, nil
 }
 
-// Fees returns the fee snapshot for addr.
-func (i *Info) Fees(addr string) (*UserFees, error) {
-	return i.UserFees(addr)
-}
-
 // Asset returns the metadata snapshot for coin.
 func (i *Info) Asset(coin string) (AssetMeta, error) {
-	id := i.NameToAsset(coin)
+	id := i.AssetID(coin)
 	class := ClassifyAsset(id)
 	szDecimals := i.assetToDecimal[id]
 	maxPriceDecimals := class.MaxPriceDecimals() - szDecimals
@@ -157,11 +147,6 @@ func (i *Info) Asset(coin string) (AssetMeta, error) {
 
 // AssetID returns the numeric asset id for coin.
 func (i *Info) AssetID(coin string) int {
-	return i.NameToAsset(coin)
-}
-
-// NameToAsset returns the asset id for the canonical coin name.
-func (i *Info) NameToAsset(name string) int {
-	coin := i.nameToCoin[name]
-	return i.coinToAsset[coin]
+	c := i.nameToCoin[coin]
+	return i.coinToAsset[c]
 }
