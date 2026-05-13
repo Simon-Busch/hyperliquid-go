@@ -29,6 +29,11 @@ The suite loads a `.env` from the project root via [godotenv](https://github.com
 | `HL_TEST_SIZE`        | no       | `0.01`                                            | Size used by placement scenarios.                    |
 | `HL_BUILDER_ADDR`     | no       | —                                                 | Builder address for `WithBuilder` scenarios.         |
 | `HL_BUILDER_FEE_BPS`  | no       | —                                                 | Fee bps for `WithBuilder` scenarios.                 |
+| `HL_SKIP_TRANSFER`    | no       | —                                                 | Set `true` to skip transfer / withdraw scenarios.    |
+| `HL_SKIP_WS`          | no       | —                                                 | Set `true` to skip websocket scenarios.              |
+| `HL_HIP3_DEX`         | no       | —                                                 | HIP-3 builder-deployed perp dex (e.g. `flx`). Unset = HIP-3 suite skips. |
+| `HL_HIP3_COIN`        | no       | first asset in dex universe                       | Coin on the HIP-3 dex for placement scenarios.       |
+| `HL_HIP4_OUTCOME`     | no       | first outcome with a live mid                     | Friendly (`<question>:<side>`) or canonical (`#<enc>`) outcome name. Empty environment = HIP-4 suite skips. |
 
 Recommended `.env`:
 
@@ -57,6 +62,35 @@ The integration files in `tests/integration/` cover, at minimum, these scenarios
 9. **Stream PostInfo** — call `PostInfo`, compare the payload with the REST `Info.Book` snapshot.
 10. **Stream PostAction** — place an order and cancel it entirely over the WS.
 11. **ClosePosition end-to-end** — open a tiny position, call `ClosePosition`, verify no position remains.
+12. **PlaceMany batch** — two far-from-mid ALOs submitted in one signed action.
+13. **Cloid round-trip** — `WithCloid` → `Info.OrderByCloid` → `CancelByCloid`.
+14. **ModifyByCloid** — resize a resting order identified by cloid.
+15. **AdjustMargin (isolated)** — open isolated position, top up margin, confirm via `UserState`.
+16. **SubAccount create + list** — `Trade.SubAccount.Create`, confirm via `Info.SubAccounts`.
+17. **Withdraw wire-shape** — `Trade.Withdraw(0.01, self)`; accept success OR minimum-threshold rejection.
+18. **Stream reconnect** — close session, fresh client, re-subscribe to two filters.
+19. **Idempotent cancel** — cancel a dead order; second cancel returns a typed error.
+20. **OrderByCloid not found** — query a never-placed cloid; assert no panic and no live order.
+
+### HIP-3 — builder-deployed perpetuals
+
+Each test skips wholesale when `HL_HIP3_DEX` is unset.
+
+21. **HIP-3 meta + PerpDexs** — `Info.PerpDexs`, `Info.Meta(dex)`.
+22. **HIP-3 PlaceALO** — place + cancel an ALO on the builder dex.
+23. **HIP-3 MoveTo/From Dex** — round-trip 1 USDC between default wallet and dex.
+24. **HIP-3 AllMidsOn** — subscribe to the dex-pinned all-mids stream.
+
+### HIP-4 — binary outcome markets
+
+Each test skips wholesale when `Info.OutcomeMeta` is empty or fails.
+
+25. **HIP-4 outcome meta** — log shape of the first outcome.
+26. **HIP-4 asset lookup** — canonical and friendly names resolve to the same id (≥ 100,000,000).
+27. **HIP-4 Book + Mid** — live outcome, mid in (0, 1].
+28. **HIP-4 place + cancel** — integer-size ALO on an outcome at half the mid.
+29. **HIP-4 fractional size rejected** — SDK validator catches size=0.5 against MinSize=1.
+30. **HIP-4 trades subscription** — trades feed via the canonical `#<enc>` name.
 
 ## Troubleshooting
 

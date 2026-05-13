@@ -48,6 +48,9 @@ test directory, the repo root, or one level above).
 | `HL_BUILDER_FEE_BPS` | no | `1` | Builder fee in basis points. |
 | `HL_SKIP_TRANSFER` | no | — | Set `true` to skip transfer scenarios. |
 | `HL_SKIP_WS` | no | — | Set `true` to skip websocket scenarios. |
+| `HL_HIP3_DEX` | no | — | Name of the HIP-3 builder-deployed perp dex to target (e.g. `flx`). When unset, the entire HIP-3 suite skips cleanly. |
+| `HL_HIP3_COIN` | no | first asset on the dex | Coin on the HIP-3 dex used by placement scenarios. Skips if no usable coin found. |
+| `HL_HIP4_OUTCOME` | no | first outcome with a live mid | Friendly (`<question>:<side>`) or canonical (`#<enc>`) name of the HIP-4 outcome to target. The entire HIP-4 suite skips when no outcomes are registered on the target environment. |
 
 Tests skip when their preconditions are unmet (account empty, coin
 missing from metadata, WS disabled, etc.) — they do not fail on
@@ -72,3 +75,27 @@ configuration gaps.
 | `TestStream_PostInfo_MatchesREST` | PostInfo Meta over WS, compare to REST. |
 | `TestStream_PostAction` | Place an ALO via Stream.PostAction, REST cancel. |
 | `TestValidation_LongShortHardErrors` | Open a long, expect Buy reduce-only to fail. |
+| `TestPlaceMany_Batch` | Two far-from-mid ALOs placed in one signed batch, both rest. |
+| `TestPlace_WithCloid_Roundtrip` | Place with `WithCloid`, look up by cloid, cancel by cloid. |
+| `TestModifyByCloid` | Resize a resting order via `ModifyByCloid`. |
+| `TestAdjustMargin_IsolatedMode` | Open isolated position, top up margin via `AdjustMargin`. |
+| `TestSubAccount_CreateDepositList` | Create a sub-account, confirm it surfaces in `Info.SubAccounts`. |
+| `TestWithdraw_WireOnly` | Submit a tiny `Trade.Withdraw`; assert success OR a minimum-threshold rejection. |
+| `TestStream_Reconnect` | Close a streaming session, build a fresh client, resubscribe. |
+| `TestCancel_IdempotentOnDeadOrder` | Cancel twice; second cancel returns a clean typed error. |
+| `TestInfo_OrderByCloid_NotFound` | Lookup a never-placed cloid; no panic, no live order returned. |
+| `TestHIP3_MetaAndPerpDexs` | Read `Info.PerpDexs` and `Info.Meta(dex)` for the configured HIP-3 dex. |
+| `TestHIP3_PlaceALO` | Place + cancel a far-from-mid ALO on the HIP-3 dex. |
+| `TestHIP3_MoveToFromDex` | Round-trip 1 USDC between the default wallet and the HIP-3 dex. |
+| `TestHIP3_AllMidsOn` | Subscribe to the dex-pinned `AllMidsOn` stream. |
+| `TestHIP4_OutcomeMeta` | Read `Info.OutcomeMeta`; log shape of the first outcome. |
+| `TestHIP4_AssetLookupBothNames` | Canonical and friendly outcome names resolve to the same asset id. |
+| `TestHIP4_BookAndMid` | Book + Mid query for a live outcome; mid sits in (0, 1]. |
+| `TestHIP4_PlaceCancelInteger` | Place + cancel an integer-size ALO on a HIP-4 outcome. |
+| `TestHIP4_FractionalSizeRejected` | SDK validator rejects a 0.5 size on an integer-quantised outcome. |
+| `TestHIP4_TradesSubscription` | Subscribe to the trades feed of an outcome via the canonical name. |
+
+The HIP-3 and HIP-4 sub-suites skip wholesale when the relevant env var
+(`HL_HIP3_DEX`) is empty or the target environment exposes no live
+outcomes. None of the new scenarios assume a particular feature is
+present.
