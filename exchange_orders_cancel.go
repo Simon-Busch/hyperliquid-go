@@ -16,17 +16,15 @@ type (
 
 // Cancel cancels the resting order with the given exchange oid.
 func (t *Trader) Cancel(coin string, oid int64) (CancelResult, error) {
-	resp, err := t.BulkCancel([]CancelOrderRequest{{Coin: coin, OrderID: oid}})
+	resp, err := t.bulkCancel([]CancelOrderRequest{{Coin: coin, OrderID: oid}})
 	if err != nil {
 		return CancelResult{}, err
 	}
 	return firstCancelResult(resp), nil
 }
 
-// BulkCancel cancels every order in requests as a single signed action.
-func (t *Trader) BulkCancel(
-	requests []CancelOrderRequest,
-) (res *APIResponse[CancelOrderResponse], err error) {
+// bulkCancel signs and submits a cancel action for every request.
+func (t *Trader) bulkCancel(requests []CancelOrderRequest) (*APIResponse[CancelOrderResponse], error) {
 	cancels := make([]CancelOrderWire, len(requests))
 	for i, req := range requests {
 		cancels[i] = CancelOrderWire{
@@ -41,10 +39,11 @@ func (t *Trader) BulkCancel(
 		Cancels: cancels,
 	}
 
-	if err = t.executeAction(action, &res); err != nil {
-		return
+	var res *APIResponse[CancelOrderResponse]
+	if err := t.executeAction(action, &res); err != nil {
+		return nil, err
 	}
-	return
+	return res, nil
 }
 
 // CancelOrderRequestByCloid identifies a single order to cancel by client id.
@@ -55,36 +54,17 @@ type CancelOrderRequestByCloid struct {
 
 // CancelByCloid cancels the resting order with the given client order id.
 func (t *Trader) CancelByCloid(coin, cloid string) (CancelResult, error) {
-	resp, err := t.BulkCancelByCloids([]CancelOrderRequestByCloid{{Coin: coin, Cloid: cloid}})
-	if err != nil {
-		return CancelResult{}, err
-	}
-	return firstCancelResult(resp), nil
-}
-
-// BulkCancelByCloids cancels every order identified by client id as one
-// signed action.
-func (t *Trader) BulkCancelByCloids(
-	requests []CancelOrderRequestByCloid,
-) (res *APIResponse[CancelOrderResponse], err error) {
-	cancels := make([]CancelByCloidWire, len(requests))
-	for i, req := range requests {
-		cancels[i] = CancelByCloidWire{
-			Asset:    t.info.AssetID(req.Coin),
-			ClientID: req.Cloid,
-		}
-	}
-
+	cancels := []CancelByCloidWire{{Asset: t.info.AssetID(coin), ClientID: cloid}}
 	action := CancelByCloidAction{
 		Type:    "cancelByCloid",
 		Dex:     t.dex,
 		Cancels: cancels,
 	}
-
-	if err = t.executeAction(action, &res); err != nil {
-		return
+	var res *APIResponse[CancelOrderResponse]
+	if err := t.executeAction(action, &res); err != nil {
+		return CancelResult{}, err
 	}
-	return
+	return firstCancelResult(res), nil
 }
 
 // firstCancelResult extracts the first CancelResult from a bulk-cancel

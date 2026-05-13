@@ -1,5 +1,7 @@
 package hyperliquid
 
+import "fmt"
+
 // Modify changes the price (or size, or both) of a resting order identified
 // by oid. The coin is preserved on the existing order — only the supplied
 // fields change. Required: WithLimit(newPx) for a new price, WithSize(x)
@@ -49,9 +51,27 @@ func (t *Trader) doModify(spec *OrderSpec) (Result, error) {
 	} else {
 		oidAny = spec.ModifyCloid
 	}
-	status, err := t.ModifyOrder(ModifyOrderRequest{Oid: oidAny, Order: req})
+	action, err := newModifyOrderAction(t, ModifyOrderRequest{Oid: oidAny, Order: req})
 	if err != nil {
-		return Result{}, err
+		return Result{}, fmt.Errorf("failed to create modify action: %w", err)
+	}
+	resp := APIResponse[OrderResponse]{}
+	if err := t.executeAction(action, &resp); err != nil {
+		return Result{}, fmt.Errorf("failed to modify order: %w", err)
+	}
+	if !resp.Ok {
+		return Result{}, fmt.Errorf("failed to modify order: %s", resp.Err)
+	}
+	if len(resp.Data.Statuses) == 0 {
+		return Result{}, fmt.Errorf("no status for modified order: %s", resp.Err)
+	}
+	first := resp.Data.Statuses[0]
+	if first.Type() != "object" {
+		return Result{}, fmt.Errorf("unexpected status type: %s", first.Type())
+	}
+	var status OrderStatus
+	if err := first.Parse(&status); err != nil {
+		return Result{}, fmt.Errorf("failed to parse modified order status: %w", err)
 	}
 	r := Result{}
 	if status.Resting != nil {
@@ -103,7 +123,7 @@ func (t *Trader) CancelAll(coins ...string) (BatchCancelResult, error) {
 	if len(reqs) == 0 {
 		return BatchCancelResult{}, nil
 	}
-	resp, err := t.BulkCancel(reqs)
+	resp, err := t.bulkCancel(reqs)
 	if err != nil {
 		return BatchCancelResult{}, err
 	}

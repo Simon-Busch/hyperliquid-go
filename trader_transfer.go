@@ -11,36 +11,60 @@ type TransferGroup struct {
 	t *Trader
 }
 
-// UsdClassTransfer transfers between USD classes (perps <-> spot).
-func (e *Trader) UsdClassTransfer(amount float64, toPerp bool) (*TransferResponse, error) {
+// SendUSD sends USDC on Hyperliquid to toAddr.
+func (g *TransferGroup) SendUSD(toAddr string, amount float64) (*TransferResponse, error) {
 	nonce := time.Now().UnixMilli()
-	amountStr := formatUsdAmount(amount)
-	if e.vault != "" {
-		amountStr += " subaccount:" + e.vault
-	}
 	action := map[string]any{
-		"type":   "usdClassTransfer",
-		"amount": amountStr,
-		"toPerp": toPerp,
-		"nonce":  nonce,
+		"type":        "usdSend",
+		"destination": toAddr,
+		"amount":      formatUsdAmount(amount),
+		"time":        nonce,
 	}
 	var result TransferResponse
-	if err := e.executeUserSignedAction(
-		action, usdClassTransferSignTypes,
-		"HyperliquidTransaction:UsdClassTransfer", nonce, &result,
+	if err := g.t.executeUserSignedAction(
+		action, usdSendSignTypes,
+		"HyperliquidTransaction:UsdSend", nonce, &result,
 	); err != nil {
 		return nil, err
 	}
 	return &result, nil
 }
 
-// VaultUsdTransfer deposits or withdraws USDC to/from a vault.
-func (e *Trader) VaultUsdTransfer(
-	vaultAddress string,
-	isDeposit bool,
-	usd int,
-) (*TransferResponse, error) {
+// SendSpot sends a spot token to toAddr.
+func (g *TransferGroup) SendSpot(toAddr, token string, amount float64) (*TransferResponse, error) {
+	nonce := time.Now().UnixMilli()
+	action := map[string]any{
+		"type":        "spotSend",
+		"destination": toAddr,
+		"token":       token,
+		"amount":      formatUsdAmount(amount),
+		"time":        nonce,
+	}
+	var result TransferResponse
+	if err := g.t.executeUserSignedAction(
+		action, spotTransferSignTypes,
+		"HyperliquidTransaction:SpotSend", nonce, &result,
+	); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// DepositToVault deposits USDC into the given vault.
+func (g *TransferGroup) DepositToVault(vaultAddr string, amount float64) (*TransferResponse, error) {
+	return g.vaultTransfer(vaultAddr, true, FloatToUsdInt(amount))
+}
+
+// WithdrawFromVault withdraws USDC from the given vault.
+func (g *TransferGroup) WithdrawFromVault(vaultAddr string, amount float64) (*TransferResponse, error) {
+	return g.vaultTransfer(vaultAddr, false, FloatToUsdInt(amount))
+}
+
+// vaultTransfer signs and submits a vaultTransfer action for either a
+// deposit or a withdrawal.
+func (g *TransferGroup) vaultTransfer(vaultAddress string, isDeposit bool, usd int) (*TransferResponse, error) {
 	timestamp := time.Now().UnixMilli()
+	t := g.t
 
 	action := VaultUsdTransferAction{
 		Type:         "vaultTransfer",
@@ -50,18 +74,18 @@ func (e *Trader) VaultUsdTransfer(
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
 		"",
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -73,54 +97,53 @@ func (e *Trader) VaultUsdTransfer(
 	return &result, nil
 }
 
-// UsdTransfer sends USDC to another address on Hyperliquid.
-func (e *Trader) UsdTransfer(amount float64, destination string) (*TransferResponse, error) {
+// PerpToSpot transfers USDC from perp to spot for the signing account.
+func (g *TransferGroup) PerpToSpot(amount float64) (*TransferResponse, error) {
+	return g.usdClassTransfer(amount, false)
+}
+
+// SpotToPerp transfers USDC from spot to perp for the signing account.
+func (g *TransferGroup) SpotToPerp(amount float64) (*TransferResponse, error) {
+	return g.usdClassTransfer(amount, true)
+}
+
+// usdClassTransfer signs and submits a usdClassTransfer action.
+func (g *TransferGroup) usdClassTransfer(amount float64, toPerp bool) (*TransferResponse, error) {
+	t := g.t
 	nonce := time.Now().UnixMilli()
+	amountStr := formatUsdAmount(amount)
+	if t.vault != "" {
+		amountStr += " subaccount:" + t.vault
+	}
 	action := map[string]any{
-		"type":        "usdSend",
-		"destination": destination,
-		"amount":      formatUsdAmount(amount),
-		"time":        nonce,
+		"type":   "usdClassTransfer",
+		"amount": amountStr,
+		"toPerp": toPerp,
+		"nonce":  nonce,
 	}
 	var result TransferResponse
-	if err := e.executeUserSignedAction(
-		action, usdSendSignTypes,
-		"HyperliquidTransaction:UsdSend", nonce, &result,
+	if err := t.executeUserSignedAction(
+		action, usdClassTransferSignTypes,
+		"HyperliquidTransaction:UsdClassTransfer", nonce, &result,
 	); err != nil {
 		return nil, err
 	}
 	return &result, nil
 }
 
-// SpotTransfer sends spot tokens to another address.
-func (e *Trader) SpotTransfer(
-	amount float64,
-	destination, token string,
-) (*TransferResponse, error) {
-	nonce := time.Now().UnixMilli()
-	action := map[string]any{
-		"type":        "spotSend",
-		"destination": destination,
-		"token":       token,
-		"amount":      formatUsdAmount(amount),
-		"time":        nonce,
-	}
-	var result TransferResponse
-	if err := e.executeUserSignedAction(
-		action, spotTransferSignTypes,
-		"HyperliquidTransaction:SpotSend", nonce, &result,
-	); err != nil {
-		return nil, err
-	}
-	return &result, nil
+// MoveToDex moves tokens into a HIP-3 builder-deployed perp dex.
+func (g *TransferGroup) MoveToDex(dex, token string, amount float64) (*TransferResponse, error) {
+	return g.perpDexClassTransfer(dex, token, amount, true)
 }
 
-// PerpDexClassTransfer moves tokens between perp dex classes.
-func (e *Trader) PerpDexClassTransfer(
-	dex, token string,
-	amount float64,
-	toPerp bool,
-) (*TransferResponse, error) {
+// MoveFromDex moves tokens out of a HIP-3 builder-deployed perp dex.
+func (g *TransferGroup) MoveFromDex(dex, token string, amount float64) (*TransferResponse, error) {
+	return g.perpDexClassTransfer(dex, token, amount, false)
+}
+
+// perpDexClassTransfer signs and submits a perpDexClassTransfer action.
+func (g *TransferGroup) perpDexClassTransfer(dex, token string, amount float64, toPerp bool) (*TransferResponse, error) {
+	t := g.t
 	timestamp := time.Now().UnixMilli()
 
 	action := PerpDexClassTransferAction{
@@ -132,18 +155,18 @@ func (e *Trader) PerpDexClassTransfer(
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -153,44 +176,4 @@ func (e *Trader) PerpDexClassTransfer(
 		return nil, err
 	}
 	return &result, nil
-}
-
-// SendUSD sends USDC on Hyperliquid to toAddr.
-func (g *TransferGroup) SendUSD(toAddr string, amount float64) (*TransferResponse, error) {
-	return g.t.UsdTransfer(amount, toAddr)
-}
-
-// SendSpot sends a spot token to toAddr.
-func (g *TransferGroup) SendSpot(toAddr, token string, amount float64) (*TransferResponse, error) {
-	return g.t.SpotTransfer(amount, toAddr, token)
-}
-
-// DepositToVault deposits USDC into the given vault.
-func (g *TransferGroup) DepositToVault(vaultAddr string, amount float64) (*TransferResponse, error) {
-	return g.t.VaultUsdTransfer(vaultAddr, true, FloatToUsdInt(amount))
-}
-
-// WithdrawFromVault withdraws USDC from the given vault.
-func (g *TransferGroup) WithdrawFromVault(vaultAddr string, amount float64) (*TransferResponse, error) {
-	return g.t.VaultUsdTransfer(vaultAddr, false, FloatToUsdInt(amount))
-}
-
-// PerpToSpot transfers USDC from perp to spot for the signing account.
-func (g *TransferGroup) PerpToSpot(amount float64) (*TransferResponse, error) {
-	return g.t.UsdClassTransfer(amount, false)
-}
-
-// SpotToPerp transfers USDC from spot to perp for the signing account.
-func (g *TransferGroup) SpotToPerp(amount float64) (*TransferResponse, error) {
-	return g.t.UsdClassTransfer(amount, true)
-}
-
-// MoveToDex moves tokens into a HIP-3 builder-deployed perp dex.
-func (g *TransferGroup) MoveToDex(dex, token string, amount float64) (*TransferResponse, error) {
-	return g.t.PerpDexClassTransfer(dex, token, amount, true)
-}
-
-// MoveFromDex moves tokens out of a HIP-3 builder-deployed perp dex.
-func (g *TransferGroup) MoveFromDex(dex, token string, amount float64) (*TransferResponse, error) {
-	return g.t.PerpDexClassTransfer(dex, token, amount, false)
 }

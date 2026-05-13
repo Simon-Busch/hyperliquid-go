@@ -10,8 +10,9 @@ type SubAccountGroup struct {
 	t *Trader
 }
 
-// CreateSubAccount creates a new sub-account under the signing account.
-func (e *Trader) CreateSubAccount(name string) (*CreateSubAccountResponse, error) {
+// Create allocates a new sub-account under the current signer.
+func (g *SubAccountGroup) Create(name string) (*CreateSubAccountResponse, error) {
+	t := g.t
 	timestamp := time.Now().UnixMilli()
 
 	action := CreateSubAccountAction{
@@ -20,18 +21,18 @@ func (e *Trader) CreateSubAccount(name string) (*CreateSubAccountResponse, error
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
 		"",
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -43,12 +44,19 @@ func (e *Trader) CreateSubAccount(name string) (*CreateSubAccountResponse, error
 	return &result, nil
 }
 
-// SubAccountTransfer moves USDC to or from a sub-account.
-func (e *Trader) SubAccountTransfer(
-	subAccountUser string,
-	isDeposit bool,
-	usd int,
-) (*TransferResponse, error) {
+// DepositUSD funds a sub-account from the parent's USDC balance.
+func (g *SubAccountGroup) DepositUSD(subAddr string, amount float64) (*TransferResponse, error) {
+	return g.transfer(subAddr, true, FloatToUsdInt(amount))
+}
+
+// WithdrawUSD pulls USDC from a sub-account back to the parent.
+func (g *SubAccountGroup) WithdrawUSD(subAddr string, amount float64) (*TransferResponse, error) {
+	return g.transfer(subAddr, false, FloatToUsdInt(amount))
+}
+
+// transfer signs and submits a subAccountTransfer action.
+func (g *SubAccountGroup) transfer(subAccountUser string, isDeposit bool, usd int) (*TransferResponse, error) {
+	t := g.t
 	timestamp := time.Now().UnixMilli()
 
 	action := SubAccountTransferAction{
@@ -59,18 +67,18 @@ func (e *Trader) SubAccountTransfer(
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
 		"",
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -82,13 +90,19 @@ func (e *Trader) SubAccountTransfer(
 	return &result, nil
 }
 
-// SubAccountSpotTransfer moves spot tokens to or from a sub-account.
-func (e *Trader) SubAccountSpotTransfer(
-	subAccountUser string,
-	isDeposit bool,
-	token string,
-	amount float64,
-) (*TransferResponse, error) {
+// DepositSpot funds a sub-account's spot balance with token.
+func (g *SubAccountGroup) DepositSpot(subAddr, token string, amount float64) (*TransferResponse, error) {
+	return g.spotTransfer(subAddr, true, token, amount)
+}
+
+// WithdrawSpot pulls a spot token back from a sub-account.
+func (g *SubAccountGroup) WithdrawSpot(subAddr, token string, amount float64) (*TransferResponse, error) {
+	return g.spotTransfer(subAddr, false, token, amount)
+}
+
+// spotTransfer signs and submits a subAccountSpotTransfer action.
+func (g *SubAccountGroup) spotTransfer(subAccountUser string, isDeposit bool, token string, amount float64) (*TransferResponse, error) {
+	t := g.t
 	timestamp := time.Now().UnixMilli()
 
 	action := SubAccountSpotTransferAction{
@@ -100,18 +114,18 @@ func (e *Trader) SubAccountSpotTransfer(
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -121,29 +135,4 @@ func (e *Trader) SubAccountSpotTransfer(
 		return nil, err
 	}
 	return &result, nil
-}
-
-// Create allocates a new sub-account under the current signer.
-func (g *SubAccountGroup) Create(name string) (*CreateSubAccountResponse, error) {
-	return g.t.CreateSubAccount(name)
-}
-
-// DepositUSD funds a sub-account from the parent's USDC balance.
-func (g *SubAccountGroup) DepositUSD(subAddr string, amount float64) (*TransferResponse, error) {
-	return g.t.SubAccountTransfer(subAddr, true, FloatToUsdInt(amount))
-}
-
-// WithdrawUSD pulls USDC from a sub-account back to the parent.
-func (g *SubAccountGroup) WithdrawUSD(subAddr string, amount float64) (*TransferResponse, error) {
-	return g.t.SubAccountTransfer(subAddr, false, FloatToUsdInt(amount))
-}
-
-// DepositSpot funds a sub-account's spot balance with token.
-func (g *SubAccountGroup) DepositSpot(subAddr, token string, amount float64) (*TransferResponse, error) {
-	return g.t.SubAccountSpotTransfer(subAddr, true, token, amount)
-}
-
-// WithdrawSpot pulls a spot token back from a sub-account.
-func (g *SubAccountGroup) WithdrawSpot(subAddr, token string, amount float64) (*TransferResponse, error) {
-	return g.t.SubAccountSpotTransfer(subAddr, false, token, amount)
 }

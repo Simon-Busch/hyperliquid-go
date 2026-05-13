@@ -6,9 +6,9 @@ import (
 
 // place is the shared pipeline for every single-order placement verb. It
 // validates the spec, converts it to the wire-level CreateOrderRequest list
-// (including any bracket legs), and dispatches via the existing BulkOrders
-// path. The returned Result flattens the most useful fields from the
-// underlying APIResponse.
+// (including any bracket legs), and dispatches the signed order action.
+// The returned Result flattens the most useful fields from the underlying
+// APIResponse.
 func (t *Trader) place(spec *OrderSpec) (Result, error) {
 	if err := t.validate(spec); err != nil {
 		return Result{}, err
@@ -19,8 +19,12 @@ func (t *Trader) place(spec *OrderSpec) (Result, error) {
 		return Result{}, err
 	}
 
-	resp, err := t.BulkOrdersWithGrouping(reqs, bracketGrouping(spec), builder)
+	action, err := newCreateOrderActionWithGrouping(t, reqs, builder, bracketGrouping(spec))
 	if err != nil {
+		return Result{}, err
+	}
+	var resp *APIResponse[OrderResponse]
+	if err := t.executeAction(action, &resp); err != nil {
 		return Result{}, err
 	}
 	return resultFromResponse(resp), nil
@@ -45,8 +49,12 @@ func (t *Trader) placeMany(specs []OrderSpec) (BatchResult, error) {
 		}
 		all = append(all, reqs...)
 	}
-	resp, err := t.BulkOrders(all, builder)
+	action, err := newCreateOrderActionWithGrouping(t, all, builder, GroupingNA)
 	if err != nil {
+		return BatchResult{}, err
+	}
+	var resp *APIResponse[OrderResponse]
+	if err := t.executeAction(action, &resp); err != nil {
 		return BatchResult{}, err
 	}
 	return batchResultFromResponse(resp), nil

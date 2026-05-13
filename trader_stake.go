@@ -7,12 +7,19 @@ type StakeGroup struct {
 	t *Trader
 }
 
-// TokenDelegate delegates (or undelegates) HYPE stake.
-func (e *Trader) TokenDelegate(
-	validator string,
-	wei int,
-	isUndelegate bool,
-) (*TransferResponse, error) {
+// Delegate stakes wei units of HYPE to validator.
+func (g *StakeGroup) Delegate(validator string, wei int) (*TransferResponse, error) {
+	return g.tokenDelegate(validator, wei, false)
+}
+
+// Undelegate unstakes wei units of HYPE from validator.
+func (g *StakeGroup) Undelegate(validator string, wei int) (*TransferResponse, error) {
+	return g.tokenDelegate(validator, wei, true)
+}
+
+// tokenDelegate signs and submits a tokenDelegate action.
+func (g *StakeGroup) tokenDelegate(validator string, wei int, isUndelegate bool) (*TransferResponse, error) {
+	t := g.t
 	nonce := time.Now().UnixMilli()
 	action := map[string]any{
 		"type":         "tokenDelegate",
@@ -22,21 +29,11 @@ func (e *Trader) TokenDelegate(
 		"nonce":        nonce,
 	}
 	var result TransferResponse
-	if err := e.executeUserSignedAction(
+	if err := t.executeUserSignedAction(
 		action, tokenDelegateSignTypes,
 		"HyperliquidTransaction:TokenDelegate", nonce, &result,
 	); err != nil {
 		return nil, err
 	}
 	return &result, nil
-}
-
-// Delegate stakes wei units of HYPE to validator.
-func (g *StakeGroup) Delegate(validator string, wei int) (*TransferResponse, error) {
-	return g.t.TokenDelegate(validator, wei, false)
-}
-
-// Undelegate unstakes wei units of HYPE from validator.
-func (g *StakeGroup) Undelegate(validator string, wei int) (*TransferResponse, error) {
-	return g.t.TokenDelegate(validator, wei, true)
 }
