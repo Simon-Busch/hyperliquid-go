@@ -1,5 +1,7 @@
 package hyperliquid
 
+import "encoding/json"
+
 // Grouping is the order-grouping discriminator used by /exchange order
 // actions. Distinct groupings allow TP/SL trigger legs to attach to a
 // parent or to an existing position.
@@ -563,10 +565,15 @@ type ScheduleCancelResponse struct {
 }
 
 // AgentApprovalResponse is returned by the approveAgent action.
+// Hyperliquid encodes failure as {"status":"err","response":"<message>"};
+// success as {"status":"ok","response":{...}}. The Response field
+// captures whichever form was returned so callers can surface the
+// rejection reason verbatim.
 type AgentApprovalResponse struct {
-	Status string `json:"status"`
-	TxHash string `json:"txHash,omitempty"`
-	Error  string `json:"error,omitempty"`
+	Status   string          `json:"status"`
+	TxHash   string          `json:"txHash,omitempty"`
+	Error    string          `json:"error,omitempty"`
+	Response json.RawMessage `json:"response,omitempty"`
 }
 
 // MultiSigConversionResponse is returned by the

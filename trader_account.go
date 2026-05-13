@@ -215,6 +215,20 @@ func (t *Trader) ApproveAgent(name string) (Agent, error) {
 	); err != nil {
 		return Agent{}, err
 	}
+	if result.Status != "" && result.Status != "ok" {
+		msg := result.Error
+		if msg == "" {
+			// On err the Response field is a JSON string with the reason.
+			var reason string
+			if err := json.Unmarshal(result.Response, &reason); err == nil && reason != "" {
+				msg = reason
+			}
+		}
+		if msg == "" {
+			msg = result.Status
+		}
+		return Agent{}, fmt.Errorf("approveAgent rejected: %s", msg)
+	}
 	return Agent{Address: agentAddress, PrivateKey: pk}, nil
 }
 

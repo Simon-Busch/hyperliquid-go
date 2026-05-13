@@ -33,13 +33,17 @@ func (t *Trader) doModify(spec *OrderSpec) (Result, error) {
 	if spec.OverrideSize > 0 {
 		spec.Size = spec.OverrideSize
 	}
+	// Modify is a cancel + replace under the hood; default the
+	// replacement TIF to ALO (post-only) so a far-from-mid resting order
+	// stays inside Hyperliquid's price-band rules. A future hl.WithTIF
+	// option can let callers override when modifying a GTC/IOC order.
 	req := CreateOrderRequest{
 		Coin:       spec.Coin,
 		IsBuy:      spec.Side.IsBuy(),
 		Price:      spec.Price,
 		Size:       spec.Size,
 		ReduceOnly: spec.ReduceOnly,
-		OrderType:  OrderType{Limit: &LimitOrderType{Tif: string(tifGTC)}},
+		OrderType:  OrderType{Limit: &LimitOrderType{Tif: string(tifALO)}},
 	}
 	if spec.Cloid != "" {
 		c := spec.Cloid
