@@ -41,6 +41,16 @@ func (t *Trader) validate(spec *OrderSpec) error {
 	if spec.Size <= 0 && spec.Method != "close" {
 		return &ValidationError{Field: "Size", Code: "size_below_min", Got: spec.Size}
 	}
+	if spec.Size > 0 && t != nil && t.info != nil {
+		if meta, err := t.info.Asset(spec.Coin); err == nil && meta.MinSize > 0 {
+			if spec.Size < meta.MinSize {
+				return &ValidationError{Field: "Size", Code: "size_below_min", Got: spec.Size, Want: meta.MinSize}
+			}
+			if !isMultipleOf(spec.Size, meta.MinSize) {
+				return &ValidationError{Field: "Size", Code: "size_step_violation", Got: spec.Size, Want: meta.MinSize}
+			}
+		}
+	}
 	needsPrice := spec.Method == "alo" || spec.Method == "ioc" || spec.Method == "gtc"
 	if needsPrice && spec.Price <= 0 {
 		return &ValidationError{Field: "Price", Code: "price_non_positive", Got: spec.Price}
@@ -188,6 +198,16 @@ func validateBracket(spec *OrderSpec) error {
 		return &ValidationError{Field: "SLSize", Code: "bracket_size_exceeds_entry", Got: spec.SLSize, Want: spec.Size}
 	}
 	return nil
+}
+
+// isMultipleOf reports whether x is a positive integer multiple of step,
+// within a small floating-point tolerance.
+func isMultipleOf(x, step float64) bool {
+	if step <= 0 {
+		return true
+	}
+	q := x / step
+	return math.Abs(q-math.Round(q)) < 1e-9
 }
 
 // isFirstAsset returns true if coin is the first asset in info's mapping,

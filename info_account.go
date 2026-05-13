@@ -21,7 +21,9 @@ type SpotClearinghouseState struct {
 	Balances []SpotBalance `json:"balances"`
 }
 
-// AssetMeta is the per-asset metadata snapshot exposed by Asset.
+// AssetMeta is the per-asset metadata snapshot exposed by Asset. MinSize
+// is the smallest legal size step (10^-SzDecimals); sizes that are not an
+// integer multiple of MinSize are rejected by validate.
 type AssetMeta struct {
 	ID          int
 	SzDecimals  int
@@ -140,10 +142,15 @@ func (i *Info) Asset(coin string) (AssetMeta, error) {
 	for k := 0; k < maxPriceDecimals; k++ {
 		tick /= 10
 	}
+	minSize := 1.0
+	for k := 0; k < szDecimals; k++ {
+		minSize /= 10
+	}
 	return AssetMeta{
 		ID:         id,
 		SzDecimals: szDecimals,
 		TickSize:   tick,
+		MinSize:    minSize,
 		Class:      class,
 	}, nil
 }
