@@ -9,7 +9,7 @@ import (
 func TestOrderUpdatesSubscriptionFormat(t *testing.T) {
 	testAddress := "0x1234567890abcdef1234567890abcdef12345678"
 
-	sub := Subscription{
+	sub := subscriptionFilter{
 		Type: "orderUpdates",
 		User: testAddress,
 	}
@@ -49,7 +49,7 @@ func TestOrderUpdatesSubscriptionFormat(t *testing.T) {
 func TestUserEventsSubscriptionFormat(t *testing.T) {
 	testAddress := "0x1234567890abcdef1234567890abcdef12345678"
 
-	sub := Subscription{
+	sub := subscriptionFilter{
 		Type: "userEvents",
 		User: testAddress,
 	}

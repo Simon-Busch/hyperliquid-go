@@ -7,7 +7,7 @@
 ## Contents
 
 - [Lifecycle](#lifecycle)
-- [Subscribe and Unsubscribe](#subscribe)
+- [Subscribe and Close](#subscribe)
 - [Market subscription constructors](#market-subscriptions)
 - [User subscription constructors](#user-subscriptions)
 - [POST over WS](#post-over-ws)
@@ -47,48 +47,36 @@ defer c.Stream.Close()
 
 ---
 
-## Subscribe and Unsubscribe {#subscribe}
+## Subscribe and Close {#subscribe}
 
 ### `Subscribe`
 
-Register a callback for the supplied subscription. Returns a numeric id paired to this registration; the same `Subscription` can be subscribed to by multiple callbacks (the Stream multiplexes them and issues a single WS subscribe).
+Register a callback for the supplied subscription filter. Returns a `*Subscription` handle whose `Close()` method deregisters the callback and emits an unsubscribe frame once the last listener for that filter is gone.
 
 ```go
-func (w *Stream) Subscribe(sub Subscription, callback func(WSMessage)) (int, error)
+func (w *Stream) Subscribe(filter subscriptionFilter, callback func(WSMessage)) (*Subscription, error)
 ```
 
 **Example**
 
 ```go
-sub := hl.Trades("ETH")
-id, err := c.Stream.Subscribe(sub, func(m hl.WSMessage) {
+sub, err := c.Stream.Subscribe(hl.Trades("ETH"), func(m hl.WSMessage) {
     fmt.Printf("%s -> %s\n", m.Channel, string(m.Data))
 })
+defer sub.Close()
 ```
 
-### `Unsubscribe`
+### `Subscription.Close`
 
-Tear down a single callback. The Stream sends the WS unsubscribe message only when the *last* callback for a given subscription is removed.
+Tear down the callback. `Close` is idempotent: a second call returns `nil` without sending another unsubscribe frame.
 
 ```go
-func (w *Stream) Unsubscribe(sub Subscription, id int) error
+func (s *Subscription) Close() error
 ```
 
-### `Subscription`
+### Subscription constructors
 
-Public value type built by the constructors below.
-
-```go
-type Subscription struct {
-    Type     string `json:"type"`
-    Coin     string `json:"coin,omitempty"`
-    User     string `json:"user,omitempty"`
-    Interval string `json:"interval,omitempty"`
-    Dex      string `json:"dex,omitempty"`
-}
-```
-
-The `Type` field is the wire-level channel name; the rest are populated per-channel by the constructors.
+The `hl.Trades`, `hl.Book`, etc. functions return a `subscriptionFilter` value that is passed straight into `Subscribe`. The field shape (`type`, `coin`, `user`, `interval`, `dex`) matches the wire envelope expected by the Hyperliquid websocket API.
 
 ### `WSMessage`
 
@@ -105,7 +93,7 @@ type WSMessage struct {
 
 ## Market subscription constructors {#market-subscriptions}
 
-All constructors are top-level functions returning a `Subscription` value.
+All constructors are top-level functions returning a `subscriptionFilter` value.
 
 | Constructor             | WS channel            | Payload type (`types.go`)                 |
 |-------------------------|-----------------------|-------------------------------------------|
@@ -121,10 +109,11 @@ All constructors are top-level functions returning a `Subscription` value.
 **Example — book stream**
 
 ```go
-id, err := c.Stream.Subscribe(hl.Book("ETH"), func(m hl.WSMessage) {
+sub, err := c.Stream.Subscribe(hl.Book("ETH"), func(m hl.WSMessage) {
     var b hl.L2Book
     _ = json.Unmarshal(m.Data, &b)
 })
+defer sub.Close()
 ```
 
 ---
@@ -148,10 +137,10 @@ Each takes an account address.
 **Example — order updates**
 
 ```go
-sub := hl.OrderUpdates(addr)
-_, err := c.Stream.Subscribe(sub, func(m hl.WSMessage) {
+sub, err := c.Stream.Subscribe(hl.OrderUpdates(addr), func(m hl.WSMessage) {
     fmt.Println("order update:", string(m.Data))
 })
+defer sub.Close()
 ```
 
 ---

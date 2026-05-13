@@ -137,7 +137,7 @@ The full design spec lives at [docs/spec/api-cleanup.md](./spec/api-cleanup.md) 
 ### Stream
 
 - [`Stream.Connect`, `Stream.Close`](./stream.md#lifecycle)
-- [`Stream.Subscribe`, `Stream.Unsubscribe`](./stream.md#subscribe)
+- [`Stream.Subscribe`, `Subscription.Close`](./stream.md#subscribe)
 - [`hl.Trades`, `hl.Book`, `hl.BBO`, `hl.Candles`](./stream.md#market-subscriptions)
 - [`hl.AllMids`, `hl.AllMidsOn`, `hl.ActiveAssetCtx`, `hl.ActiveAssetData`](./stream.md#market-subscriptions)
 - [`hl.UserEvents`, `hl.UserFills`, `hl.OrderUpdates`](./stream.md#user-subscriptions)

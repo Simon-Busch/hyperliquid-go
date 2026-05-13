@@ -61,12 +61,12 @@ func TestWSMessage_MarshalJSON(t *testing.T) {
 func TestSubscription_MarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
-		sub      Subscription
+		sub      subscriptionFilter
 		expected string
 	}{
 		{
 			name: "trades_subscription",
-			sub: Subscription{
+			sub: subscriptionFilter{
 				Type: "trades",
 				Coin: "BTC",
 			},
@@ -74,7 +74,7 @@ func TestSubscription_MarshalJSON(t *testing.T) {
 		},
 		{
 			name: "orderbook_subscription",
-			sub: Subscription{
+			sub: subscriptionFilter{
 				Type: "l2Book",
 				Coin: "ETH",
 			},
@@ -82,7 +82,7 @@ func TestSubscription_MarshalJSON(t *testing.T) {
 		},
 		{
 			name: "user_events_subscription",
-			sub: Subscription{
+			sub: subscriptionFilter{
 				Type: "userEvents",
 				User: "0x1234567890abcdef1234567890abcdef12345678",
 			},
@@ -90,7 +90,7 @@ func TestSubscription_MarshalJSON(t *testing.T) {
 		},
 		{
 			name: "candles_subscription",
-			sub: Subscription{
+			sub: subscriptionFilter{
 				Type:     "candle",
 				Coin:     "BTC",
 				Interval: "1m",
@@ -99,7 +99,7 @@ func TestSubscription_MarshalJSON(t *testing.T) {
 		},
 		{
 			name: "subscription_with_all_fields",
-			sub: Subscription{
+			sub: subscriptionFilter{
 				Type:     "userFills",
 				Coin:     "ETH",
 				User:     "0x1234567890abcdef1234567890abcdef12345678",
@@ -117,7 +117,7 @@ func TestSubscription_MarshalJSON(t *testing.T) {
 			assert.JSONEq(t, tt.expected, string(jsonData), "marshaled JSON should match expected")
 
 			// Test round-trip
-			var unmarshaled Subscription
+			var unmarshaled subscriptionFilter
 			err = json.Unmarshal(jsonData, &unmarshaled)
 			require.NoError(t, err, "unmarshaling should not fail")
 			assert.Equal(t, tt.sub, unmarshaled, "round-trip should preserve data")
@@ -135,7 +135,7 @@ func TestWsCommand_MarshalJSON(t *testing.T) {
 			name: "subscribe_command",
 			cmd: WsCommand{
 				Method: "subscribe",
-				Subscription: &Subscription{
+				Subscription: &subscriptionFilter{
 					Type: "trades",
 					Coin: "BTC",
 				},
@@ -146,7 +146,7 @@ func TestWsCommand_MarshalJSON(t *testing.T) {
 			name: "unsubscribe_command",
 			cmd: WsCommand{
 				Method: "unsubscribe",
-				Subscription: &Subscription{
+				Subscription: &subscriptionFilter{
 					Type: "l2Book",
 					Coin: "ETH",
 				},
@@ -182,12 +182,12 @@ func TestWsCommand_MarshalJSON(t *testing.T) {
 func TestSubscription_Key(t *testing.T) {
 	tests := []struct {
 		name     string
-		sub      Subscription
+		sub      subscriptionFilter
 		expected subKey
 	}{
 		{
 			name: "trades_key",
-			sub: Subscription{
+			sub: subscriptionFilter{
 				Type: "trades",
 				Coin: "BTC",
 			},
@@ -198,7 +198,7 @@ func TestSubscription_Key(t *testing.T) {
 		},
 		{
 			name: "user_events_key",
-			sub: Subscription{
+			sub: subscriptionFilter{
 				Type: "userEvents",
 				User: "0x1234567890abcdef1234567890abcdef12345678",
 			},
@@ -209,7 +209,7 @@ func TestSubscription_Key(t *testing.T) {
 		},
 		{
 			name: "candles_key",
-			sub: Subscription{
+			sub: subscriptionFilter{
 				Type:     "candle",
 				Coin:     "ETH",
 				Interval: "1h",
@@ -222,7 +222,7 @@ func TestSubscription_Key(t *testing.T) {
 		},
 		{
 			name: "complete_key",
-			sub: Subscription{
+			sub: subscriptionFilter{
 				Type:     "userFills",
 				Coin:     "BTC",
 				User:     "0x1234567890abcdef1234567890abcdef12345678",

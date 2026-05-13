@@ -18,7 +18,7 @@ func TestStream_TradesReceived(t *testing.T) {
 
 	var count atomic.Int32
 	got := make(chan struct{}, 1)
-	id, err := c.Stream.Subscribe(hl.Trades(coin), func(m hl.WSMessage) {
+	sub, err := c.Stream.Subscribe(hl.Trades(coin), func(m hl.WSMessage) {
 		count.Add(1)
 		select {
 		case got <- struct{}{}:
@@ -28,7 +28,7 @@ func TestStream_TradesReceived(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Subscribe: %v", err)
 	}
-	t.Cleanup(func() { _ = c.Stream.Unsubscribe(hl.Trades(coin), id) })
+	t.Cleanup(func() { _ = sub.Close() })
 
 	select {
 	case <-got:

@@ -143,17 +143,16 @@ defer cancel()
 if err := c.Stream.Connect(ctx); err != nil { log.Fatal(err) }
 defer c.Stream.Close()
 
-sub := hl.Trades("ETH")
-id, err := c.Stream.Subscribe(sub, func(m hl.WSMessage) {
+sub, err := c.Stream.Subscribe(hl.Trades("ETH"), func(m hl.WSMessage) {
     fmt.Printf("trade: %s\n", string(m.Data))
 })
 if err != nil { log.Fatal(err) }
+defer sub.Close()
 
 time.Sleep(5 * time.Second)
-_ = c.Stream.Unsubscribe(sub, id)
 ```
 
-`Subscribe` returns an integer id paired to the subscription; pass both to `Unsubscribe`. The Stream maintains its own reconnect loop; on disconnect it resubscribes everything you had registered.
+`Subscribe` returns a `*Subscription`; call `sub.Close()` to deregister. The Stream maintains its own reconnect loop; on disconnect it resubscribes everything you had registered.
 
 ## 11. Multi-leg batch (one signature)
 

@@ -191,15 +191,38 @@ func (w *Stream) Connect(ctx context.Context) error {
 	return nil
 }
 
-// Subscribe registers a callback for the given subscription.
-// Returns a subscription ID that can be used to unsubscribe.
-func (w *Stream) Subscribe(sub Subscription, callback func(WSMessage)) (int, error) {
+// Subscription is the handle returned by Stream.Subscribe. Call Close to
+// deregister the callback and emit an unsubscribe frame when no listener
+// remains.
+type Subscription struct {
+	filter subscriptionFilter
+	id     int
+	stream *Stream
+	closed atomic.Bool
+}
+
+// Close deregisters the callback registered by Stream.Subscribe. It is
+// safe to call multiple times: subsequent calls after the first return
+// nil without sending another unsubscribe frame.
+func (s *Subscription) Close() error {
+	if s == nil {
+		return nil
+	}
+	if !s.closed.CompareAndSwap(false, true) {
+		return nil
+	}
+	return s.stream.unsubscribe(s)
+}
+
+// Subscribe registers a callback for the given subscription filter and
+// returns a Subscription handle. Call sub.Close() to deregister.
+func (w *Stream) Subscribe(filter subscriptionFilter, callback func(WSMessage)) (*Subscription, error) {
 	if callback == nil {
-		return 0, fmt.Errorf("callback cannot be nil")
+		return nil, fmt.Errorf("callback cannot be nil")
 	}
 
 	w.subMu.Lock()
-	key := sub.key()
+	key := filter.key()
 	id := int(w.nextSubID.Add(1))
 
 	if w.subscriptions[key] == nil {
@@ -213,32 +236,33 @@ func (w *Stream) Subscribe(sub Subscription, callback func(WSMessage)) (int, err
 	w.subMu.Unlock()
 
 	// Send subscribe message (outside lock to avoid deadlock)
-	if err := w.sendSubscribe(sub); err != nil {
+	if err := w.sendSubscribe(filter); err != nil {
 		w.subMu.Lock()
 		delete(w.subscriptions[key], id)
 		w.subMu.Unlock()
-		return 0, fmt.Errorf("subscribe: %w", err)
+		return nil, fmt.Errorf("subscribe: %w", err)
 	}
 
-	return id, nil
+	return &Subscription{filter: filter, id: id, stream: w}, nil
 }
 
-// Unsubscribe removes a subscription by ID.
-func (w *Stream) Unsubscribe(sub Subscription, id int) error {
+// unsubscribe drops the callback registration recorded by Subscribe and
+// emits an unsubscribe frame once no listener remains for the filter.
+func (w *Stream) unsubscribe(sub *Subscription) error {
 	w.subMu.Lock()
-	key := sub.key()
+	key := sub.filter.key()
 	subs, ok := w.subscriptions[key]
 	if !ok {
 		w.subMu.Unlock()
 		return fmt.Errorf("subscription not found")
 	}
 
-	if _, ok := subs[id]; !ok {
+	if _, ok := subs[sub.id]; !ok {
 		w.subMu.Unlock()
 		return fmt.Errorf("subscription ID not found")
 	}
 
-	delete(subs, id)
+	delete(subs, sub.id)
 
 	shouldUnsubscribe := len(subs) == 0
 	if shouldUnsubscribe {
@@ -247,7 +271,7 @@ func (w *Stream) Unsubscribe(sub Subscription, id int) error {
 	w.subMu.Unlock()
 
 	if shouldUnsubscribe {
-		if err := w.sendUnsubscribe(sub); err != nil {
+		if err := w.sendUnsubscribe(sub.filter); err != nil {
 			return fmt.Errorf("unsubscribe: %w", err)
 		}
 	}
@@ -425,31 +449,31 @@ func (w *Stream) resubscribeAll() error {
 	w.subMu.RUnlock()
 
 	for _, key := range keys {
-		sub := Subscription{
+		f := subscriptionFilter{
 			Type:     key.typ,
 			Coin:     key.coin,
 			User:     key.user,
 			Interval: key.interval,
 			Dex:      key.dex,
 		}
-		if err := w.sendSubscribe(sub); err != nil {
+		if err := w.sendSubscribe(f); err != nil {
 			return fmt.Errorf("resubscribe %s: %w", key.typ, err)
 		}
 	}
 	return nil
 }
 
-func (w *Stream) sendSubscribe(sub Subscription) error {
+func (w *Stream) sendSubscribe(f subscriptionFilter) error {
 	return w.writeJSON(WsCommand{
 		Method:       "subscribe",
-		Subscription: &sub,
+		Subscription: &f,
 	})
 }
 
-func (w *Stream) sendUnsubscribe(sub Subscription) error {
+func (w *Stream) sendUnsubscribe(f subscriptionFilter) error {
 	return w.writeJSON(WsCommand{
 		Method:       "unsubscribe",
-		Subscription: &sub,
+		Subscription: &f,
 	})
 }
 

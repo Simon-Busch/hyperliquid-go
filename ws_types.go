@@ -4,12 +4,19 @@ import (
 	"encoding/json"
 )
 
+// WSMessage is a single websocket frame delivered to subscription
+// callbacks. Channel is the server-side topic; Data is the raw JSON
+// payload for the caller to unmarshal.
 type WSMessage struct {
 	Channel string          `json:"channel"`
 	Data    json.RawMessage `json:"data"`
 }
 
-type Subscription struct {
+// subscriptionFilter is the wire-shape that the Hyperliquid WS API
+// expects in subscribe/unsubscribe commands. It is built by the
+// package-level constructors (Trades, Book, etc.) and consumed by
+// Stream.Subscribe.
+type subscriptionFilter struct {
 	Type     string `json:"type"`
 	Coin     string `json:"coin,omitempty"`
 	User     string `json:"user,omitempty"`
@@ -25,7 +32,7 @@ type subKey struct {
 	dex      string
 }
 
-func (s Subscription) key() subKey {
+func (s subscriptionFilter) key() subKey {
 	return subKey{
 		typ:      s.Type,
 		coin:     s.Coin,
@@ -35,9 +42,11 @@ func (s Subscription) key() subKey {
 	}
 }
 
+// WsCommand is the envelope used to send a subscribe/unsubscribe/ping
+// command over the websocket.
 type WsCommand struct {
-	Method       string        `json:"method"`
-	Subscription *Subscription `json:"subscription,omitempty"`
+	Method       string              `json:"method"`
+	Subscription *subscriptionFilter `json:"subscription,omitempty"`
 }
 
 type subscriptionCallback struct {

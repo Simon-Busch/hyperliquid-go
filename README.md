@@ -66,13 +66,12 @@ func main() {
     if err := c.Stream.Connect(ctx); err != nil { log.Fatal(err) }
     defer c.Stream.Close()
 
-    sub := hl.Trades("ETH")
-    id, err := c.Stream.Subscribe(sub, func(m hl.WSMessage) {
+    sub, err := c.Stream.Subscribe(hl.Trades("ETH"), func(m hl.WSMessage) {
         fmt.Println("trade:", string(m.Data))
     })
     if err != nil { log.Fatal(err) }
+    defer sub.Close()
     time.Sleep(5 * time.Second)
-    _ = c.Stream.Unsubscribe(sub, id)
 }
 ```
 

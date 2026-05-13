@@ -154,7 +154,7 @@ func TestStream_SubscribeDispatchAndUnsubscribe(t *testing.T) {
 
 	var got atomic.Int32
 	done := make(chan struct{}, 1)
-	id, err := s.Subscribe(Trades("BTC"), func(m WSMessage) {
+	sub, err := s.Subscribe(Trades("BTC"), func(m WSMessage) {
 		if m.Channel != "trades" {
 			t.Errorf("dispatched channel = %s", m.Channel)
 		}
@@ -164,8 +164,8 @@ func TestStream_SubscribeDispatchAndUnsubscribe(t *testing.T) {
 		default:
 		}
 	})
-	if err != nil || id <= 0 {
-		t.Fatalf("Subscribe: id=%d err=%v", id, err)
+	if err != nil || sub == nil {
+		t.Fatalf("Subscribe: sub=%v err=%v", sub, err)
 	}
 
 	// Push a matching trade message from the server.
@@ -186,8 +186,12 @@ func TestStream_SubscribeDispatchAndUnsubscribe(t *testing.T) {
 		t.Errorf("ETH trade should not match BTC subscription: count=%d", got.Load())
 	}
 
-	if err := s.Unsubscribe(Trades("BTC"), id); err != nil {
-		t.Errorf("Unsubscribe: %v", err)
+	if err := sub.Close(); err != nil {
+		t.Errorf("sub.Close: %v", err)
+	}
+	// Idempotent: a second Close is a no-op.
+	if err := sub.Close(); err != nil {
+		t.Errorf("sub.Close (second): %v", err)
 	}
 }
 
