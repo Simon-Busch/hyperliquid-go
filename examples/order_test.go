@@ -3074,7 +3074,7 @@ func TestL2BookWebSocketMultipleTickers(t *testing.T) {
 	// Subscribe to L2 book for multiple coins
 	subscriptions := make(map[string]int) // coin -> subscription ID
 	for _, coin := range coins {
-		subID, err := wsClient.SubscribeToOrderbook(coin, func(msg hyperliquid.WSMessage) {
+		subID, err := wsClient.Subscribe(hyperliquid.BookSub(coin), func(msg hyperliquid.WSMessage) {
 			t.Logf("📊 Received L2 book message for %s", coin)
 			messageChan <- msg
 		})
@@ -3190,7 +3190,7 @@ func TestAllMidsWebSocket(t *testing.T) {
 	messageChan := make(chan hyperliquid.WSMessage, 10)
 
 	// Subscribe to all mids
-	subID, err := wsClient.SubscribeToAllMids(func(msg hyperliquid.WSMessage) {
+	subID, err := wsClient.Subscribe(hyperliquid.AllMidsSub(), func(msg hyperliquid.WSMessage) {
 		t.Logf("📊 Received allMids message")
 		messageChan <- msg
 	})
