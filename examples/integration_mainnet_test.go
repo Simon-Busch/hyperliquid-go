@@ -243,9 +243,9 @@ func TestIntegrationMainnet_TriggerMarketTP(t *testing.T) {
 	if cancelResp, err := ex.Cancel("BTC", tpOid); err != nil {
 		_, _ = ex.MarketClose("BTC", nil, nil, slippage, nil, nil)
 		t.Fatalf("Cancel tp: %v", err)
-	} else if !cancelResp.Ok {
+	} else if cancelResp.Error != "" {
 		_, _ = ex.MarketClose("BTC", nil, nil, slippage, nil, nil)
-		t.Fatalf("cancel tp failed: %s", cancelResp.Err)
+		t.Fatalf("cancel tp failed: %s", cancelResp.Error)
 	}
 
 	t.Logf("step 3/3: market close position")
@@ -318,8 +318,8 @@ func TestIntegrationMainnet_PlaceAndCancelLimitOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cancel: %v", err)
 	}
-	if !cancelResp.Ok {
-		t.Fatalf("cancel failed: %s", cancelResp.Err)
+	if cancelResp.Error != "" {
+		t.Fatalf("cancel failed: %s", cancelResp.Error)
 	}
 	t.Logf("cancelled oid=%d ok", oid)
 }
