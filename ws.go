@@ -69,6 +69,28 @@ type Stream struct {
 	closed    atomic.Bool
 	closedMu  sync.Mutex
 	closeOnce sync.Once
+
+	// Pluggable logger for non-fatal warnings; defaults to no-op.
+	logger Logger
+}
+
+// SetLogger plugs in a Logger to receive warnings and reconnection
+// diagnostics. A nil logger reverts to the no-op default.
+func (w *Stream) SetLogger(l Logger) {
+	if l == nil {
+		w.logger = nopLogger{}
+		return
+	}
+	w.logger = l
+}
+
+// logf is a tiny helper that dispatches to the configured Logger's Warnf,
+// falling back to the no-op logger when none is set.
+func (w *Stream) warnf(format string, args ...any) {
+	if w.logger == nil {
+		return
+	}
+	w.logger.Warnf(format, args...)
 }
 
 type pendingRequest struct {
@@ -95,6 +117,7 @@ func NewStream(baseURL string) *Stream {
 		subscriptions:   make(map[subKey]map[int]*subscriptionCallback),
 		pendingRequests: make(map[int]*pendingRequest),
 		ReconnectWait:   reconnectBaseWait,
+		logger:          nopLogger{},
 	}
 }
 
@@ -412,7 +435,7 @@ func (w *Stream) readPump(ctx context.Context) {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			if ctx.Err() == nil && !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-				log.Printf("websocket read error: %v", err)
+				w.warnf("websocket read error: %v", err)
 			}
 			return // Exit pump, handleDisconnect will trigger reconnection
 		}
@@ -425,7 +448,7 @@ func (w *Stream) readPump(ctx context.Context) {
 		// Parse and dispatch
 		var wsMsg WSMessage
 		if err := json.Unmarshal(msg, &wsMsg); err != nil {
-			log.Printf("websocket message parse error: %v", err)
+			w.warnf("websocket message parse error: %v", err)
 			continue
 		}
 
@@ -447,7 +470,7 @@ func (w *Stream) pingPump(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := w.sendPing(); err != nil {
-				log.Printf("ping error: %v", err)
+				w.warnf("ping error: %v", err)
 				// Don't return here - readPump will detect the error
 				// and handleDisconnect will trigger reconnection
 			}
@@ -495,7 +518,7 @@ func (w *Stream) scheduleReconnect() {
 
 	// Check max attempts
 	if w.MaxReconnectAttempts > 0 && attempts > w.MaxReconnectAttempts {
-		log.Printf("Max reconnection attempts (%d) reached, giving up", w.MaxReconnectAttempts)
+		w.warnf("Max reconnection attempts (%d) reached, giving up", w.MaxReconnectAttempts)
 		return
 	}
 
@@ -510,7 +533,7 @@ func (w *Stream) scheduleReconnect() {
 		delay = time.Second
 	}
 
-	log.Printf("Reconnection attempt %d in %v...", attempts, delay)
+	w.warnf("Reconnection attempt %d in %v...", attempts, delay)
 
 	// Schedule reconnection (non-blocking, like timer-based approach)
 	w.reconnectTimer = time.AfterFunc(delay, func() {
@@ -523,10 +546,10 @@ func (w *Stream) scheduleReconnect() {
 		cancel()
 
 		if err != nil {
-			log.Printf("Reconnection attempt %d failed: %v", attempts, err)
+			w.warnf("Reconnection attempt %d failed: %v", attempts, err)
 			w.scheduleReconnect()
 		} else {
-			log.Printf("Reconnection successful after %d attempts", attempts)
+			w.warnf("Reconnection successful after %d attempts", attempts)
 		}
 	})
 }
@@ -549,7 +572,7 @@ func (w *Stream) dispatch(msg WSMessage) {
 	if msg.Channel == "post" {
 		var postResp WsPostResponseData
 		if err := json.Unmarshal(msg.Data, &postResp); err != nil {
-			log.Printf("failed to unmarshal post response: %v", err)
+			w.warnf("failed to unmarshal post response: %v", err)
 			return
 		}
 
