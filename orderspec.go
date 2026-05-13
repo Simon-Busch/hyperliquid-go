@@ -51,30 +51,3 @@ type OrderSpec struct {
 	SkipValidate bool
 }
 
-// Result is the trader-friendly outcome of a single placement call.
-type Result struct {
-	OID     int64
-	Cloid   string
-	Status  string
-	AvgPx   string
-	TotalSz string
-	Error   string
-}
-
-// BatchResult is the outcome of a multi-leg placement call.
-type BatchResult struct {
-	Results []Result
-	Error   string
-}
-
-// CancelResult is the outcome of a single cancel call.
-type CancelResult struct {
-	Status string
-	Error  string
-}
-
-// BatchCancelResult is the outcome of a multi-cancel call.
-type BatchCancelResult struct {
-	Results []CancelResult
-	Error   string
-}
