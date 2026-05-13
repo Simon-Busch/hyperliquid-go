@@ -55,8 +55,8 @@ type Stream struct {
 	reconnectMu          sync.Mutex
 	reconnectTimer       *time.Timer
 	reconnectAttempts    int
-	MaxReconnectAttempts int           // 0 = unlimited (default)
-	ReconnectWait        time.Duration // Can be customized
+	maxReconnectAttempts int           // 0 = unlimited (default)
+	reconnectWait        time.Duration // initial backoff, reset on each successful Connect
 
 	// POST request tracking
 	nextPostID      atomic.Int32
@@ -111,7 +111,7 @@ func NewStream(baseURL string) (*Stream, error) {
 		url:             wsURL,
 		subscriptions:   make(map[subKey]map[int]*subscriptionCallback),
 		pendingRequests: make(map[int]*pendingRequest),
-		ReconnectWait:   reconnectBaseWait,
+		reconnectWait:   reconnectBaseWait,
 		logger:          nopLogger{},
 	}, nil
 }
@@ -164,10 +164,11 @@ func (w *Stream) Connect(ctx context.Context) error {
 	w.conn = conn
 	w.connected.Store(true)
 
-	// Reset reconnection state on successful connection
+	// Reset reconnection state on successful connection.
+	// reconnectWait is reset only if it was never customized via
+	// WithReconnectWait; in that case it remains at its starting value.
 	w.reconnectMu.Lock()
 	w.reconnectAttempts = 0
-	w.ReconnectWait = reconnectBaseWait
 	w.reconnectMu.Unlock()
 
 	// Create context for this connection's goroutines

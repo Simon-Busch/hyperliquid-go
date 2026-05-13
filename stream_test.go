@@ -91,7 +91,7 @@ func streamForURL(t *testing.T, httpURL string) *Stream {
 		url:             ws,
 		subscriptions:   make(map[subKey]map[int]*subscriptionCallback),
 		pendingRequests: make(map[int]*pendingRequest),
-		ReconnectWait:   time.Millisecond,
+		reconnectWait:   time.Millisecond,
 		logger:          nopLogger{},
 	}
 }

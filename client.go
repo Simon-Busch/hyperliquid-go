@@ -8,6 +8,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"net/http"
+	"time"
 )
 
 // Client is the top-level Hyperliquid client. It exposes three handles:
@@ -40,12 +41,13 @@ func New(opts ...Option) (*Client, error) {
 
 	if cfg.privateKey != nil {
 		c.Trade = &Trader{
-			client:      api,
-			privateKey:  cfg.privateKey,
-			vault:       cfg.vault,
-			accountAddr: cfg.account,
-			dex:         cfg.builderDex,
-			info:        info,
+			client:       api,
+			privateKey:   cfg.privateKey,
+			vault:        cfg.vault,
+			accountAddr:  cfg.account,
+			dex:          cfg.builderDex,
+			info:         info,
+			expiresAfter: cfg.expiresAfter,
 		}
 		c.Trade.attachSubgroups()
 	}
@@ -56,6 +58,10 @@ func New(opts ...Option) (*Client, error) {
 			return nil, err
 		}
 		stream.SetLogger(cfg.logger)
+		stream.maxReconnectAttempts = cfg.maxReconnectAttempts
+		if cfg.reconnectWait > 0 {
+			stream.reconnectWait = cfg.reconnectWait
+		}
 		c.Stream = stream
 	}
 
@@ -64,17 +70,20 @@ func New(opts ...Option) (*Client, error) {
 
 // clientConfig holds the options accumulated by New.
 type clientConfig struct {
-	baseURL    string
-	httpClient *http.Client
-	privateKey *ecdsa.PrivateKey
-	account    string
-	vault      string
-	builderDex string
-	meta       *Meta
-	spotMeta   *SpotMeta
-	perpDexs   *MixedArray
-	skipStream bool
-	logger     Logger
+	baseURL              string
+	httpClient           *http.Client
+	privateKey           *ecdsa.PrivateKey
+	account              string
+	vault                string
+	builderDex           string
+	meta                 *Meta
+	spotMeta             *SpotMeta
+	perpDexs             *MixedArray
+	skipStream           bool
+	logger               Logger
+	maxReconnectAttempts int
+	reconnectWait        time.Duration
+	expiresAfter         *int64
 }
 
 func defaultClientConfig() *clientConfig {

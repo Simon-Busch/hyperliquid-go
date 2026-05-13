@@ -66,10 +66,16 @@ func (e *Trader) AdjustMargin(coin string, amount float64) (*APIResponse[Default
 	return &result, nil
 }
 
-// SetExpiresAfter sets the expiration time for subsequent actions. nil
-// disables the expiration field on the wire.
-func (e *Trader) SetExpiresAfter(expiresAfter *int64) {
-	e.expiresAfter = expiresAfter
+// SetExpiresAfter updates the expiration deadline stamped on every
+// signed action the Trader subsequently dispatches. A zero deadline
+// (the zero value of time.Time) clears the field.
+func (e *Trader) SetExpiresAfter(deadline time.Time) {
+	if deadline.IsZero() {
+		e.expiresAfter = nil
+		return
+	}
+	ms := deadline.UnixMilli()
+	e.expiresAfter = &ms
 }
 
 // ScheduleCancelAll schedules cancellation of all open orders at

@@ -191,15 +191,18 @@ func (w *Stream) Post(requestType string, payload any, timeout time.Duration) (*
 The Stream owns its reconnect state machine:
 
 - On disconnect (read error, server close, ping timeout) the read pump exits and `handleDisconnect` schedules a reconnect.
-- The initial wait is `reconnectBaseWait` (1 s); each failed attempt doubles up to `maxReconnectWait` (1 min).
-- `Stream.MaxReconnectAttempts` is an exported field (default 0 = unlimited).
-- `Stream.ReconnectWait` is the current backoff interval and is reset to 1 s on every successful connect.
+- The initial wait is 1 s (`WithReconnectWait` overrides); each failed attempt doubles up to an internal one-minute ceiling.
+- `WithMaxReconnectAttempts(n)` caps total retries. `0` (the default) means retry forever.
 - On successful reconnect, every callback registered via `Subscribe` is re-issued before the call returns.
 
-Tune the field directly if you need a non-default backoff:
+Tune from the constructor:
 
 ```go
-c.Stream.MaxReconnectAttempts = 5
+c, _ := hyperliquid.New(
+    hyperliquid.WithTestnet(),
+    hyperliquid.WithMaxReconnectAttempts(5),
+    hyperliquid.WithReconnectWait(2*time.Second),
+)
 ```
 
 ## Logging {#logging}

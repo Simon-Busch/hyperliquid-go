@@ -43,12 +43,12 @@ func (w *Stream) scheduleReconnect() {
 	w.reconnectAttempts++
 	attempts := w.reconnectAttempts
 
-	if w.MaxReconnectAttempts > 0 && attempts > w.MaxReconnectAttempts {
-		w.warnf("Max reconnection attempts (%d) reached, giving up", w.MaxReconnectAttempts)
+	if w.maxReconnectAttempts > 0 && attempts > w.maxReconnectAttempts {
+		w.warnf("Max reconnection attempts (%d) reached, giving up", w.maxReconnectAttempts)
 		return
 	}
 
-	backoff := w.ReconnectWait * time.Duration(1<<(attempts-1))
+	backoff := w.reconnectWait * time.Duration(1<<(attempts-1))
 	if backoff > maxReconnectWait {
 		backoff = maxReconnectWait
 	}

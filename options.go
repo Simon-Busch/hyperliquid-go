@@ -3,6 +3,7 @@ package hyperliquid
 import (
 	"crypto/ecdsa"
 	"net/http"
+	"time"
 )
 
 // Option configures the top-level Client. Pass options to New.
@@ -74,5 +75,30 @@ func WithLogger(l Logger) Option {
 		if l != nil {
 			c.logger = l
 		}
+	}
+}
+
+// WithMaxReconnectAttempts caps how many times the Stream will retry the
+// websocket connection before giving up. A value of 0 (the default) means
+// retry forever.
+func WithMaxReconnectAttempts(n int) Option {
+	return func(c *clientConfig) { c.maxReconnectAttempts = n }
+}
+
+// WithReconnectWait sets the initial backoff used by the Stream's
+// reconnect loop. The default is 1 second; each failed attempt doubles
+// the wait up to an internal one-minute ceiling.
+func WithReconnectWait(d time.Duration) Option {
+	return func(c *clientConfig) { c.reconnectWait = d }
+}
+
+// WithExpiresAfter pins an expiration time onto every signed action
+// dispatched by the Trader. The deadline is forwarded as a Unix
+// milliseconds value on the wire. Use Trader.SetExpiresAfter to mutate
+// the deadline at runtime.
+func WithExpiresAfter(deadline time.Time) Option {
+	return func(c *clientConfig) {
+		ms := deadline.UnixMilli()
+		c.expiresAfter = &ms
 	}
 }
