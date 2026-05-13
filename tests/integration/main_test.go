@@ -57,7 +57,14 @@ func loadConfig() (*integrationConfig, error) {
 	cfgOnce.Do(func() {
 		// Resolve .env from the current directory upward — works whether the
 		// test binary runs from the repo root, tests/, or tests/integration/.
-		_ = godotenv.Load(".env", "../.env", "../../.env")
+		// godotenv.Load with multiple args tries to load all of them and
+		// bails on the first miss, so iterate manually and stop at the
+		// first one that exists.
+		for _, p := range []string{".env", "../.env", "../../.env"} {
+			if err := godotenv.Load(p); err == nil {
+				break
+			}
+		}
 
 		pk := strings.TrimSpace(os.Getenv("HL_PRIVATE_KEY"))
 		if pk == "" {
