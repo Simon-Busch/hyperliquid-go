@@ -47,6 +47,7 @@ func New(opts ...Option) (*Client, error) {
 			dex:         cfg.builderDex,
 			info:        info,
 		}
+		c.Trade.attachSubgroups()
 	}
 
 	if !cfg.skipStream {

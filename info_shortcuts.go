@@ -159,11 +159,9 @@ func (i *Info) MultiSigSigners(multiSigAddr string) ([]MultiSigSigner, error) {
 	return i.QueryUserToMultiSigSigners(multiSigAddr)
 }
 
-// InfoStakeGroup exposes the staking-info shortcuts.
+// InfoStakeGroup exposes the staking-info shortcuts. Accessed via the
+// Info.Stake field, populated by NewInfo.
 type InfoStakeGroup struct{ i *Info }
-
-// Stake returns the staking-info sub-group on Info.
-func (i *Info) Stake() *InfoStakeGroup { return &InfoStakeGroup{i: i} }
 
 // Summary returns the staking summary for addr.
 func (g *InfoStakeGroup) Summary(addr string) (*StakingSummary, error) {

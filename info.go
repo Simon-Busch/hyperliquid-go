@@ -23,6 +23,9 @@ type Info struct {
 	nameToCoin     map[string]string
 	assetToDecimal map[int]int
 	perpDexName    string // For HIP-3 builder-deployed perps (e.g., "flx")
+
+	// Stake exposes the staking-info sub-group.
+	Stake *InfoStakeGroup
 }
 
 // postTimeRangeRequest makes a POST request with time range parameters
@@ -64,6 +67,7 @@ func NewInfo(baseURL string, skipWS bool, meta *Meta, spotMeta *SpotMeta, perpDe
 		assetToDecimal: make(map[int]int),
 		perpDexName:    perpDexName,
 	}
+	info.Stake = &InfoStakeGroup{i: info}
 
 	if meta == nil {
 		var err error

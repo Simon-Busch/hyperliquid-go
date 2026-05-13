@@ -5,9 +5,6 @@ type SubAccountGroup struct {
 	t *Trader
 }
 
-// SubAccount returns the sub-account management handle.
-func (t *Trader) SubAccount() *SubAccountGroup { return &SubAccountGroup{t: t} }
-
 // Create allocates a new sub-account under the current signer.
 func (g *SubAccountGroup) Create(name string) (*CreateSubAccountResponse, error) {
 	return g.t.CreateSubAccount(name)

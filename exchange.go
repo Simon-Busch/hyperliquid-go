@@ -19,6 +19,15 @@ type Trader struct {
 	dex          string // For HIP-3 builder-deployed perps
 	info         *Info
 	expiresAfter *int64
+
+	// Transfer exposes balance and vault transfer actions.
+	Transfer *TransferGroup
+	// SubAccount exposes sub-account management.
+	SubAccount *SubAccountGroup
+	// Stake exposes HYPE staking actions.
+	Stake *StakeGroup
+	// MultiSigOps exposes multi-sig conversion and execution helpers.
+	MultiSigOps *MultiSigGroup
 }
 
 // NewTrader builds a Trader pinned to baseURL with the supplied metadata.
@@ -34,7 +43,7 @@ func NewTrader(
 	perpDexs *MixedArray,
 	perpDexName string,
 ) *Trader {
-	return &Trader{
+	t := &Trader{
 		client:      newHTTPAPI(baseURL, nil),
 		privateKey:  privateKey,
 		vault:       vaultAddr,
@@ -42,6 +51,18 @@ func NewTrader(
 		dex:         perpDexName,
 		info:        NewInfo(baseURL, true, meta, spotMeta, perpDexs, perpDexName),
 	}
+	t.attachSubgroups()
+	return t
+}
+
+// attachSubgroups initialises the Transfer/SubAccount/Stake/MultiSigOps
+// subgroup fields. Called by NewTrader and by hl.New after constructing
+// the Trader.
+func (t *Trader) attachSubgroups() {
+	t.Transfer = &TransferGroup{t: t}
+	t.SubAccount = &SubAccountGroup{t: t}
+	t.Stake = &StakeGroup{t: t}
+	t.MultiSigOps = &MultiSigGroup{t: t}
 }
 
 // PerpDex returns the configured builder perp dex name (e.g. "flx"), or empty string for default dex.

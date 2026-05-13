@@ -6,10 +6,6 @@ type TransferGroup struct {
 	t *Trader
 }
 
-// Transfer returns the transfer sub-group for this Trader. It is safe to
-// call repeatedly; the returned handle is a thin wrapper.
-func (t *Trader) Transfer() *TransferGroup { return &TransferGroup{t: t} }
-
 // SendUSD sends USDC on Hyperliquid to toAddr.
 func (g *TransferGroup) SendUSD(toAddr string, amount float64) (*TransferResponse, error) {
 	return g.t.UsdTransfer(amount, toAddr)
