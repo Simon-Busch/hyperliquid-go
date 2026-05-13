@@ -9,9 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"time"
+
+	"github.com/Simon-Busch/hyperliquid-go/internal/transport"
 )
 
 const (
@@ -28,22 +28,8 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// defaultTransport returns an http.Transport tuned for low-latency API calls.
-func defaultTransport() *http.Transport {
-	return &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   5 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		ForceAttemptHTTP2:   true, // required when custom DialContext/TLSClientConfig is set
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-		TLSHandshakeTimeout: 5 * time.Second,
-		DisableCompression:  true, // skip gzip overhead on small payloads
-	}
-}
-
+// NewClient builds a low-level HTTP client targeting baseURL (defaults to
+// mainnet). It is primarily an internal helper; prefer hyperliquid.New.
 func NewClient(baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = MainnetAPIURL
@@ -52,7 +38,7 @@ func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Transport: defaultTransport(),
+			Transport: transport.Default(),
 		},
 	}
 }
@@ -64,7 +50,7 @@ func NewClientWithHTTPClient(baseURL string, httpClient *http.Client) *Client {
 		baseURL = MainnetAPIURL
 	}
 	if httpClient == nil {
-		httpClient = &http.Client{Transport: defaultTransport()}
+		httpClient = &http.Client{Transport: transport.Default()}
 	}
 
 	return &Client{
