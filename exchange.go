@@ -1,11 +1,15 @@
 package hyperliquid
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
@@ -20,6 +24,13 @@ type Trader struct {
 	info         *Info
 	expiresAfter *int64
 
+	// userState caches the most recent UserState snapshot used for
+	// position-aware validation. It is refreshed by validate() on every
+	// placement attempt unless SkipValidation is in effect, and may be
+	// refreshed explicitly via RefreshState.
+	userState   *UserState
+	userStateMu sync.RWMutex
+
 	// Transfer exposes balance and vault transfer actions.
 	Transfer *TransferGroup
 	// SubAccount exposes sub-account management.
@@ -28,6 +39,49 @@ type Trader struct {
 	Stake *StakeGroup
 	// MultiSig exposes multi-sig conversion and execution helpers.
 	MultiSig *MultiSigGroup
+}
+
+// effectiveAddr returns the address used for position-state lookups. It
+// prefers accountAddr (agent flow), falls back to vault, then derives the
+// address from the configured private key.
+func (t *Trader) effectiveAddr() string {
+	if t.accountAddr != "" {
+		return t.accountAddr
+	}
+	if t.vault != "" {
+		return t.vault
+	}
+	if t.privateKey == nil {
+		return ""
+	}
+	return strings.ToLower(crypto.PubkeyToAddress(t.privateKey.PublicKey).Hex())
+}
+
+// RefreshState refreshes the cached UserState snapshot used by
+// position-aware validation. The ctx parameter is reserved for future
+// cancellation; the underlying HTTP call does not yet honour it.
+func (t *Trader) RefreshState(ctx context.Context) error {
+	_ = ctx
+	addr := t.effectiveAddr()
+	if addr == "" {
+		return fmt.Errorf("hyperliquid: no address available for RefreshState")
+	}
+	state, err := t.info.UserState(addr)
+	if err != nil {
+		return err
+	}
+	t.userStateMu.Lock()
+	t.userState = state
+	t.userStateMu.Unlock()
+	return nil
+}
+
+// cachedUserState returns a snapshot of the cached UserState pointer
+// without re-fetching. Callers must treat the result as read-only.
+func (t *Trader) cachedUserState() *UserState {
+	t.userStateMu.RLock()
+	defer t.userStateMu.RUnlock()
+	return t.userState
 }
 
 // NewTrader builds a Trader pinned to baseURL with the supplied metadata.

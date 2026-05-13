@@ -1,5 +1,10 @@
 package hyperliquid
 
+import (
+	"context"
+	"math"
+)
+
 // PlaceMany packages multiple OrderSpec legs into a single signed action.
 // Use the hl.ALO/IOC/GTC/Market/Trigger constructors to build the specs.
 func (t *Trader) PlaceMany(orders ...OrderSpec) (BatchResult, error) {
@@ -89,36 +94,24 @@ func (t *Trader) PlaceTrigger(coin string, side Side, size, triggerPx float64, o
 }
 
 // ClosePosition flattens the caller's open position on coin. The order
-// side is inferred from the position: long positions are exited with a
+// side is inferred from the cached UserState: long positions exit with a
 // sell, short with a buy. By default this is a market close; supply
 // WithLimit(px) to close at a specific price and WithSize(x) to close
-// partially.
+// partially. If position state cannot be fetched (e.g. agent address
+// mismatch) the call returns a ValidationError{Code:"no_position"} via
+// validate().
 func (t *Trader) ClosePosition(coin string, opts ...PlaceOpt) (Result, error) {
-	addr := t.accountAddr
-	if addr == "" {
-		addr = t.vault
-	}
-	state, err := t.info.UserState(addr)
-	if err != nil {
+	if err := t.RefreshState(context.Background()); err != nil {
 		return Result{}, err
 	}
-	var (
-		found bool
-		szi   float64
-	)
-	for _, ap := range state.AssetPositions {
-		if ap.Position.Coin == coin {
-			szi = parseFloat(ap.Position.Szi)
-			found = true
-			break
-		}
-	}
-	if !found || szi == 0 {
-		return Result{}, &ValidationError{Field: "Coin", Code: "no_position", Message: "no open position to close"}
+	state := t.cachedUserState()
+	var szi float64
+	if state != nil {
+		_, szi = positionFor(state, coin)
 	}
 
 	isBuy := szi < 0
-	size := abs(szi)
+	size := math.Abs(szi)
 
 	// Apply options to a placeholder spec to surface WithSize/WithLimit/etc.
 	tmp := OrderSpec{Method: "close", Coin: coin, Size: size, Side: sideFromIsBuy(isBuy), TIF: tifIOC}
@@ -137,10 +130,11 @@ func (t *Trader) ClosePosition(coin string, opts ...PlaceOpt) (Result, error) {
 		if slip == 0 {
 			slip = 0.05
 		}
-		price, err = t.SlippagePrice(coin, isBuy, slip, nil)
+		p, err := t.SlippagePrice(coin, isBuy, slip, nil)
 		if err != nil {
 			return Result{}, err
 		}
+		price = p
 	}
 	tmp.Price = price
 	tmp.ReduceOnly = true

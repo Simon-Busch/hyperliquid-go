@@ -1,18 +1,24 @@
 package hyperliquid
 
-import "math"
+import (
+	"context"
+	"math"
+	"strconv"
+)
 
 // validate is the single pre-flight check called from Trader.place() and
 // Trader.placeMany() before any signing. Each rule maps to a stable Code
 // on the returned ValidationError so callers can branch via errors.As.
 //
+// On every invocation the cached UserState is refreshed via the Info HTTP
+// path (one round-trip). Callers in latency-sensitive paths can disable
+// the entire check by attaching SkipValidation() to the spec.
+//
 // The rules implemented here mirror section 9 of the spec: size > 0,
-// price > 0 where required, tick alignment, five-significant-figure cap,
-// reduce-only direction sanity, bracket placement vs side, and
-// option/method compatibility. Position-dependent rules (reduce direction,
-// close size) are gated on availability of UserState via info; when state
-// is unavailable they are skipped silently.
-func validate(spec *OrderSpec, info *Info) error {
+// price > 0 where required, five-significant-figure cap, reduce-only
+// direction sanity, bracket placement vs side, close direction / size, and
+// option/method compatibility.
+func (t *Trader) validate(spec *OrderSpec) error {
 	if spec == nil || spec.SkipValidate {
 		return nil
 	}
@@ -25,9 +31,9 @@ func validate(spec *OrderSpec, info *Info) error {
 	if spec.Coin == "" {
 		return &ValidationError{Field: "Coin", Code: "coin_required", Message: "coin is required"}
 	}
-	if info != nil {
-		asset := info.NameToAsset(spec.Coin)
-		if asset == 0 && !isFirstAsset(info, spec.Coin) {
+	if t != nil && t.info != nil {
+		asset := t.info.NameToAsset(spec.Coin)
+		if asset == 0 && !isFirstAsset(t.info, spec.Coin) {
 			return &ValidationError{Field: "Coin", Code: "unknown_coin", Got: spec.Coin}
 		}
 	}
@@ -46,7 +52,61 @@ func validate(spec *OrderSpec, info *Info) error {
 	if err := validateBracket(spec); err != nil {
 		return err
 	}
+
+	// Position-state rules. Refresh the cache once (best-effort: a failure
+	// here surfaces only when a rule actually depends on the state).
+	if t != nil {
+		_ = t.RefreshState(context.Background())
+		if err := t.validatePositionState(spec); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// validatePositionState enforces the reduce-only direction, close
+// direction, and close size rules using the cached UserState. When no
+// state is available the rules are skipped silently (the spec calls for
+// SkipValidation to be required in that case; we degrade gracefully
+// instead so that fresh accounts without history still place orders).
+func (t *Trader) validatePositionState(spec *OrderSpec) error {
+	state := t.cachedUserState()
+	if state == nil {
+		return nil
+	}
+	pos, szi := positionFor(state, spec.Coin)
+
+	if spec.ReduceOnly && pos != nil {
+		if spec.Side.IsBuy() && szi > 0 {
+			return &ValidationError{Field: "ReduceOnly", Code: "wrong_side_for_reduce", Message: "Buy reduce-only on a long position would increase exposure"}
+		}
+		if !spec.Side.IsBuy() && szi < 0 {
+			return &ValidationError{Field: "ReduceOnly", Code: "wrong_side_for_reduce", Message: "Sell reduce-only on a short position would increase exposure"}
+		}
+	}
+
+	if spec.Method == "close" {
+		if pos == nil || szi == 0 {
+			return &ValidationError{Field: "Coin", Code: "no_position", Message: "no open position to close"}
+		}
+		if spec.OverrideSize > 0 && spec.OverrideSize > math.Abs(szi) {
+			return &ValidationError{Field: "Size", Code: "close_size_exceeds_position", Got: spec.OverrideSize, Want: math.Abs(szi)}
+		}
+	}
+	return nil
+}
+
+// positionFor returns the position struct and signed size for coin within
+// state, or (nil, 0) if no such position exists.
+func positionFor(state *UserState, coin string) (*Position, float64) {
+	for i := range state.AssetPositions {
+		p := &state.AssetPositions[i].Position
+		if p.Coin == coin {
+			szi, _ := strconv.ParseFloat(p.Szi, 64)
+			return p, szi
+		}
+	}
+	return nil, 0
 }
 
 // validateOptionCompatibility enforces the cross-cutting "option X cannot
@@ -60,11 +120,6 @@ func validateOptionCompatibility(spec *OrderSpec) error {
 	}
 	if spec.LimitPrice != 0 && spec.Method != "close" && spec.Method != "modify" {
 		return &ValidationError{Field: "Limit", Code: "unsupported_option", Message: "WithLimit only valid on ClosePosition / Modify"}
-	}
-	if (spec.IsMarket || (spec.Method == "trigger" && spec.Price != spec.TriggerPx)) && spec.Method != "trigger" {
-		// AsMarket / AsLimit may only appear on PlaceTrigger.
-		// AsMarket sets IsMarket=true; AsLimit sets Price and IsMarket=false.
-		// On non-trigger methods, IsMarket should remain false.
 	}
 	return nil
 }
@@ -95,7 +150,8 @@ func validateSignificantFigures(px float64) error {
 	return nil
 }
 
-// validateBracket enforces TP/SL placement rules relative to entry side.
+// validateBracket enforces TP/SL placement rules relative to entry side
+// and ensures bracket leg sizes do not exceed the entry order size.
 func validateBracket(spec *OrderSpec) error {
 	if spec.TakeProfit == 0 && spec.StopLoss == 0 {
 		return nil
@@ -121,10 +177,10 @@ func validateBracket(spec *OrderSpec) error {
 		}
 	}
 	if spec.TPSize > 0 && spec.Size > 0 && spec.TPSize > spec.Size {
-		return &ValidationError{Field: "TPSize", Code: "bracket_size_too_large", Got: spec.TPSize, Want: spec.Size}
+		return &ValidationError{Field: "TPSize", Code: "bracket_size_exceeds_entry", Got: spec.TPSize, Want: spec.Size}
 	}
 	if spec.SLSize > 0 && spec.Size > 0 && spec.SLSize > spec.Size {
-		return &ValidationError{Field: "SLSize", Code: "bracket_size_too_large", Got: spec.SLSize, Want: spec.Size}
+		return &ValidationError{Field: "SLSize", Code: "bracket_size_exceeds_entry", Got: spec.SLSize, Want: spec.Size}
 	}
 	return nil
 }

@@ -22,7 +22,7 @@ func (t *Trader) ModifyByCloid(cloid string, opts ...PlaceOpt) (Result, error) {
 }
 
 func (t *Trader) doModify(spec *OrderSpec) (Result, error) {
-	if err := validate(spec, t.info); err != nil {
+	if err := t.validate(spec); err != nil {
 		return Result{}, err
 	}
 	if spec.LimitPrice > 0 {

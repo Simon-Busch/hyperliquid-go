@@ -10,7 +10,7 @@ import (
 // path. The returned Result flattens the most useful fields from the
 // underlying APIResponse.
 func (t *Trader) place(spec *OrderSpec) (Result, error) {
-	if err := validate(spec, t.info); err != nil {
+	if err := t.validate(spec); err != nil {
 		return Result{}, err
 	}
 
@@ -33,7 +33,7 @@ func (t *Trader) placeMany(specs []OrderSpec) (BatchResult, error) {
 	var builder *BuilderInfo
 	for i := range specs {
 		s := &specs[i]
-		if err := validate(s, t.info); err != nil {
+		if err := t.validate(s); err != nil {
 			return BatchResult{}, err
 		}
 		reqs, b, err := specToRequests(s)
