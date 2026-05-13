@@ -74,3 +74,28 @@ func Market(coin string, side Side, size float64, opts ...PlaceOpt) OrderSpec {
 	}
 	return s
 }
+
+// PlaceTrigger places a trigger order (stop-market by default, or
+// stop-limit when AsLimit(px) is supplied).
+func (t *Trader) PlaceTrigger(coin string, side Side, size, triggerPx float64, opts ...PlaceOpt) (Result, error) {
+	spec := Trigger(coin, side, size, triggerPx, opts...)
+	return t.place(&spec)
+}
+
+// Trigger returns an OrderSpec describing a trigger order. Default fills
+// as a market; combine with AsLimit(px) to fill as a limit.
+func Trigger(coin string, side Side, size, triggerPx float64, opts ...PlaceOpt) OrderSpec {
+	s := OrderSpec{
+		Method:    "trigger",
+		Coin:      coin,
+		Side:      side,
+		Size:      size,
+		TriggerPx: triggerPx,
+		Price:     triggerPx,
+		IsMarket:  true,
+	}
+	for _, o := range opts {
+		o(&s)
+	}
+	return s
+}
