@@ -1,12 +1,5 @@
 package hyperliquid
 
-type Side string
-
-const (
-	SideAsk Side = "A"
-	SideBid Side = "B"
-)
-
 type Grouping string
 
 const (
