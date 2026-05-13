@@ -127,12 +127,23 @@ func NewInfo(baseURL string, skipWS bool, meta *Meta, spotMeta *SpotMeta, perpDe
 		}
 	}
 
-	// Map spot assets starting at 10000
+	// Map spot assets starting at 10000. spotInfo.Tokens[0] is the index
+	// of the base token in spotMeta.Tokens; Hyperliquid occasionally
+	// returns spot entries whose base-token index is past the end of the
+	// Tokens array (placeholder slots / paginated tail). In that case we
+	// register the asset id but skip the szDecimals lookup rather than
+	// panic — callers that need the decimals will get 0 and can fall
+	// back to a metadata refresh.
 	for _, spotInfo := range spotMeta.Universe {
 		asset := spotInfo.Index + spotAssetIndexOffset
 		info.coinToAsset[spotInfo.Name] = asset
 		info.nameToCoin[spotInfo.Name] = spotInfo.Name
-		info.assetToDecimal[asset] = spotMeta.Tokens[spotInfo.Tokens[0]].SzDecimals
+		if len(spotInfo.Tokens) > 0 {
+			baseIdx := spotInfo.Tokens[0]
+			if baseIdx >= 0 && baseIdx < len(spotMeta.Tokens) {
+				info.assetToDecimal[asset] = spotMeta.Tokens[baseIdx].SzDecimals
+			}
+		}
 	}
 
 	// Map HIP-4 outcome assets starting at 100_000_000.
