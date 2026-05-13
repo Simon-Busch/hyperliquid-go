@@ -6,7 +6,6 @@ require (
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
-	github.com/sonirico/vago v0.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/valyala/fastjson v1.6.4
 	github.com/vmihailenco/msgpack/v5 v5.4.1

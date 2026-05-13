@@ -1,9 +1,5 @@
 package hyperliquid
 
-import (
-	"github.com/sonirico/vago/slices"
-)
-
 type (
 	CancelOrderRequest struct {
 		Coin    string
@@ -30,12 +26,13 @@ func (e *Exchange) Cancel(
 func (e *Exchange) BulkCancel(
 	requests []CancelOrderRequest,
 ) (res *APIResponse[CancelOrderResponse], err error) {
-	cancels := slices.Map(requests, func(req CancelOrderRequest) CancelOrderWire {
-		return CancelOrderWire{
+	cancels := make([]CancelOrderWire, len(requests))
+	for i, req := range requests {
+		cancels[i] = CancelOrderWire{
 			Asset:   e.info.NameToAsset(req.Coin),
 			OrderID: req.OrderID,
 		}
-	})
+	}
 
 	action := CancelAction{
 		Type:    "cancel",
@@ -68,12 +65,13 @@ func (e *Exchange) CancelByCloid(
 func (e *Exchange) BulkCancelByCloids(
 	requests []CancelOrderRequestByCloid,
 ) (res *APIResponse[CancelOrderResponse], err error) {
-	cancels := slices.Map(requests, func(req CancelOrderRequestByCloid) CancelByCloidWire {
-		return CancelByCloidWire{
+	cancels := make([]CancelByCloidWire, len(requests))
+	for i, req := range requests {
+		cancels[i] = CancelByCloidWire{
 			Asset:    e.info.NameToAsset(req.Coin),
 			ClientID: req.Cloid,
 		}
-	})
+	}
 
 	action := CancelByCloidAction{
 		Type:    "cancelByCloid",
