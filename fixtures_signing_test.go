@@ -1,5 +1,3 @@
-//go:build broken_rename
-
 package hyperliquid
 
 import (
@@ -16,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/stretchr/testify/require"
 	"github.com/vmihailenco/msgpack/v5"
+
+	"github.com/Simon-Busch/hyperliquid-go/internal/eip712"
 )
 
 // Fixture-based signing tests that lock our pure-Go signing implementation
@@ -162,7 +162,7 @@ func encodeAction(action any) ([]byte, error) {
 	if err := enc.Encode(action); err != nil {
 		return nil, err
 	}
-	return convertStr16ToStr8(buf.Bytes()), nil
+	return eip712.ConvertStr16ToStr8(buf.Bytes()), nil
 }
 
 func TestFixtures_L1_MsgpackBytes(t *testing.T) {
@@ -203,7 +203,7 @@ func TestFixtures_L1_ActionHashAndSignature(t *testing.T) {
 				vault = v
 			}
 
-			h := actionHash(action, vault, fx.Inputs.Nonce, fx.Inputs.ExpiresAfter)
+			h := eip712.ActionHash(action, vault, fx.Inputs.Nonce, fx.Inputs.ExpiresAfter)
 			gotHash := hex.EncodeToString(h)
 			if gotHash != fx.Expected.ActionHashHex {
 				t.Errorf("action_hash mismatch\n  got:  %s\n  want: %s",

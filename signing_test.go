@@ -1,5 +1,3 @@
-//go:build broken_rename
-
 package hyperliquid
 
 import (
@@ -9,6 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Simon-Busch/hyperliquid-go/internal/eip712"
 )
 
 func TestSignL1Action(t *testing.T) {
@@ -298,11 +298,11 @@ func TestDebugActionHash(t *testing.T) {
 	isMainnet := false
 
 	// Debug: Print action hash components
-	hash := actionHash(action, vaultAddress, timestamp, expiresAfter)
+	hash := eip712.ActionHash(action, vaultAddress, timestamp, expiresAfter)
 	t.Logf("Action hash: %x", hash)
 
 	// Debug: Print phantom agent
-	phantomAgent := constructPhantomAgent(hash, isMainnet)
+	phantomAgent := eip712.ConstructPhantomAgent(hash, isMainnet)
 	t.Logf("Phantom agent: %+v", phantomAgent)
 
 	// Generate signature
