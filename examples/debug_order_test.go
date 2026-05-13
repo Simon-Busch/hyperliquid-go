@@ -16,7 +16,7 @@ func TestDebugOrderUpdates(t *testing.T) {
 
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("═══════════════════════════════════════════════════════════")
 	t.Log("            DEBUG ORDER UPDATES TEST")

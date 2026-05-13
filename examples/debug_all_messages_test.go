@@ -14,7 +14,7 @@ import (
 func TestDebugAllMessages(t *testing.T) {
 	godotenv.Overload()
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("═══════════════════════════════════════════════════════════")
 	t.Log("         DEBUG ALL MESSAGES TEST")

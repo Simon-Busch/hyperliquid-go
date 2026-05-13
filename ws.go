@@ -33,9 +33,9 @@ const (
 	connectTimeout = 10 * time.Second
 )
 
-// WebsocketClient manages a WebSocket connection to the Hyperliquid API.
+// Stream manages a WebSocket connection to the Hyperliquid API.
 // It handles automatic reconnection, subscription management, and POST requests.
-type WebsocketClient struct {
+type Stream struct {
 	url string
 
 	// Connection state (atomic for lock-free reads)
@@ -75,9 +75,9 @@ type pendingRequest struct {
 	responseChan chan WsPostResponseData
 }
 
-// NewWebsocketClient creates a new WebSocket client for the given base URL.
+// NewStream creates a new WebSocket client for the given base URL.
 // The client is not connected until Connect() is called.
-func NewWebsocketClient(baseURL string) *WebsocketClient {
+func NewStream(baseURL string) *Stream {
 	if baseURL == "" {
 		baseURL = MainnetAPIURL
 	}
@@ -90,7 +90,7 @@ func NewWebsocketClient(baseURL string) *WebsocketClient {
 	parsedURL.Path = "/ws"
 	wsURL := parsedURL.String()
 
-	return &WebsocketClient{
+	return &Stream{
 		url:             wsURL,
 		subscriptions:   make(map[subKey]map[int]*subscriptionCallback),
 		pendingRequests: make(map[int]*pendingRequest),
@@ -100,7 +100,7 @@ func NewWebsocketClient(baseURL string) *WebsocketClient {
 
 // Connect establishes the WebSocket connection.
 // It's safe to call multiple times - subsequent calls return immediately if already connected.
-func (w *WebsocketClient) Connect(ctx context.Context) error {
+func (w *Stream) Connect(ctx context.Context) error {
 	if w.closed.Load() {
 		return fmt.Errorf("client is closed")
 	}
@@ -175,7 +175,7 @@ func (w *WebsocketClient) Connect(ctx context.Context) error {
 
 // Subscribe registers a callback for the given subscription.
 // Returns a subscription ID that can be used to unsubscribe.
-func (w *WebsocketClient) Subscribe(sub Subscription, callback func(WSMessage)) (int, error) {
+func (w *Stream) Subscribe(sub Subscription, callback func(WSMessage)) (int, error) {
 	if callback == nil {
 		return 0, fmt.Errorf("callback cannot be nil")
 	}
@@ -206,7 +206,7 @@ func (w *WebsocketClient) Subscribe(sub Subscription, callback func(WSMessage)) 
 }
 
 // Unsubscribe removes a subscription by ID.
-func (w *WebsocketClient) Unsubscribe(sub Subscription, id int) error {
+func (w *Stream) Unsubscribe(sub Subscription, id int) error {
 	w.subMu.Lock()
 	key := sub.key()
 	subs, ok := w.subscriptions[key]
@@ -238,7 +238,7 @@ func (w *WebsocketClient) Unsubscribe(sub Subscription, id int) error {
 }
 
 // Close shuts down the WebSocket client and releases all resources.
-func (w *WebsocketClient) Close() error {
+func (w *Stream) Close() error {
 	var err error
 	w.closeOnce.Do(func() {
 		w.closed.Store(true)
@@ -278,7 +278,7 @@ func (w *WebsocketClient) Close() error {
 }
 
 // PostRequest sends a POST-style request over WebSocket and waits for response.
-func (w *WebsocketClient) PostRequest(
+func (w *Stream) PostRequest(
 	requestType string,
 	payload any,
 	timeout time.Duration,
@@ -335,7 +335,7 @@ func (w *WebsocketClient) PostRequest(
 }
 
 // PostInfoRequest sends an info request over WebSocket.
-func (w *WebsocketClient) PostInfoRequest(
+func (w *Stream) PostInfoRequest(
 	payload map[string]any,
 	timeout time.Duration,
 ) (json.RawMessage, error) {
@@ -356,7 +356,7 @@ func (w *WebsocketClient) PostInfoRequest(
 }
 
 // PostActionRequest sends a signed action request over WebSocket.
-func (w *WebsocketClient) PostActionRequest(
+func (w *Stream) PostActionRequest(
 	action any,
 	signature SignatureResult,
 	nonce int64,
@@ -393,7 +393,7 @@ func (w *WebsocketClient) PostActionRequest(
 
 // readPump reads messages from the WebSocket connection.
 // Runs for the lifetime of a single connection (context-aware, like upstream).
-func (w *WebsocketClient) readPump(ctx context.Context) {
+func (w *Stream) readPump(ctx context.Context) {
 	defer w.wg.Done()
 	defer w.handleDisconnect()
 
@@ -435,7 +435,7 @@ func (w *WebsocketClient) readPump(ctx context.Context) {
 
 // pingPump sends periodic ping messages to keep the connection alive.
 // Runs for the lifetime of a single connection (context-aware, like upstream).
-func (w *WebsocketClient) pingPump(ctx context.Context) {
+func (w *Stream) pingPump(ctx context.Context) {
 	defer w.wg.Done()
 
 	ticker := time.NewTicker(pingInterval)
@@ -457,7 +457,7 @@ func (w *WebsocketClient) pingPump(ctx context.Context) {
 
 // handleDisconnect is called when the connection is lost.
 // It marks the client as disconnected and schedules reconnection.
-func (w *WebsocketClient) handleDisconnect() {
+func (w *Stream) handleDisconnect() {
 	if w.closed.Load() {
 		return
 	}
@@ -477,7 +477,7 @@ func (w *WebsocketClient) handleDisconnect() {
 }
 
 // scheduleReconnect schedules an asynchronous reconnection attempt with exponential backoff and jitter.
-func (w *WebsocketClient) scheduleReconnect() {
+func (w *Stream) scheduleReconnect() {
 	if w.closed.Load() {
 		return
 	}
@@ -532,7 +532,7 @@ func (w *WebsocketClient) scheduleReconnect() {
 }
 
 // dispatch routes messages to appropriate callbacks.
-func (w *WebsocketClient) dispatch(msg WSMessage) {
+func (w *Stream) dispatch(msg WSMessage) {
 	// Handle pong responses (sent by Hyperliquid as JSON, not WebSocket protocol pongs)
 	if msg.Channel == "pong" {
 		// Pong received - connection is alive, nothing to do
@@ -586,7 +586,7 @@ func (w *WebsocketClient) dispatch(msg WSMessage) {
 }
 
 // resubscribeAll resends subscribe messages for all active subscriptions.
-func (w *WebsocketClient) resubscribeAll() error {
+func (w *Stream) resubscribeAll() error {
 	w.subMu.RLock()
 	keys := make([]subKey, 0, len(w.subscriptions))
 	for key, subs := range w.subscriptions {
@@ -611,25 +611,25 @@ func (w *WebsocketClient) resubscribeAll() error {
 	return nil
 }
 
-func (w *WebsocketClient) sendSubscribe(sub Subscription) error {
+func (w *Stream) sendSubscribe(sub Subscription) error {
 	return w.writeJSON(WsCommand{
 		Method:       "subscribe",
 		Subscription: &sub,
 	})
 }
 
-func (w *WebsocketClient) sendUnsubscribe(sub Subscription) error {
+func (w *Stream) sendUnsubscribe(sub Subscription) error {
 	return w.writeJSON(WsCommand{
 		Method:       "unsubscribe",
 		Subscription: &sub,
 	})
 }
 
-func (w *WebsocketClient) sendPing() error {
+func (w *Stream) sendPing() error {
 	return w.writeJSON(WsCommand{Method: "ping"})
 }
 
-func (w *WebsocketClient) writeJSON(v any) error {
+func (w *Stream) writeJSON(v any) error {
 	// Marshal outside the lock so serialization doesn't block other writers
 	data, err := json.Marshal(v)
 	if err != nil {
@@ -657,71 +657,71 @@ func (w *WebsocketClient) writeJSON(v any) error {
 
 // Convenience subscription methods
 
-func (w *WebsocketClient) SubscribeToTrades(coin string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToTrades(coin string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "trades", Coin: coin}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToOrderbook(coin string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToOrderbook(coin string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "l2Book", Coin: coin}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToAllMids(callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToAllMids(callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "allMids"}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToAllMidsWithDex(dex string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToAllMidsWithDex(dex string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "allMids", Dex: dex}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToUserEvents(user string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToUserEvents(user string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "userEvents", User: user}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToUserFills(user string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToUserFills(user string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "userFills", User: user}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToCandles(coin, interval string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToCandles(coin, interval string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "candle", Coin: coin, Interval: interval}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToOrderUpdates(user string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToOrderUpdates(user string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "orderUpdates", User: user}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToUserFundings(user string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToUserFundings(user string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "userFundings", User: user}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToUserNonFundingLedgerUpdates(user string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToUserNonFundingLedgerUpdates(user string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "userNonFundingLedgerUpdates", User: user}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToWebData2(user string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToWebData2(user string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "webData2", User: user}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToBBO(coin string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToBBO(coin string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "bbo", Coin: coin}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToActiveAssetCtx(coin string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToActiveAssetCtx(coin string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "activeAssetCtx", Coin: coin}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToNotification(user string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToNotification(user string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "notification", User: user}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToActiveAssetData(user, coin string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToActiveAssetData(user, coin string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "activeAssetData", User: user, Coin: coin}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToUserTwapSliceFills(user string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToUserTwapSliceFills(user string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "userTwapSliceFills", User: user}, callback)
 }
 
-func (w *WebsocketClient) SubscribeToUserTwapHistory(user string, callback func(WSMessage)) (int, error) {
+func (w *Stream) SubscribeToUserTwapHistory(user string, callback func(WSMessage)) (int, error) {
 	return w.Subscribe(Subscription{Type: "userTwapHistory", User: user}, callback)
 }
 

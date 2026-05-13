@@ -34,7 +34,7 @@ func TestOrderStatusMonitor(t *testing.T) {
 
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("═══════════════════════════════════════════════════════════")
 	t.Log("            ORDER STATUS MONITOR")
@@ -220,7 +220,7 @@ func TestOrderStatusQuick(t *testing.T) {
 
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("═══════════════════════════════════════════════════════════")
 	t.Log("        QUICK ORDER STATUS MONITOR (60 seconds)")

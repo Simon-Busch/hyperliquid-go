@@ -12,7 +12,7 @@ import (
 // TestWebSocketPostInfo tests sending info requests via WebSocket POST
 func TestWebSocketPostInfo(t *testing.T) {
 	// Create WebSocket client
-	ws := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	ws := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 	defer ws.Close()
 
 	// Connect
@@ -111,7 +111,7 @@ func TestWebSocketPostInfo(t *testing.T) {
 // TestWebSocketPostConcurrent tests concurrent POST requests
 func TestWebSocketPostConcurrent(t *testing.T) {
 	// Create WebSocket client
-	ws := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	ws := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 	defer ws.Close()
 
 	// Connect
@@ -155,7 +155,7 @@ func TestWebSocketPostConcurrent(t *testing.T) {
 // TestWebSocketPostTimeout tests timeout behavior
 func TestWebSocketPostTimeout(t *testing.T) {
 	// Create WebSocket client but don't connect
-	ws := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	ws := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 	defer ws.Close()
 
 	// Try to send request without connecting
@@ -185,7 +185,7 @@ func TestWebSocketPostVsHTTP(t *testing.T) {
 	}
 
 	// Create WebSocket client
-	ws := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	ws := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 	defer ws.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -232,7 +232,7 @@ func TestWebSocketPostVsHTTP(t *testing.T) {
 // TestWebSocketPostUserState tests querying user state via WebSocket POST
 func TestWebSocketPostUserState(t *testing.T) {
 	// Create WebSocket client
-	ws := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	ws := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 	defer ws.Close()
 
 	// Connect

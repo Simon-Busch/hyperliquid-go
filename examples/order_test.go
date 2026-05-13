@@ -3052,7 +3052,7 @@ func TestL2BookWebSocketMultipleTickers(t *testing.T) {
 	t.Log("=== TESTING L2 BOOK WEBSOCKET SUBSCRIPTION FOR MULTIPLE TICKERS ===")
 
 	// Create WebSocket client
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -3173,7 +3173,7 @@ func TestAllMidsWebSocket(t *testing.T) {
 	t.Log("=== TESTING ALL MIDS WEBSOCKET SUBSCRIPTION ===")
 
 	// Create WebSocket client
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

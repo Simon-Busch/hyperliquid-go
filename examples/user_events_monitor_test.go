@@ -16,7 +16,7 @@ func TestUserEventsMonitor(t *testing.T) {
 
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("═══════════════════════════════════════════════════════════")
 	t.Log("            USER EVENTS MONITOR")
@@ -125,7 +125,7 @@ func TestUserEventsQuick(t *testing.T) {
 
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("═══════════════════════════════════════════════════════════")
 	t.Log("        QUICK USER EVENTS MONITOR (60 seconds)")
@@ -176,7 +176,7 @@ func TestBothOrderUpdatesAndUserEvents(t *testing.T) {
 
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("═══════════════════════════════════════════════════════════")
 	t.Log("    MONITORING BOTH orderUpdates & userEvents")

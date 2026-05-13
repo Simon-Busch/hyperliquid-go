@@ -49,7 +49,7 @@ func TestCandlesSnapshot(t *testing.T) {
 }
 
 func TestCandleWebSocket(t *testing.T) {
-	ws := hyperliquid.NewWebsocketClient("")
+	ws := hyperliquid.NewStream("")
 
 	if err := ws.Connect(context.Background()); err != nil {
 		t.Fatalf("Failed to connect: %v", err)

@@ -18,7 +18,7 @@ func TestOrderUpdatesSubscription(t *testing.T) {
 	// Get test wallet address
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("=== TESTING ORDER UPDATES SUBSCRIPTION ===")
 	t.Logf("Monitoring address: %s", testAddress)
@@ -107,7 +107,7 @@ func TestUserEventsSubscription(t *testing.T) {
 	// Get test wallet address
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("=== TESTING USER EVENTS SUBSCRIPTION ===")
 	t.Logf("Monitoring address: %s", testAddress)
@@ -195,7 +195,7 @@ func TestBothOrderAndUserEventsSubscriptions(t *testing.T) {
 	// Get test wallet address
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("=== TESTING BOTH ORDER UPDATES AND USER EVENTS ===")
 	t.Logf("Monitoring address: %s", testAddress)

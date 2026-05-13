@@ -15,7 +15,7 @@ func TestListenToAllChannels(t *testing.T) {
 
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	t.Log("=== LISTENING TO ALL CHANNELS WITH DEBUG LOGGING ===")
 	t.Logf("Address: %s", testAddress)

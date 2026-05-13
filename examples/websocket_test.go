@@ -11,7 +11,7 @@ import (
 )
 
 func TestWebsocket(t *testing.T) {
-	ws := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	ws := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -101,7 +101,7 @@ func TestWebsocket(t *testing.T) {
 }
 
 func TestWebsocketConvenienceMethods(t *testing.T) {
-	ws := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	ws := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

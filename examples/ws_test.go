@@ -18,7 +18,7 @@ func TestWebSocketConnection(t *testing.T) {
 	godotenv.Overload()
 
 	// Use testnet URL
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.TestnetAPIURL)
 
 	// Get test wallet address from environment or use a default test address
 	testAddress := os.Getenv("WALLET_ADDRESS")
@@ -165,7 +165,7 @@ cleanup:
 func TestWebSocketReconnection(t *testing.T) {
 	godotenv.Overload()
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.TestnetAPIURL)
 
 	t.Log("=== TESTING WEBSOCKET RECONNECTION ===")
 
@@ -231,7 +231,7 @@ func TestWebSocketSpecificAddress(t *testing.T) {
 		t.Skip("WALLET_ADDRESS not set, skipping specific address test")
 	}
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.TestnetAPIURL)
 
 	t.Logf("=== TESTING WEBSOCKET FOR SPECIFIC ADDRESS ===")
 	t.Logf("Address: %s", testAddress)
@@ -295,7 +295,7 @@ func TestRealTimeOrderMonitoring(t *testing.T) {
 		testAddress = "0x1234567890abcdef1234567890abcdef12345678"
 	}
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.TestnetAPIURL)
 
 	t.Logf("=== REAL-TIME ORDER MONITORING ===")
 	t.Logf("Monitoring address: %s", testAddress)
@@ -385,7 +385,7 @@ func TestRealTimeOrderMonitoring(t *testing.T) {
 func TestWebSocketChannelDiscovery(t *testing.T) {
 	godotenv.Overload()
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.TestnetAPIURL)
 
 	t.Log("=== WEBSOCKET CHANNEL DISCOVERY ===")
 	t.Log("Testing different subscription types to see what works...")
@@ -478,7 +478,7 @@ func TestUserNotifications(t *testing.T) {
 		testAddress = "0x1234567890abcdef1234567890abcdef12345678"
 	}
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.TestnetAPIURL)
 
 	t.Logf("=== USER NOTIFICATIONS TEST ===")
 	t.Logf("Listening for notifications for address: %s", testAddress)
@@ -556,7 +556,7 @@ func TestCompleteUserActivityMonitoring(t *testing.T) {
 		testAddress = "0x1234567890abcdef1234567890abcdef12345678"
 	}
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.TestnetAPIURL)
 
 	t.Logf("=== COMPLETE USER ACTIVITY MONITORING ===")
 	t.Logf("Monitoring address: %s", testAddress)
@@ -686,7 +686,7 @@ func TestCompleteUserActivityMonitoring(t *testing.T) {
 // opens a tiny market order to trigger a fill, and asserts we receive a fill event.
 func TestUserFillsSubscriptionTriggersOnOrder(t *testing.T) {
 	godotenv.Overload()
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 	infoClient := hyperliquid.NewInfo(hyperliquid.MainnetAPIURL, true, nil, nil, nil, "")
 	// Your target address
 	address := "0x1234567890abcdef1234567890abcdef12345678"
@@ -907,7 +907,7 @@ func TestUserFillsSubscriptionTriggersOnOrder(t *testing.T) {
 
 func TestL2BookSubscriptionSOL(t *testing.T) {
 	godotenv.Overload()
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.TestnetAPIURL)
 
 	// Connect
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -981,7 +981,7 @@ func TestL2BookSubscriptionSOL(t *testing.T) {
 // The WebSocket client handles pings natively via the pingPump goroutine (see ws.go:187-205)
 func TestL2BookStableConnection5Min(t *testing.T) {
 	godotenv.Overload()
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.TestnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.TestnetAPIURL)
 
 	// Create a context with timeout slightly longer than test duration
 	// to allow graceful cleanup
@@ -1194,7 +1194,7 @@ func TestWebData2Subscription(t *testing.T) {
 
 	testAddress := accountAddress(t)
 
-	wsClient := hyperliquid.NewWebsocketClient(hyperliquid.MainnetAPIURL)
+	wsClient := hyperliquid.NewStream(hyperliquid.MainnetAPIURL)
 	defer wsClient.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
