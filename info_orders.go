@@ -32,6 +32,86 @@ type OrderStatusResponse struct {
 	} `json:"order"`
 }
 
+// OpenOrders retrieves the user's open orders. If dex is provided and
+// non-empty, the query is pinned to that HIP-3 dex. Spot open orders are
+// only returned with the first perp dex.
+func (i *Info) OpenOrders(address string, dex ...string) ([]OpenOrder, error) {
+	payload := map[string]any{
+		"type": "openOrders",
+		"user": address,
+	}
+	if len(dex) > 0 && dex[0] != "" {
+		payload["dex"] = dex[0]
+	}
+
+	resp, err := i.client.post("/info", payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch open orders: %w", err)
+	}
+
+	var result []OpenOrder
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal open orders: %w", err)
+	}
+	return result, nil
+}
+
+// FrontendOpenOrders retrieves the user's open orders with frontend info.
+// If dex is provided and non-empty, the query is pinned to that HIP-3
+// dex. Spot open orders are only returned with the first perp dex.
+func (i *Info) FrontendOpenOrders(address string, dex ...string) ([]FrontendOpenOrder, error) {
+	payload := map[string]any{
+		"type": "frontendOpenOrders",
+		"user": address,
+	}
+	if len(dex) > 0 && dex[0] != "" {
+		payload["dex"] = dex[0]
+	}
+
+	resp, err := i.client.post("/info", payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch frontend open orders: %w", err)
+	}
+
+	var result []FrontendOpenOrder
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal frontend open orders: %w", err)
+	}
+	return result, nil
+}
+
+// UserFills retrieves the trailing fill history for address.
+func (i *Info) UserFills(address string) ([]Fill, error) {
+	resp, err := i.client.post("/info", map[string]any{
+		"type": "userFills",
+		"user": address,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user fills: %w", err)
+	}
+
+	var result []Fill
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal user fills: %w", err)
+	}
+	return result, nil
+}
+
+// UserFillsByTime retrieves the fill history for address in
+// [startTime, endTime].
+func (i *Info) UserFillsByTime(address string, startTime int64, endTime *int64) ([]Fill, error) {
+	resp, err := i.postTimeRangeRequest("userFillsByTime", address, startTime, endTime, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []Fill
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal user fills by time: %w", err)
+	}
+	return result, nil
+}
+
 func (i *Info) QueryOrderByOid(user string, oid int64) (*OrderStatusResponse, error) {
 	resp, err := i.client.post("/info", map[string]any{
 		"type": "orderStatus",
