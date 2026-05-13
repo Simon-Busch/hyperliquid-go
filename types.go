@@ -1,10 +1,16 @@
 package hyperliquid
 
+// Grouping is the order-grouping discriminator used by /exchange order
+// actions. Distinct groupings allow TP/SL trigger legs to attach to a
+// parent or to an existing position.
 type Grouping string
 
 const (
-	GroupingNA           Grouping = "na"
-	GroupingNormalTpsl   Grouping = "normalTpsl"
+	// GroupingNA is the default (no grouping).
+	GroupingNA Grouping = "na"
+	// GroupingNormalTpsl groups TP/SL legs with their parent order.
+	GroupingNormalTpsl Grouping = "normalTpsl"
+	// GroupingPositionTpls binds TP/SL legs to an existing position.
 	GroupingPositionTpls Grouping = "positionTpsl"
 )
 
@@ -20,6 +26,7 @@ const (
 	TifGtc = "Gtc" // Good Till Cancel
 )
 
+// AssetInfo is the per-asset row inside a Meta universe.
 type AssetInfo struct {
 	Name          string `json:"name"`
 	SzDecimals    int    `json:"szDecimals"`
@@ -29,12 +36,14 @@ type AssetInfo struct {
 	IsDelisted    bool   `json:"isDelisted"`
 }
 
+// Meta is the perp universe metadata returned by /info {"type":"meta"}.
 type Meta struct {
 	Universe        []AssetInfo   `json:"universe"`
 	MarginTables    []MarginTable `json:"marginTables"`
 	CollateralToken int           `json:"collateralToken"`
 }
 
+// SpotAssetInfo is one entry in SpotMeta.Universe.
 type SpotAssetInfo struct {
 	Name        string `json:"name"`
 	Tokens      []int  `json:"tokens"`
@@ -42,11 +51,13 @@ type SpotAssetInfo struct {
 	IsCanonical bool   `json:"isCanonical"`
 }
 
+// EvmContract describes the EVM-side companion contract for a spot token.
 type EvmContract struct {
 	Address             string `json:"address"`
 	EvmExtraWeiDecimals int    `json:"evm_extra_wei_decimals"`
 }
 
+// SpotTokenInfo describes a single spot token in the spot universe.
 type SpotTokenInfo struct {
 	Name        string       `json:"name"`
 	SzDecimals  int          `json:"szDecimals"`
@@ -58,6 +69,8 @@ type SpotTokenInfo struct {
 	FullName    *string      `json:"fullName"`
 }
 
+// SpotMeta is the spot universe metadata returned by /info
+// {"type":"spotMeta"}.
 type SpotMeta struct {
 	Universe []SpotAssetInfo `json:"universe"`
 	Tokens   []SpotTokenInfo `json:"tokens"`
@@ -86,6 +99,8 @@ type OutcomeMeta struct {
 	Questions []any         `json:"questions"`
 }
 
+// SpotAssetCtx is the spot asset context payload returned alongside
+// SpotMeta in spotMetaAndAssetCtxs.
 type SpotAssetCtx struct {
 	DayNtlVlm         string  `json:"dayNtlVlm"`
 	MarkPx            string  `json:"markPx"`
@@ -137,21 +152,28 @@ type WsMsg struct {
 	Data    map[string]any `json:"data"`
 }
 
+// OrderType discriminates a limit order from a trigger order. Exactly
+// one of Limit or Trigger should be populated.
 type OrderType struct {
 	Limit   *LimitOrderType   `json:"limit,omitempty"`
 	Trigger *TriggerOrderType `json:"trigger,omitempty"`
 }
 
+// LimitOrderType holds the time-in-force tag for a limit order.
 type LimitOrderType struct {
 	Tif string `json:"tif"` // TifAlo, TifIoc, TifGtc
 }
 
+// TriggerOrderType describes a trigger (stop) order: a trigger price and
+// whether the order fills as market or limit on activation.
 type TriggerOrderType struct {
 	TriggerPx float64 `json:"triggerPx"` // Keep as float64 for internal use, convert to string in wire format
 	IsMarket  bool    `json:"isMarket"`
 	Tpsl      string  `json:"tpsl"` // "tp" or "sl"
 }
 
+// BuilderInfo carries the builder address and per-order fee (in basis
+// points) used by HIP-3 builder-deployed perp markets.
 type BuilderInfo struct {
 	Builder string `json:"b" msgpack:"b"`
 	Fee     int    `json:"f" msgpack:"f"`
@@ -163,57 +185,70 @@ type OrderTypeWire struct {
 	Trigger *TriggerOrderTypeWire `json:"trigger,omitempty" msgpack:"trigger,omitempty"`
 }
 
+// LimitOrderTypeWire is the wire variant of LimitOrderType.
 type LimitOrderTypeWire struct {
 	Tif string `json:"tif" msgpack:"tif"` // TifAlo, TifIoc, TifGtc
 }
 
+// TriggerOrderTypeWire is the wire variant of TriggerOrderType. The
+// trigger price is encoded as a string for stable msgpack ordering.
 type TriggerOrderTypeWire struct {
 	IsMarket  bool   `json:"isMarket" msgpack:"isMarket"`
 	TriggerPx string `json:"triggerPx" msgpack:"triggerPx"`
 	Tpsl      string `json:"tpsl" msgpack:"tpsl"` // "tp" or "sl"
 }
 
+// CancelRequest names a single order to cancel by exchange oid.
 type CancelRequest struct {
 	Coin string `json:"coin"`
 	Oid  int64  `json:"oid"`
 }
 
+// CancelByCloidRequest names a single order to cancel by client order id.
 type CancelByCloidRequest struct {
 	Coin  string `json:"coin"`
 	Cloid string `json:"cloid"`
 }
 
+// Cloid wraps a client order id string in a typed value.
 type Cloid struct {
 	Value string
 }
 
+// ToRaw returns the underlying client order id string.
 func (c Cloid) ToRaw() string {
 	return c.Value
 }
 
+// PerpDexSchemaInput is the per-dex registration payload for HIP-3 perp
+// deploys.
 type PerpDexSchemaInput struct {
 	FullName        string  `json:"fullName"`
 	CollateralToken int     `json:"collateralToken"`
 	OracleUpdater   *string `json:"oracleUpdater"`
 }
 
+// L2Book is the L2 order book snapshot returned by /info {"type":"l2Book"}.
 type L2Book struct {
 	Coin   string    `json:"coin"`
 	Levels [][]Level `json:"levels"`
 	Time   int64     `json:"time"`
 }
 
+// Level is one price level inside an L2Book.
 type Level struct {
 	N  int     `json:"n"`
 	Px float64 `json:"px,string"`
 	Sz float64 `json:"sz,string"`
 }
 
+// AssetPosition is one entry of UserState.AssetPositions.
 type AssetPosition struct {
 	Position Position `json:"position"`
 	Type     string   `json:"type"`
 }
 
+// Position is the per-asset position snapshot inside a UserState.
 type Position struct {
 	Coin           string   `json:"coin"`
 	EntryPx        *string  `json:"entryPx"`
@@ -226,12 +261,16 @@ type Position struct {
 	UnrealizedPnl  string   `json:"unrealizedPnl"`
 }
 
+// Leverage describes the leverage configuration on a position
+// (Cross/Isolated, integer multiplier, raw USD where applicable).
 type Leverage struct {
 	Type   string  `json:"type"`
 	Value  int     `json:"value"`
 	RawUsd *string `json:"rawUsd,omitempty"`
 }
 
+// UserState is the perpetuals account summary returned by
+// /info {"type":"clearinghouseState"}.
 type UserState struct {
 	AssetPositions     []AssetPosition `json:"assetPositions"`
 	CrossMarginSummary MarginSummary   `json:"crossMarginSummary"`
@@ -239,6 +278,7 @@ type UserState struct {
 	Withdrawable       string          `json:"withdrawable"`
 }
 
+// MarginSummary summarises an account's margin usage.
 type MarginSummary struct {
 	AccountValue    string `json:"accountValue"`
 	TotalMarginUsed string `json:"totalMarginUsed"`
@@ -246,6 +286,8 @@ type MarginSummary struct {
 	TotalRawUsd     string `json:"totalRawUsd"`
 }
 
+// OpenOrder is the slim open-orders row returned by /info
+// {"type":"openOrders"}.
 type OpenOrder struct {
 	Coin      string  `json:"coin"`
 	LimitPx   float64 `json:"limitPx,string"`
@@ -272,6 +314,7 @@ type FrontendOpenOrder struct {
 	TriggerPx        float64 `json:"triggerPx,string"`
 }
 
+// Fill is a single trade execution row in the userFills feed.
 type Fill struct {
 	ClosedPnl     string `json:"closedPnl"`
 	Coin          string `json:"coin"`
@@ -288,6 +331,7 @@ type Fill struct {
 	FeeToken      string `json:"feeToken"`
 }
 
+// FundingHistory is one row in the per-coin funding rate history.
 type FundingHistory struct {
 	Coin        string `json:"coin"`
 	FundingRate string `json:"fundingRate"`
@@ -295,6 +339,7 @@ type FundingHistory struct {
 	Time        int64  `json:"time"`
 }
 
+// UserFundingHistory is one row in the per-user funding payment history.
 type UserFundingHistory struct {
 	User      string `json:"user"`
 	Type      string `json:"type"`
@@ -302,6 +347,7 @@ type UserFundingHistory struct {
 	EndTime   int64  `json:"endTime"`
 }
 
+// Candle is a single OHLC bar.
 type Candle struct {
 	Timestamp int64  `json:"T"`
 	Close     string `json:"c"`
@@ -315,6 +361,8 @@ type Candle struct {
 	Volume    string `json:"v"`
 }
 
+// UserFees is the per-user fee snapshot returned by /info
+// {"type":"userFees"}.
 type UserFees struct {
 	ActiveReferralDiscount string       `json:"activeReferralDiscount"`
 	DailyUserVolume        []UserVolume `json:"dailyUserVlm"`
@@ -323,6 +371,7 @@ type UserFees struct {
 	UserCrossRate          string       `json:"userCrossRate"`
 }
 
+// UserVolume is one daily-volume row inside UserFees.
 type UserVolume struct {
 	Date      string `json:"date"`
 	Exchange  string `json:"exchange"`
@@ -330,6 +379,8 @@ type UserVolume struct {
 	UserCross string `json:"userCross"`
 }
 
+// FeeSchedule is the maker/taker fee schedule attached to a UserFees
+// snapshot.
 type FeeSchedule struct {
 	Add              string `json:"add"`
 	Cross            string `json:"cross"`
@@ -337,22 +388,27 @@ type FeeSchedule struct {
 	Tiers            Tiers  `json:"tiers"`
 }
 
+// Tiers groups the market-maker and VIP fee tiers exposed by FeeSchedule.
 type Tiers struct {
 	MM  []MMTier  `json:"mm"`
 	VIP []VIPTier `json:"vip"`
 }
 
+// MMTier is one market-maker fee tier row inside Tiers.
 type MMTier struct {
 	Add                 string `json:"add"`
 	MakerFractionCutoff string `json:"makerFractionCutoff"`
 }
 
+// VIPTier is one VIP fee tier row inside Tiers.
 type VIPTier struct {
 	Add       string `json:"add"`
 	Cross     string `json:"cross"`
 	NtlCutoff string `json:"ntlCutoff"`
 }
 
+// StakingSummary is the per-user staking snapshot returned by
+// /info {"type":"delegatorSummary"}.
 type StakingSummary struct {
 	Delegated              string `json:"delegated"`
 	Undelegated            string `json:"undelegated"`
@@ -360,18 +416,24 @@ type StakingSummary struct {
 	NPendingWithdrawals    int    `json:"nPendingWithdrawals"`
 }
 
+// StakingDelegation is one active-delegation row in /info
+// {"type":"delegations"}.
 type StakingDelegation struct {
 	Validator            string `json:"validator"`
 	Amount               string `json:"amount"`
 	LockedUntilTimestamp int64  `json:"lockedUntilTimestamp"`
 }
 
+// StakingReward is one staking-reward row in /info
+// {"type":"delegatorRewards"}.
 type StakingReward struct {
 	Time        int64  `json:"time"`
 	Source      string `json:"source"`
 	TotalAmount string `json:"totalAmount"`
 }
 
+// ReferralState is the per-user referral snapshot returned by /info
+// {"type":"referral"}.
 type ReferralState struct {
 	ReferredBy       *ReferredBy    `json:"referredBy,omitempty"`
 	CumVlm           string         `json:"cumVlm"`
@@ -382,21 +444,26 @@ type ReferralState struct {
 	RewardHistory    []interface{}  `json:"rewardHistory"`
 }
 
+// ReferredBy describes the referrer of an account.
 type ReferredBy struct {
 	Referrer string `json:"referrer"`
 	Code     string `json:"code"`
 }
 
+// ReferrerState is the per-referrer portion of ReferralState.
 type ReferrerState struct {
 	Stage string        `json:"stage"`
 	Data  *ReferrerData `json:"data,omitempty"`
 }
 
+// ReferrerData groups the referrer code with the list of referred
+// accounts.
 type ReferrerData struct {
 	Code           string           `json:"code"`
 	ReferralStates []ReferralMember `json:"referralStates"`
 }
 
+// ReferralMember is one referred-account row inside ReferrerData.
 type ReferralMember struct {
 	CumVlm                       string `json:"cumVlm"`
 	CumRewardedFeesSinceReferred string `json:"cumRewardedFeesSinceReferred"`
@@ -405,17 +472,22 @@ type ReferralMember struct {
 	User                         string `json:"user"`
 }
 
+// SubAccount is the per-sub-account directory entry returned by /info
+// {"type":"subAccounts"}.
 type SubAccount struct {
 	Name        string   `json:"name"`
 	User        string   `json:"user"`
 	Permissions []string `json:"permissions"`
 }
 
+// MultiSigSigner is one signer row returned by /info
+// {"type":"userToMultiSigSigners"}.
 type MultiSigSigner struct {
 	User      string `json:"user"`
 	Threshold int    `json:"threshold"`
 }
 
+// Trade is a single trade record (used in the trades subscription feed).
 type Trade struct {
 	Coin  string   `json:"coin"`
 	Side  string   `json:"side"`
@@ -427,88 +499,107 @@ type Trade struct {
 	Users []string `json:"users"`
 }
 
+// BulkOrderResponse is the legacy response shape for a bulk order action.
 type BulkOrderResponse struct {
 	Status string        `json:"status"`
 	Data   []OrderStatus `json:"data,omitempty"`
 	Error  string        `json:"error,omitempty"`
 }
 
+// CancelResponse is the wire response for a single-cancel action.
 type CancelResponse struct {
 	Status string     `json:"status"`
 	Data   *OpenOrder `json:"data,omitempty"`
 	Error  string     `json:"error,omitempty"`
 }
 
+// BulkCancelResponse is the wire response for a bulk-cancel action.
 type BulkCancelResponse struct {
 	Status string      `json:"status"`
 	Data   []OpenOrder `json:"data,omitempty"`
 	Error  string      `json:"error,omitempty"`
 }
 
+// ModifyResponse is the legacy response shape for an order modify action.
 type ModifyResponse struct {
 	Status string        `json:"status"`
 	Data   []OrderStatus `json:"data,omitempty"`
 	Error  string        `json:"error,omitempty"`
 }
 
+// TransferResponse is the response shape returned by transfer-style
+// signed actions (usdSend, spotSend, vaultTransfer, etc.).
 type TransferResponse struct {
 	Status string `json:"status"`
 	TxHash string `json:"txHash,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
 
+// ApprovalResponse is the response shape returned by approval-style
+// actions (approveBuilderFee, evmUserModify, ...).
 type ApprovalResponse struct {
 	Status string `json:"status"`
 	TxHash string `json:"txHash,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
 
+// CreateSubAccountResponse is returned by the createSubAccount action.
 type CreateSubAccountResponse struct {
 	Status string      `json:"status"`
 	Data   *SubAccount `json:"data,omitempty"`
 	Error  string      `json:"error,omitempty"`
 }
 
+// SetReferrerResponse is returned by the setReferrer action.
 type SetReferrerResponse struct {
 	Status string `json:"status"`
 	Error  string `json:"error,omitempty"`
 }
 
+// ScheduleCancelResponse is returned by the scheduleCancel action.
 type ScheduleCancelResponse struct {
 	Status string `json:"status"`
 	Error  string `json:"error,omitempty"`
 }
 
+// AgentApprovalResponse is returned by the approveAgent action.
 type AgentApprovalResponse struct {
 	Status string `json:"status"`
 	TxHash string `json:"txHash,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
 
+// MultiSigConversionResponse is returned by the
+// convertToMultiSigUser action.
 type MultiSigConversionResponse struct {
 	Status string `json:"status"`
 	TxHash string `json:"txHash,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
 
+// SpotDeployResponse is returned by HIP-2 / HIP-3 spot deploy actions.
 type SpotDeployResponse struct {
 	Status string `json:"status"`
 	TxHash string `json:"txHash,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
 
+// ValidatorResponse is returned by CValidator and CSigner actions.
 type ValidatorResponse struct {
 	Status string `json:"status"`
 	TxHash string `json:"txHash,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
 
+// MultiSigResponse is returned by the multiSig action envelope.
 type MultiSigResponse struct {
 	Status string `json:"status"`
 	TxHash string `json:"txHash,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
 
+// PerpDeployResponse is returned by HIP-3 perp deploy actions; the inner
+// statuses array reports per-asset outcomes.
 type PerpDeployResponse struct {
 	Status string `json:"status"`
 	Data   struct {
@@ -516,6 +607,7 @@ type PerpDeployResponse struct {
 	} `json:"data"`
 }
 
+// TxStatus is one per-asset outcome inside PerpDeployResponse.
 type TxStatus struct {
 	Coin   string `json:"coin"`
 	Status string `json:"status"`
