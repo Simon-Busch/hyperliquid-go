@@ -1,182 +1,70 @@
 package hyperliquid
 
 import (
-	"fmt"
-	"math"
-	"strconv"
-	"strings"
+	"github.com/Simon-Busch/hyperliquid-go/internal/wire"
 )
 
-// roundToDecimals rounds a float64 to the specified number of decimals.
+// roundToDecimals rounds value to the given number of decimal places.
 func roundToDecimals(value float64, decimals int) float64 {
-	pow := math.Pow(10, float64(decimals))
-	return math.Round(value*pow) / pow
+	return wire.RoundToDecimals(value, decimals)
 }
 
-// parseFloat parses a string to float64, returns 0.0 if parsing fails.
+// parseFloat parses s as float64; returns 0 on parse failure.
 func parseFloat(s string) float64 {
-	f, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return 0.0
-	}
-	return f
+	return wire.ParseFloat(s)
 }
 
-// abs returns the absolute value of a float64.
+// abs returns the absolute value of x.
 func abs(x float64) float64 {
-	if x < 0 {
-		return -x
-	}
-	return x
+	return wire.Abs(x)
 }
 
-// formatFloat formats a float64 to string with 6 decimal places.
+// formatFloat formats f with six decimal places.
 func formatFloat(f float64) string {
-	return fmt.Sprintf("%.6f", f)
+	return wire.FormatFloat(f)
 }
 
 // formatUsdAmount renders an amount the way the Python SDK does for
-// user-signed actions (str(amount) in Python). Examples:
-//
-//	100.0 -> "100.0"
-//	1.5   -> "1.5"
-//	0.001 -> "0.001"
-//
-// The exact representation matters because the same string is hashed
-// during signing and sent in the request body.
+// user-signed actions.
 func formatUsdAmount(f float64) string {
-	s := strconv.FormatFloat(f, 'f', -1, 64)
-	if !strings.ContainsAny(s, ".eE") {
-		s += ".0"
-	}
-	return s
+	return wire.FormatUsdAmount(f)
 }
 
-// sizeToWire converts a float64 size to a wire-compatible string format
-// conforming to Hyperliquid's lot size constraints (typically 2-3 decimal places)
+// sizeToWire converts x to a wire-compatible string at the default
+// three-decimal lot precision.
 func sizeToWire(x float64) (string, error) {
-	// Round to 3 decimal places for lot size compliance
-	rounded := fmt.Sprintf("%.3f", x)
-
-	// Handle -0 case
-	if rounded == "-0.000" {
-		rounded = "0.000"
-	}
-
-	// Remove trailing zeros and decimal point if not needed
-	result := strings.TrimRight(rounded, "0")
-	result = strings.TrimRight(result, ".")
-
-	return result, nil
+	return wire.SizeToWire(x)
 }
 
-// sizeToWireWithAsset converts a float64 size to a wire-compatible string format
-// using the asset-specific decimal constraints from Hyperliquid
-// According to docs: "Sizes are rounded to the szDecimals of that asset"
+// sizeToWireWithAsset converts x to a wire-compatible string using the
+// asset-specific size-decimals precision.
 func sizeToWireWithAsset(x float64, asset int, info *Info) (string, error) {
-	// Get the asset-specific decimal constraints
 	szDecimals, exists := info.assetToDecimal[asset]
 	if !exists {
-		return sizeToWire(x)
+		return wire.SizeToWire(x)
 	}
-
-	// Round to the asset's szDecimals (this is what the docs specify)
-	rounded := fmt.Sprintf("%.*f", szDecimals, x)
-
-	// Handle -0 case
-	if strings.HasPrefix(rounded, "-0.") && strings.TrimRight(strings.TrimPrefix(rounded, "-0."), "0") == "" {
-		rounded = "0" + strings.TrimPrefix(rounded, "-0")
-	}
-
-	// Remove trailing zeros and decimal point if not needed (docs requirement for signing)
-	result := strings.TrimRight(rounded, "0")
-	result = strings.TrimRight(result, ".")
-
-	return result, nil
+	return wire.SizeToWireDecimals(x, szDecimals)
 }
 
-// PriceToWire converts a float64 price to a wire-compatible string format
-// following Hyperliquid's price constraints:
-// - Up to 5 significant figures
-// - No more than MAX_DECIMALS - szDecimals decimal places
-// - MAX_DECIMALS is 6 for perps (incl. HIP-3 builder perps), 8 for spot,
-//   3 for HIP-4 outcome markets
+// PriceToWire converts x to a wire-compatible price string for the supplied
+// asset and asset class, applying Hyperliquid's five-significant-figure cap
+// and the MaxPriceDecimals(class) - szDecimals decimal-place limit.
 func PriceToWire(x float64, asset int, info *Info, class AssetClass) (string, error) {
-	// Get the asset-specific decimal constraints
 	szDecimals, exists := info.assetToDecimal[asset]
 	if !exists {
-		// Fallback to default behavior
-		return floatToWire(x)
+		return wire.FloatToWire(x)
 	}
-
-	// Calculate allowed decimal places: MAX_DECIMALS - szDecimals
-	allowedDecimals := class.MaxPriceDecimals() - szDecimals
-	if allowedDecimals < 0 {
-		allowedDecimals = 0
-	}
-
-	// Enforce up to 5 significant figures first
-	roundedSig, err := roundToSignificantFigures(x, 5)
-	if err != nil {
-		return "", err
-	}
-
-	// Format to allowed decimal places
-	rounded := fmt.Sprintf("%.*f", allowedDecimals, roundedSig)
-
-	// Handle -0 case
-	if strings.HasPrefix(rounded, "-0.") && strings.TrimRight(strings.TrimPrefix(rounded, "-0."), "0") == "" {
-		rounded = "0" + strings.TrimPrefix(rounded, "-0")
-	}
-
-	// Remove trailing zeros and decimal point if not needed (docs requirement for signing)
-	result := strings.TrimRight(rounded, "0")
-	result = strings.TrimRight(result, ".")
-
-	return result, nil
+	allowed := class.MaxPriceDecimals() - szDecimals
+	return wire.PriceToWireDecimals(x, allowed)
 }
 
-// floatToWire converts a float64 to a wire-compatible string format
+// floatToWire converts x to a wire-compatible string with up to eight
+// decimal places, returning an error if rounding would change the value.
 func floatToWire(x float64) (string, error) {
-	// Format to 8 decimal places
-	rounded := fmt.Sprintf("%.8f", x)
-
-	// Check if rounding causes significant error
-	parsed, err := strconv.ParseFloat(rounded, 64)
-	if err != nil {
-		return "", err
-	}
-
-	if math.Abs(parsed-x) >= 1e-12 {
-		return "", fmt.Errorf("float_to_wire causes rounding: %f", x)
-	}
-
-	// Handle -0 case
-	if rounded == "-0.00000000" {
-		rounded = "0.00000000"
-	}
-
-	// Remove trailing zeros and decimal point if not needed
-	result := strings.TrimRight(rounded, "0")
-	result = strings.TrimRight(result, ".")
-
-	return result, nil
+	return wire.FloatToWire(x)
 }
 
+// roundToSignificantFigures rounds x to n significant figures.
 func roundToSignificantFigures(x float64, n int) (float64, error) {
-	if x == 0 {
-		return 0, nil
-	}
-	if n <= 0 {
-		return 0, fmt.Errorf("significant figures must be > 0")
-	}
-
-	// order of magnitude
-	d := math.Ceil(math.Log10(math.Abs(x)))
-	power := n - int(d)
-
-	magnitude := math.Pow(10, float64(power))
-	shifted := math.Round(x * magnitude)
-
-	return shifted / magnitude, nil
+	return wire.RoundToSignificantFigures(x, n)
 }
