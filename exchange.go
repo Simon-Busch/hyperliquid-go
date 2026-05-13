@@ -26,8 +26,8 @@ type Trader struct {
 	SubAccount *SubAccountGroup
 	// Stake exposes HYPE staking actions.
 	Stake *StakeGroup
-	// MultiSigOps exposes multi-sig conversion and execution helpers.
-	MultiSigOps *MultiSigGroup
+	// MultiSig exposes multi-sig conversion and execution helpers.
+	MultiSig *MultiSigGroup
 }
 
 // NewTrader builds a Trader pinned to baseURL with the supplied metadata.
@@ -55,14 +55,14 @@ func NewTrader(
 	return t
 }
 
-// attachSubgroups initialises the Transfer/SubAccount/Stake/MultiSigOps
+// attachSubgroups initialises the Transfer/SubAccount/Stake/MultiSig
 // subgroup fields. Called by NewTrader and by hl.New after constructing
 // the Trader.
 func (t *Trader) attachSubgroups() {
 	t.Transfer = &TransferGroup{t: t}
 	t.SubAccount = &SubAccountGroup{t: t}
 	t.Stake = &StakeGroup{t: t}
-	t.MultiSigOps = &MultiSigGroup{t: t}
+	t.MultiSig = &MultiSigGroup{t: t}
 }
 
 // PerpDex returns the configured builder perp dex name (e.g. "flx"), or empty string for default dex.

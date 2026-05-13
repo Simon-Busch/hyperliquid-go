@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -651,74 +650,3 @@ func (e *Trader) ApproveBuilderFee(builder string, maxFeeRate string) (*Approval
 	return &result, nil
 }
 
-// ConvertToMultiSigUser converts the account to a multi-sig user with the
-// given authorized signers and approval threshold.
-func (e *Trader) ConvertToMultiSigUser(
-	authorizedUsers []string,
-	threshold int,
-) (*MultiSigConversionResponse, error) {
-	nonce := time.Now().UnixMilli()
-	sort.Strings(authorizedUsers)
-	signersJSON, err := json.Marshal(map[string]any{
-		"authorizedUsers": authorizedUsers,
-		"threshold":       threshold,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("marshal signers: %w", err)
-	}
-	action := map[string]any{
-		"type":    "convertToMultiSigUser",
-		"signers": string(signersJSON),
-		"nonce":   nonce,
-	}
-	var result MultiSigConversionResponse
-	if err := e.executeUserSignedAction(
-		action, convertToMultiSigUserSignTypes,
-		"HyperliquidTransaction:ConvertToMultiSigUser", nonce, &result,
-	); err != nil {
-		return nil, err
-	}
-	return &result, nil
-}
-
-// Spot Deploy Methods
-
-
-
-func (e *Trader) MultiSig(
-	action map[string]any,
-	signers []string,
-	signatures []string,
-) (*MultiSigResponse, error) {
-	timestamp := time.Now().UnixMilli()
-
-	multiSigAction := map[string]any{
-		"type":       "multiSig",
-		"action":     action,
-		"signers":    signers,
-		"signatures": signatures,
-	}
-
-	sig, err := SignL1Action(
-		e.privateKey,
-		multiSigAction,
-		e.vault,
-		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := e.postAction(multiSigAction, sig, timestamp)
-	if err != nil {
-		return nil, err
-	}
-
-	var result MultiSigResponse
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
-}
