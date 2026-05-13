@@ -5,11 +5,8 @@ func Trades(coin string) Subscription {
 	return Subscription{Type: "trades", Coin: coin}
 }
 
-// BookSub returns a Subscription for the L2 order book of coin. Named
-// BookSub (rather than Book) because the package already exports an L2Book
-// type used in REST responses; the suffix prevents type/identifier
-// collision while keeping intent clear.
-func BookSub(coin string) Subscription {
+// Book returns a Subscription for the L2 order book of coin.
+func Book(coin string) Subscription {
 	return Subscription{Type: "l2Book", Coin: coin}
 }
 
@@ -18,21 +15,20 @@ func BBO(coin string) Subscription {
 	return Subscription{Type: "bbo", Coin: coin}
 }
 
-// AssetCtxSub returns a Subscription for the active-asset-context feed of
-// coin. Named with a Sub suffix to avoid collision with the AssetCtx type.
-func AssetCtxSub(coin string) Subscription {
+// ActiveAssetCtx returns a Subscription for the active-asset-context feed
+// of coin. The channel name matches the WS channel "activeAssetCtx".
+func ActiveAssetCtx(coin string) Subscription {
 	return Subscription{Type: "activeAssetCtx", Coin: coin}
 }
 
-// CandlesSub returns a Subscription for coin candles at the supplied
-// interval (e.g. "1m", "5m", "1h"). Named CandlesSub to avoid clashing
-// with the existing Candles type.
-func CandlesSub(coin, interval string) Subscription {
+// Candles returns a Subscription for coin candles at the supplied
+// interval (e.g. "1m", "5m", "1h").
+func Candles(coin, interval string) Subscription {
 	return Subscription{Type: "candle", Coin: coin, Interval: interval}
 }
 
-// AllMidsSub returns a Subscription for the global all-mids feed.
-func AllMidsSub() Subscription {
+// AllMids returns a Subscription for the global all-mids feed.
+func AllMids() Subscription {
 	return Subscription{Type: "allMids"}
 }
 
@@ -78,8 +74,10 @@ func Notifications(addr string) Subscription {
 	return Subscription{Type: "notification", User: addr}
 }
 
-// ActiveAsset returns a Subscription for active-asset data for addr / coin.
-func ActiveAsset(addr, coin string) Subscription {
+// ActiveAssetData returns a Subscription for the active-asset-data feed
+// for the (addr, coin) pair. The channel name matches the WS channel
+// "activeAssetData"; ActiveAssetCtx is its (coin-only) sibling.
+func ActiveAssetData(addr, coin string) Subscription {
 	return Subscription{Type: "activeAssetData", User: addr, Coin: coin}
 }
 
