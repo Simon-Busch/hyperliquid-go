@@ -38,7 +38,7 @@ type OrderResponse struct {
 
 // newCreateOrderAction builds an order action with grouping set to "na"
 func newCreateOrderAction(
-	e *Exchange,
+	e *Trader,
 	orders []CreateOrderRequest,
 	info *BuilderInfo,
 ) (OrderAction, error) {
@@ -47,7 +47,7 @@ func newCreateOrderAction(
 
 // NewCreateOrderActionWithGrouping is the public wrapper for creating order actions
 // This is useful for WebSocket POST requests where you need the action before signing
-func (e *Exchange) NewCreateOrderActionWithGrouping(
+func (e *Trader) NewCreateOrderActionWithGrouping(
 	orders []CreateOrderRequest,
 	info *BuilderInfo,
 	grouping Grouping,
@@ -57,7 +57,7 @@ func (e *Exchange) NewCreateOrderActionWithGrouping(
 
 // newCreateOrderActionWithGrouping builds an order action allowing a specific grouping
 func newCreateOrderActionWithGrouping(
-	e *Exchange,
+	e *Trader,
 	orders []CreateOrderRequest,
 	info *BuilderInfo,
 	grouping Grouping,
@@ -112,7 +112,7 @@ func newCreateOrderActionWithGrouping(
 	}, nil
 }
 
-func (e *Exchange) Order(
+func (e *Trader) Order(
 	req CreateOrderRequest,
 	builder *BuilderInfo,
 ) (result OrderStatus, err error) {
@@ -149,7 +149,7 @@ func (e *Exchange) Order(
 	}
 }
 
-func (e *Exchange) BulkOrders(
+func (e *Trader) BulkOrders(
 	orders []CreateOrderRequest,
 	builder *BuilderInfo,
 ) (result *APIResponse[OrderResponse], err error) {
@@ -162,7 +162,7 @@ func (e *Exchange) BulkOrders(
 }
 
 // BulkOrdersWithGrouping places multiple orders in a single action with the provided grouping
-func (e *Exchange) BulkOrdersWithGrouping(
+func (e *Trader) BulkOrdersWithGrouping(
 	orders []CreateOrderRequest,
 	grouping Grouping,
 	builder *BuilderInfo,
@@ -181,7 +181,7 @@ type ModifyOrderRequest struct {
 }
 
 func newModifyOrderAction(
-	e *Exchange,
+	e *Trader,
 	modifyRequest ModifyOrderRequest,
 ) (ModifyAction, error) {
 	asset := e.info.NameToAsset(modifyRequest.Order.Coin)
@@ -230,7 +230,7 @@ func newModifyOrderAction(
 }
 
 func newModifyOrdersAction(
-	e *Exchange,
+	e *Trader,
 	modifyRequests []ModifyOrderRequest,
 ) (BatchModifyAction, error) {
 	modifies := make([]ModifyAction, len(modifyRequests))
@@ -253,7 +253,7 @@ func newModifyOrdersAction(
 }
 
 // ModifyOrder modifies an existing order
-func (e *Exchange) ModifyOrder(
+func (e *Trader) ModifyOrder(
 	req ModifyOrderRequest,
 ) (result OrderStatus, err error) {
 	resp := APIResponse[OrderResponse]{}
@@ -289,7 +289,7 @@ func (e *Exchange) ModifyOrder(
 }
 
 // BulkModifyOrders modifies multiple orders
-func (e *Exchange) BulkModifyOrders(
+func (e *Trader) BulkModifyOrders(
 	modifyRequests []ModifyOrderRequest,
 ) ([]OrderStatus, error) {
 	resp := APIResponse[OrderResponse]{}
@@ -330,7 +330,7 @@ func (e *Exchange) BulkModifyOrders(
 }
 
 // MarketOpen opens a market position
-func (e *Exchange) MarketOpen(
+func (e *Trader) MarketOpen(
 	name string,
 	isBuy bool,
 	sz float64,
@@ -366,7 +366,7 @@ func (e *Exchange) MarketOpen(
 // MarketOpenWithSLTP opens a position and places either a Stop-Loss (isTP=false) or Take-Profit (isTP=true)
 // trigger in a single grouped action. The trigger is reduce-only and market-on-trigger.
 // Full-position size is used for the trigger. For partial size, use MarketOpenWithSLTPPartial.
-func (e *Exchange) MarketOpenWithSLTP(
+func (e *Trader) MarketOpenWithSLTP(
 	name string,
 	isBuy bool,
 	sz float64,
@@ -383,7 +383,7 @@ func (e *Exchange) MarketOpenWithSLTP(
 
 // MarketOpenWithSLTPPartial is like MarketOpenWithSLTP but allows specifying a partial TP/SL size via tpslSize.
 // If tpslSize is nil, the trigger uses the full position size.
-func (e *Exchange) MarketOpenWithSLTPPartial(
+func (e *Trader) MarketOpenWithSLTPPartial(
 	name string,
 	isBuy bool,
 	sz float64,
@@ -450,7 +450,7 @@ func (e *Exchange) MarketOpenWithSLTPPartial(
 }
 
 // MarketClose closes a position
-func (e *Exchange) MarketClose(
+func (e *Trader) MarketClose(
 	coin string,
 	sz *float64,
 	px *float64,

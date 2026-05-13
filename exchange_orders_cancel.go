@@ -11,7 +11,7 @@ type (
 	}
 )
 
-func (e *Exchange) Cancel(
+func (e *Trader) Cancel(
 	coin string,
 	oid int64,
 ) (res *APIResponse[CancelOrderResponse], err error) {
@@ -23,7 +23,7 @@ func (e *Exchange) Cancel(
 	})
 }
 
-func (e *Exchange) BulkCancel(
+func (e *Trader) BulkCancel(
 	requests []CancelOrderRequest,
 ) (res *APIResponse[CancelOrderResponse], err error) {
 	cancels := make([]CancelOrderWire, len(requests))
@@ -51,7 +51,7 @@ type CancelOrderRequestByCloid struct {
 	Cloid string
 }
 
-func (e *Exchange) CancelByCloid(
+func (e *Trader) CancelByCloid(
 	coin, cloid string,
 ) (res *APIResponse[CancelOrderResponse], err error) {
 	return e.BulkCancelByCloids([]CancelOrderRequestByCloid{
@@ -62,7 +62,7 @@ func (e *Exchange) CancelByCloid(
 	})
 }
 
-func (e *Exchange) BulkCancelByCloids(
+func (e *Trader) BulkCancelByCloids(
 	requests []CancelOrderRequestByCloid,
 ) (res *APIResponse[CancelOrderResponse], err error) {
 	cancels := make([]CancelByCloidWire, len(requests))

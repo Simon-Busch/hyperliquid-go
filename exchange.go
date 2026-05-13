@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
-type Exchange struct {
+type Trader struct {
 	client       *Client
 	privateKey   *ecdsa.PrivateKey
 	vault        string
@@ -19,11 +19,11 @@ type Exchange struct {
 	expiresAfter *int64
 }
 
-// NewExchange creates a new Exchange instance.
+// NewTrader creates a new Trader instance.
 // perpDexs is optional - pass nil for the default perp dex.
 // perpDexName is optional - set to empty string for the default perp dex,
 // or provide a builder dex name (e.g., "flx") for HIP-3 builder-deployed perps.
-func NewExchange(
+func NewTrader(
 	privateKey *ecdsa.PrivateKey,
 	baseURL string,
 	meta *Meta,
@@ -31,8 +31,8 @@ func NewExchange(
 	spotMeta *SpotMeta,
 	perpDexs *MixedArray,
 	perpDexName string,
-) *Exchange {
-	return &Exchange{
+) *Trader {
+	return &Trader{
 		client:      NewClient(baseURL),
 		privateKey:  privateKey,
 		vault:       vaultAddr,
@@ -43,12 +43,12 @@ func NewExchange(
 }
 
 // PerpDex returns the configured builder perp dex name (e.g. "flx"), or empty string for default dex.
-func (e *Exchange) PerpDex() string {
+func (e *Trader) PerpDex() string {
 	return e.dex
 }
 
 // executeAction executes an action and unmarshals the response into the given result
-func (e *Exchange) executeAction(action any, result any) error {
+func (e *Trader) executeAction(action any, result any) error {
 	timestamp := time.Now().UnixMilli()
 
 	sig, err := SignL1Action(
@@ -104,7 +104,7 @@ func actionTypeOf(action any) string {
 	return peek.Type
 }
 
-func (e *Exchange) postAction(
+func (e *Trader) postAction(
 	action any,
 	signature SignatureResult,
 	nonce int64,
@@ -124,7 +124,7 @@ func (e *Exchange) postAction(
 
 // executeUserSignedAction signs a user-signed action with the proper
 // HyperliquidSignTransaction EIP-712 domain and POSTs to /exchange.
-func (e *Exchange) executeUserSignedAction(
+func (e *Trader) executeUserSignedAction(
 	action map[string]any,
 	payloadTypes []apitypes.Type,
 	primaryType string,
@@ -146,17 +146,17 @@ func (e *Exchange) executeUserSignedAction(
 }
 
 // GetAccountAddr returns the account address
-func (e *Exchange) GetAccountAddr() string {
+func (e *Trader) GetAccountAddr() string {
 	return e.accountAddr
 }
 
 // GetInfo returns the info instance
-func (e *Exchange) GetInfo() *Info {
+func (e *Trader) GetInfo() *Info {
 	return e.info
 }
 
 // WarmUp pre-establishes the HTTP/2 connection so the first order doesn't pay
-// the cold-start penalty (TCP + TLS + ALPN). Call once after creating the Exchange.
-func (e *Exchange) WarmUp() error {
+// the cold-start penalty (TCP + TLS + ALPN). Call once after creating the Trader.
+func (e *Trader) WarmUp() error {
 	return e.client.WarmUp()
 }

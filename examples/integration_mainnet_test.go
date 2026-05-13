@@ -34,7 +34,7 @@ func requireMainnetIntegration(t *testing.T) {
 	}
 }
 
-func perpWithdrawable(t *testing.T, ex *hyperliquid.Exchange, addr string) float64 {
+func perpWithdrawable(t *testing.T, ex *hyperliquid.Trader, addr string) float64 {
 	t.Helper()
 	st, err := ex.GetInfo().UserState(addr)
 	if err != nil {
@@ -97,7 +97,7 @@ func TestIntegrationMainnet_UsdClassTransferRoundTrip(t *testing.T) {
 
 // btcPositionSize returns the user's signed BTC perp position size, or 0
 // if no position exists. Positive = long, negative = short.
-func btcPositionSize(t *testing.T, ex *hyperliquid.Exchange, addr string) float64 {
+func btcPositionSize(t *testing.T, ex *hyperliquid.Trader, addr string) float64 {
 	t.Helper()
 	st, err := ex.GetInfo().UserState(addr)
 	if err != nil {

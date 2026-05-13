@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func (e *Exchange) UpdateLeverage(leverage int, name string, isCross bool) (*UserState, error) {
+func (e *Trader) UpdateLeverage(leverage int, name string, isCross bool) (*UserState, error) {
 	action := UpdateLeverageAction{
 		Type:     "updateLeverage",
 		Asset:    e.info.NameToAsset(name),
@@ -34,7 +34,7 @@ type DefaultResponse struct {
 	Type string `json:"type"`
 }
 
-func (e *Exchange) UpdateIsolatedMargin(amount float64, name string) (*APIResponse[DefaultResponse], error) {
+func (e *Trader) UpdateIsolatedMargin(amount float64, name string) (*APIResponse[DefaultResponse], error) {
 	action := UpdateIsolatedMarginAction{
 		Type:  "updateIsolatedMargin",
 		Asset: e.info.NameToAsset(name),
@@ -51,12 +51,12 @@ func (e *Exchange) UpdateIsolatedMargin(amount float64, name string) (*APIRespon
 // SetExpiresAfter sets the expiration time for actions
 // If expiresAfter is nil, actions will not have an expiration time
 // If expiresAfter is set, actions will include this expiration timestamp
-func (e *Exchange) SetExpiresAfter(expiresAfter *int64) {
+func (e *Trader) SetExpiresAfter(expiresAfter *int64) {
 	e.expiresAfter = expiresAfter
 }
 
 // SlippagePrice calculates the slippage price for market orders
-func (e *Exchange) SlippagePrice(
+func (e *Trader) SlippagePrice(
 	name string,
 	isBuy bool,
 	slippage float64,
@@ -164,7 +164,7 @@ func getAssetTickSize(assetID int) float64 {
 // validateAndAdjustPrice ensures the price meets tick size requirements
 // Based on Hyperliquid docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size
 func validateAndAdjustPrice(price float64, assetID int) (float64, error) {
-	// This function is called from contexts where we don't have access to the Exchange instance
+	// This function is called from contexts where we don't have access to the Trader instance
 	// So we use the fallback method for now
 	tickSize := getAssetTickSize(assetID)
 
@@ -184,7 +184,7 @@ func validateAndAdjustPrice(price float64, assetID int) (float64, error) {
 }
 
 // ScheduleCancel schedules cancellation of all open orders
-func (e *Exchange) ScheduleCancel(scheduleTime *int64) (*ScheduleCancelResponse, error) {
+func (e *Trader) ScheduleCancel(scheduleTime *int64) (*ScheduleCancelResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := ScheduleCancelAction{
@@ -217,7 +217,7 @@ func (e *Exchange) ScheduleCancel(scheduleTime *int64) (*ScheduleCancelResponse,
 }
 
 // SetReferrer sets a referral code
-func (e *Exchange) SetReferrer(code string) (*SetReferrerResponse, error) {
+func (e *Trader) SetReferrer(code string) (*SetReferrerResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := SetReferrerAction{
@@ -250,7 +250,7 @@ func (e *Exchange) SetReferrer(code string) (*SetReferrerResponse, error) {
 }
 
 // CreateSubAccount creates a new sub-account
-func (e *Exchange) CreateSubAccount(name string) (*CreateSubAccountResponse, error) {
+func (e *Trader) CreateSubAccount(name string) (*CreateSubAccountResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := CreateSubAccountAction{
@@ -283,7 +283,7 @@ func (e *Exchange) CreateSubAccount(name string) (*CreateSubAccountResponse, err
 }
 
 // UsdClassTransfer transfers between USD classes (perps <-> spot).
-func (e *Exchange) UsdClassTransfer(amount float64, toPerp bool) (*TransferResponse, error) {
+func (e *Trader) UsdClassTransfer(amount float64, toPerp bool) (*TransferResponse, error) {
 	nonce := time.Now().UnixMilli()
 	amountStr := formatUsdAmount(amount)
 	if e.vault != "" {
@@ -306,7 +306,7 @@ func (e *Exchange) UsdClassTransfer(amount float64, toPerp bool) (*TransferRespo
 }
 
 // SubAccountTransfer transfers funds to/from sub-account
-func (e *Exchange) SubAccountTransfer(
+func (e *Trader) SubAccountTransfer(
 	subAccountUser string,
 	isDeposit bool,
 	usd int,
@@ -345,7 +345,7 @@ func (e *Exchange) SubAccountTransfer(
 }
 
 // VaultUsdTransfer transfers to/from vault
-func (e *Exchange) VaultUsdTransfer(
+func (e *Trader) VaultUsdTransfer(
 	vaultAddress string,
 	isDeposit bool,
 	usd int,
@@ -384,7 +384,7 @@ func (e *Exchange) VaultUsdTransfer(
 }
 
 // UsdTransfer sends USD to another address.
-func (e *Exchange) UsdTransfer(amount float64, destination string) (*TransferResponse, error) {
+func (e *Trader) UsdTransfer(amount float64, destination string) (*TransferResponse, error) {
 	nonce := time.Now().UnixMilli()
 	action := map[string]any{
 		"type":        "usdSend",
@@ -403,7 +403,7 @@ func (e *Exchange) UsdTransfer(amount float64, destination string) (*TransferRes
 }
 
 // SpotTransfer sends spot tokens to another address.
-func (e *Exchange) SpotTransfer(
+func (e *Trader) SpotTransfer(
 	amount float64,
 	destination, token string,
 ) (*TransferResponse, error) {
@@ -426,7 +426,7 @@ func (e *Exchange) SpotTransfer(
 }
 
 // UseBigBlocks enables or disables big blocks
-func (e *Exchange) UseBigBlocks(enable bool) (*ApprovalResponse, error) {
+func (e *Trader) UseBigBlocks(enable bool) (*ApprovalResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := UseBigBlocksAction{
@@ -459,7 +459,7 @@ func (e *Exchange) UseBigBlocks(enable bool) (*ApprovalResponse, error) {
 }
 
 // PerpDexClassTransfer transfers tokens between perp dex classes
-func (e *Exchange) PerpDexClassTransfer(
+func (e *Trader) PerpDexClassTransfer(
 	dex, token string,
 	amount float64,
 	toPerp bool,
@@ -499,7 +499,7 @@ func (e *Exchange) PerpDexClassTransfer(
 }
 
 // SubAccountSpotTransfer transfers spot tokens to/from sub-account
-func (e *Exchange) SubAccountSpotTransfer(
+func (e *Trader) SubAccountSpotTransfer(
 	subAccountUser string,
 	isDeposit bool,
 	token string,
@@ -540,7 +540,7 @@ func (e *Exchange) SubAccountSpotTransfer(
 }
 
 // TokenDelegate delegates (or undelegates) HYPE stake.
-func (e *Exchange) TokenDelegate(
+func (e *Trader) TokenDelegate(
 	validator string,
 	wei int,
 	isUndelegate bool,
@@ -564,7 +564,7 @@ func (e *Exchange) TokenDelegate(
 }
 
 // WithdrawFromBridge withdraws USDC to the configured destination on L1.
-func (e *Exchange) WithdrawFromBridge(
+func (e *Trader) WithdrawFromBridge(
 	amount float64,
 	destination string,
 ) (*TransferResponse, error) {
@@ -587,7 +587,7 @@ func (e *Exchange) WithdrawFromBridge(
 
 // ApproveAgent generates a fresh agent key and approves it to act on the
 // user's behalf. Returns the result and the agent private key hex.
-func (e *Exchange) ApproveAgent(name *string) (*AgentApprovalResponse, string, error) {
+func (e *Trader) ApproveAgent(name *string) (*AgentApprovalResponse, string, error) {
 	agentBytes := make([]byte, 32)
 	if _, err := rand.Read(agentBytes); err != nil {
 		return nil, "", fmt.Errorf("generate agent key: %w", err)
@@ -622,7 +622,7 @@ func (e *Exchange) ApproveAgent(name *string) (*AgentApprovalResponse, string, e
 
 // ApproveBuilderFee approves a builder address to charge up to maxFeeRate.
 // maxFeeRate must be a percent string like "0.1%".
-func (e *Exchange) ApproveBuilderFee(builder string, maxFeeRate string) (*ApprovalResponse, error) {
+func (e *Trader) ApproveBuilderFee(builder string, maxFeeRate string) (*ApprovalResponse, error) {
 	nonce := time.Now().UnixMilli()
 	action := map[string]any{
 		"type":       "approveBuilderFee",
@@ -642,7 +642,7 @@ func (e *Exchange) ApproveBuilderFee(builder string, maxFeeRate string) (*Approv
 
 // ConvertToMultiSigUser converts the account to a multi-sig user with the
 // given authorized signers and approval threshold.
-func (e *Exchange) ConvertToMultiSigUser(
+func (e *Trader) ConvertToMultiSigUser(
 	authorizedUsers []string,
 	threshold int,
 ) (*MultiSigConversionResponse, error) {
@@ -673,7 +673,7 @@ func (e *Exchange) ConvertToMultiSigUser(
 // Spot Deploy Methods
 
 // SpotDeployRegisterToken registers a new spot token
-func (e *Exchange) SpotDeployRegisterToken(
+func (e *Trader) SpotDeployRegisterToken(
 	tokenName string,
 	szDecimals int,
 	weiDecimals int,
@@ -720,7 +720,7 @@ func (e *Exchange) SpotDeployRegisterToken(
 }
 
 // SpotDeployUserGenesis initializes user genesis for spot trading
-func (e *Exchange) SpotDeployUserGenesis(balances map[string]float64) (*SpotDeployResponse, error) {
+func (e *Trader) SpotDeployUserGenesis(balances map[string]float64) (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -753,7 +753,7 @@ func (e *Exchange) SpotDeployUserGenesis(balances map[string]float64) (*SpotDepl
 }
 
 // SpotDeployEnableFreezePrivilege enables freeze privilege for spot deployer
-func (e *Exchange) SpotDeployEnableFreezePrivilege() (*SpotDeployResponse, error) {
+func (e *Trader) SpotDeployEnableFreezePrivilege() (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -785,7 +785,7 @@ func (e *Exchange) SpotDeployEnableFreezePrivilege() (*SpotDeployResponse, error
 }
 
 // SpotDeployFreezeUser freezes a user in spot trading
-func (e *Exchange) SpotDeployFreezeUser(userAddress string) (*SpotDeployResponse, error) {
+func (e *Trader) SpotDeployFreezeUser(userAddress string) (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -818,7 +818,7 @@ func (e *Exchange) SpotDeployFreezeUser(userAddress string) (*SpotDeployResponse
 }
 
 // SpotDeployRevokeFreezePrivilege revokes freeze privilege for spot deployer
-func (e *Exchange) SpotDeployRevokeFreezePrivilege() (*SpotDeployResponse, error) {
+func (e *Trader) SpotDeployRevokeFreezePrivilege() (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -850,7 +850,7 @@ func (e *Exchange) SpotDeployRevokeFreezePrivilege() (*SpotDeployResponse, error
 }
 
 // SpotDeployGenesis initializes spot genesis
-func (e *Exchange) SpotDeployGenesis(deployer string, dexName string) (*SpotDeployResponse, error) {
+func (e *Trader) SpotDeployGenesis(deployer string, dexName string) (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -884,7 +884,7 @@ func (e *Exchange) SpotDeployGenesis(deployer string, dexName string) (*SpotDepl
 }
 
 // SpotDeployRegisterSpot registers spot market
-func (e *Exchange) SpotDeployRegisterSpot(
+func (e *Trader) SpotDeployRegisterSpot(
 	baseToken string,
 	quoteToken string,
 ) (*SpotDeployResponse, error) {
@@ -921,7 +921,7 @@ func (e *Exchange) SpotDeployRegisterSpot(
 }
 
 // SpotDeployRegisterHyperliquidity registers hyperliquidity spot
-func (e *Exchange) SpotDeployRegisterHyperliquidity(
+func (e *Trader) SpotDeployRegisterHyperliquidity(
 	name string,
 	tokens []string,
 ) (*SpotDeployResponse, error) {
@@ -958,7 +958,7 @@ func (e *Exchange) SpotDeployRegisterHyperliquidity(
 }
 
 // SpotDeploySetDeployerTradingFeeShare sets deployer trading fee share
-func (e *Exchange) SpotDeploySetDeployerTradingFeeShare(
+func (e *Trader) SpotDeploySetDeployerTradingFeeShare(
 	feeShare float64,
 ) (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
@@ -995,7 +995,7 @@ func (e *Exchange) SpotDeploySetDeployerTradingFeeShare(
 // Perp Deploy Methods
 
 // PerpDeployRegisterAsset registers a new perpetual asset
-func (e *Exchange) PerpDeployRegisterAsset(
+func (e *Trader) PerpDeployRegisterAsset(
 	asset string,
 	perpDexInput PerpDexSchemaInput,
 ) (*PerpDeployResponse, error) {
@@ -1032,7 +1032,7 @@ func (e *Exchange) PerpDeployRegisterAsset(
 }
 
 // PerpDeploySetOracle sets oracle for perpetual asset
-func (e *Exchange) PerpDeploySetOracle(
+func (e *Trader) PerpDeploySetOracle(
 	asset string,
 	oracleAddress string,
 ) (*SpotDeployResponse, error) {
@@ -1071,7 +1071,7 @@ func (e *Exchange) PerpDeploySetOracle(
 // CSigner Methods
 
 // CSignerUnjailSelf unjails self as consensus signer
-func (e *Exchange) CSignerUnjailSelf() (*ValidatorResponse, error) {
+func (e *Trader) CSignerUnjailSelf() (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -1103,7 +1103,7 @@ func (e *Exchange) CSignerUnjailSelf() (*ValidatorResponse, error) {
 }
 
 // CSignerJailSelf jails self as consensus signer
-func (e *Exchange) CSignerJailSelf() (*ValidatorResponse, error) {
+func (e *Trader) CSignerJailSelf() (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -1135,7 +1135,7 @@ func (e *Exchange) CSignerJailSelf() (*ValidatorResponse, error) {
 }
 
 // CSignerInner executes inner consensus signer action
-func (e *Exchange) CSignerInner(innerAction map[string]any) (*ValidatorResponse, error) {
+func (e *Trader) CSignerInner(innerAction map[string]any) (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -1170,7 +1170,7 @@ func (e *Exchange) CSignerInner(innerAction map[string]any) (*ValidatorResponse,
 // CValidator Methods
 
 // CValidatorRegister registers as consensus validator
-func (e *Exchange) CValidatorRegister(validatorProfile map[string]any) (*ValidatorResponse, error) {
+func (e *Trader) CValidatorRegister(validatorProfile map[string]any) (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -1203,7 +1203,7 @@ func (e *Exchange) CValidatorRegister(validatorProfile map[string]any) (*Validat
 }
 
 // CValidatorChangeProfile changes validator profile
-func (e *Exchange) CValidatorChangeProfile(newProfile map[string]any) (*ValidatorResponse, error) {
+func (e *Trader) CValidatorChangeProfile(newProfile map[string]any) (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -1236,7 +1236,7 @@ func (e *Exchange) CValidatorChangeProfile(newProfile map[string]any) (*Validato
 }
 
 // CValidatorUnregister unregisters as consensus validator
-func (e *Exchange) CValidatorUnregister() (*ValidatorResponse, error) {
+func (e *Trader) CValidatorUnregister() (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -1267,7 +1267,7 @@ func (e *Exchange) CValidatorUnregister() (*ValidatorResponse, error) {
 	return &result, nil
 }
 
-func (e *Exchange) MultiSig(
+func (e *Trader) MultiSig(
 	action map[string]any,
 	signers []string,
 	signatures []string,

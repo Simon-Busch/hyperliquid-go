@@ -31,7 +31,7 @@ func accountAddress(t *testing.T) string {
 	return addr
 }
 
-func newTestExchange(t *testing.T) *hyperliquid.Exchange {
+func newTestExchange(t *testing.T) *hyperliquid.Trader {
 	t.Helper()
 
 	privKeyHex := os.Getenv("HL_PRIVATE_KEY")
@@ -53,7 +53,7 @@ func newTestExchange(t *testing.T) *hyperliquid.Exchange {
 	t.Logf("Account address: %s", accountAddr)
 
 	// Initialize test exchange (default perp dex)
-	return hyperliquid.NewExchange(
+	return hyperliquid.NewTrader(
 		testPrivateKey,
 		hyperliquid.MainnetAPIURL,
 		nil,

@@ -2448,7 +2448,7 @@ func TestBulkOrdersWithGrouping_Generic_ThreeAssets(t *testing.T) {
 
 func TestIsolatedMarginOrder(t *testing.T) {
 
-	exchange := newTestExchange(t) // or your instantiated Exchange
+	exchange := newTestExchange(t) // or your instantiated Trader
 
 	coin := "ETH"
 
@@ -2526,7 +2526,7 @@ func TestWithdrawFromBridge(t *testing.T) {
 	}
 
 	// Create exchange instance
-	exchange := hyperliquid.NewExchange(
+	exchange := hyperliquid.NewTrader(
 		privateKey,
 		hyperliquid.MainnetAPIURL, // Use testnet for safety
 		nil,                       // meta
@@ -2537,7 +2537,7 @@ func TestWithdrawFromBridge(t *testing.T) {
 		"",  // perpDexName (empty = default dex)
 	)
 
-	t.Logf("✅ Exchange instance created successfully")
+	t.Logf("✅ Trader instance created successfully")
 	t.Logf("🌐 Using API URL: %s", hyperliquid.MainnetAPIURL)
 
 	// Check account balance before withdrawal
@@ -2693,7 +2693,7 @@ func TestWithdrawFromBridgeCustom(t *testing.T) {
 	}
 
 	// Create exchange instance
-	exchange := hyperliquid.NewExchange(
+	exchange := hyperliquid.NewTrader(
 		privateKey,
 		apiURL,
 		nil, // meta
@@ -2704,7 +2704,7 @@ func TestWithdrawFromBridgeCustom(t *testing.T) {
 		"",  // perpDexName (empty = default dex)
 	)
 
-	t.Logf("✅ Exchange instance created successfully")
+	t.Logf("✅ Trader instance created successfully")
 	t.Logf("🌐 Using API URL: %s", apiURL)
 
 	// Check account balance before withdrawal
