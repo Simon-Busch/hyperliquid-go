@@ -1,0 +1,64 @@
+//go:build integration
+
+package integration
+
+import (
+	"testing"
+	"time"
+
+	hl "github.com/Simon-Busch/hyperliquid-go"
+)
+
+// TestStream_PostAction places a far-from-mid ALO over the WS PostAction
+// channel and cancels it via REST. The action is built using the public
+// NewCreateOrderActionWithGrouping helper, signed with SignL1Action,
+// and dispatched via Stream.PostActionRequest.
+func TestStream_PostAction(t *testing.T) {
+	c := newStreamingClient(t)
+	skipIfNoBalance(t, c)
+
+	coin := testCoin(t)
+	size := testSize(t, c, coin)
+	m := mid(t, c, coin)
+	px := snapPrice(m*0.5, c, coin)
+
+	req := hl.CreateOrderRequest{
+		Coin:       coin,
+		IsBuy:      true,
+		Price:      px,
+		Size:       size,
+		ReduceOnly: false,
+		OrderType:  hl.OrderType{Limit: &hl.LimitOrderType{Tif: "Alo"}},
+	}
+	action, err := c.Trade.NewCreateOrderActionWithGrouping(
+		[]hl.CreateOrderRequest{req}, nil, hl.GroupingNA,
+	)
+	if err != nil {
+		t.Fatalf("NewCreateOrderActionWithGrouping: %v", err)
+	}
+
+	cfg, _ := loadConfig()
+	nonce := time.Now().UnixMilli()
+	sig, err := hl.SignL1Action(
+		cfg.privateKey,
+		action,
+		"", // no vault
+		nonce,
+		nil,
+		cfg.BaseURL == hl.MainnetAPIURL,
+	)
+	if err != nil {
+		t.Fatalf("SignL1Action: %v", err)
+	}
+
+	resp, err := c.Stream.PostActionRequest(action, sig, nonce, "", 15*time.Second)
+	if err != nil {
+		t.Fatalf("Stream.PostActionRequest: %v", err)
+	}
+	t.Logf("WS PostAction response: %s", string(resp))
+
+	// Clean up via REST CancelAll for the coin.
+	if _, err := c.Trade.CancelAll(coin); err != nil {
+		t.Logf("CancelAll cleanup: %v", err)
+	}
+}
