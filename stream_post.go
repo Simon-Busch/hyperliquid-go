@@ -11,10 +11,10 @@ type pendingRequest struct {
 	responseChan chan WsPostResponseData
 }
 
-// PostRequest sends a POST-style request over the WebSocket and waits up
-// to timeout for the response. Lower-level than PostInfoRequest /
-// PostActionRequest; prefer those.
-func (w *Stream) PostRequest(
+// Post sends a POST-style request over the WebSocket and waits up to
+// timeout for the response. Lower-level than PostInfo / PostAction;
+// prefer those.
+func (w *Stream) Post(
 	requestType string,
 	payload any,
 	timeout time.Duration,
@@ -67,9 +67,9 @@ func (w *Stream) PostRequest(
 	}
 }
 
-// PostInfoRequest sends an info-style request over the WebSocket. When
-// timeout is zero the call waits up to 30s.
-func (w *Stream) PostInfoRequest(
+// PostInfo sends an info-style request over the WebSocket. When timeout
+// is zero the call waits up to 30s.
+func (w *Stream) PostInfo(
 	payload map[string]any,
 	timeout time.Duration,
 ) (json.RawMessage, error) {
@@ -77,7 +77,7 @@ func (w *Stream) PostInfoRequest(
 		timeout = 30 * time.Second
 	}
 
-	resp, err := w.PostRequest("info", payload, timeout)
+	resp, err := w.Post("info", payload, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -89,10 +89,10 @@ func (w *Stream) PostInfoRequest(
 	return resp.Response.Payload, nil
 }
 
-// PostActionRequest sends a signed action over the WebSocket. vaultAddress
-// is forwarded as-is — supply an empty string to set vaultAddress: null.
+// PostAction sends a signed action over the WebSocket. vaultAddress is
+// forwarded as-is -- supply an empty string to set vaultAddress: null.
 // When timeout is zero the call waits up to 30s.
-func (w *Stream) PostActionRequest(
+func (w *Stream) PostAction(
 	action any,
 	signature SignatureResult,
 	nonce int64,
@@ -115,7 +115,7 @@ func (w *Stream) PostActionRequest(
 		payload["vaultAddress"] = nil
 	}
 
-	resp, err := w.PostRequest("action", payload, timeout)
+	resp, err := w.Post("action", payload, timeout)
 	if err != nil {
 		return nil, err
 	}

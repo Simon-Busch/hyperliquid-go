@@ -19,9 +19,9 @@ func TestStream_PostInfo_MatchesREST(t *testing.T) {
 		t.Fatalf("REST Meta: %v", err)
 	}
 
-	raw, err := c.Stream.PostInfoRequest(map[string]any{"type": "meta"}, 10*time.Second)
+	raw, err := c.Stream.PostInfo(map[string]any{"type": "meta"}, 10*time.Second)
 	if err != nil {
-		t.Fatalf("Stream.PostInfoRequest: %v", err)
+		t.Fatalf("Stream.PostInfo: %v", err)
 	}
 	var wsMeta struct {
 		Universe []map[string]any `json:"universe"`

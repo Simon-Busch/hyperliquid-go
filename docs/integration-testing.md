@@ -54,8 +54,8 @@ The integration files in `tests/integration/` cover, at minimum, these scenarios
 6. **USD transfer to self** — call `Trade.Transfer.SendUSD` to the same wallet, verify the ledger entry.
 7. **Approve agent + place from agent** — call `ApproveAgent`, build a new client with the agent key + `WithAccount(owner)`, place an order, cancel it.
 8. **Stream trades, 5 s** — `Subscribe(hl.Trades(coin), ...)`, count messages over 5 s, assert > 0.
-9. **Stream PostInfoRequest** — call `PostInfoRequest`, compare the payload with the REST `Info.Book` snapshot.
-10. **Stream PostActionRequest** — place an order and cancel it entirely over the WS.
+9. **Stream PostInfo** — call `PostInfo`, compare the payload with the REST `Info.Book` snapshot.
+10. **Stream PostAction** — place an order and cancel it entirely over the WS.
 11. **ClosePosition end-to-end** — open a tiny position, call `ClosePosition`, verify no position remains.
 
 ## Troubleshooting

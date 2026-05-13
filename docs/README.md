@@ -143,7 +143,7 @@ The full design spec lives at [docs/spec/api-cleanup.md](./spec/api-cleanup.md) 
 - [`hl.UserEvents`, `hl.UserFills`, `hl.OrderUpdates`](./stream.md#user-subscriptions)
 - [`hl.UserFundings`, `hl.UserLedger`, `hl.WebData`, `hl.Notifications`](./stream.md#user-subscriptions)
 - [`hl.UserTwapFills`, `hl.UserTwapHistory`](./stream.md#user-subscriptions)
-- [`Stream.PostInfoRequest`, `Stream.PostActionRequest`, `Stream.PostRequest`](./stream.md#post-over-ws)
+- [`Stream.PostInfo`, `Stream.PostAction`, `Stream.Post`](./stream.md#post-over-ws)
 
 ### Signing
 

@@ -247,12 +247,12 @@ func TestStream_MultipleSubscribersSameKey(t *testing.T) {
 	}
 }
 
-func TestStream_PostRequestNotConnected(t *testing.T) {
+func TestStream_PostNotConnected(t *testing.T) {
 	srv := newFakeWS(t)
 	defer srv.Close()
 	s := streamForURL(t, srv.URL)
-	if _, err := s.PostRequest("info", map[string]any{}, 10*time.Millisecond); err == nil {
-		t.Errorf("PostRequest should require Connect first")
+	if _, err := s.Post("info", map[string]any{}, 10*time.Millisecond); err == nil {
+		t.Errorf("Post should require Connect first")
 	}
 }
 

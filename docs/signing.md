@@ -1,6 +1,6 @@
 # Signing reference
 
-The SDK ships its own EIP-712 signing path so that signed actions can be assembled without a Python bridge. Most callers never use these helpers directly — every method on `c.Trade` signs its action internally. The exported functions exist for advanced scenarios: posting actions over the WebSocket via `Stream.PostActionRequest`, signing actions to be relayed by another process, or driving the signing path in tests.
+The SDK ships its own EIP-712 signing path so that signed actions can be assembled without a Python bridge. Most callers never use these helpers directly — every method on `c.Trade` signs its action internally. The exported functions exist for advanced scenarios: posting actions over the WebSocket via `Stream.PostAction`, signing actions to be relayed by another process, or driving the signing path in tests.
 
 Two EIP-712 domains are in play:
 
@@ -34,7 +34,7 @@ func SignL1Action(
 ) (SignatureResult, error)
 ```
 
-**When to call**: when you want to sign a trading action yourself for transport via `Stream.PostActionRequest`, or to inspect/persist the signature before sending.
+**When to call**: when you want to sign a trading action yourself for transport via `Stream.PostAction`, or to inspect/persist the signature before sending.
 
 **Parameters**
 
@@ -53,7 +53,7 @@ action := map[string]any{ "type": "scheduleCancel", "time": nil }
 sig, err := hl.SignL1Action(pk, action, "", ts, nil, true)
 if err != nil { log.Fatal(err) }
 
-raw, err := c.Stream.PostActionRequest(action, sig, ts, "", 5*time.Second)
+raw, err := c.Stream.PostAction(action, sig, ts, "", 5*time.Second)
 ```
 
 ---

@@ -12,7 +12,7 @@ import (
 // TestStream_PostAction places a far-from-mid ALO over the WS PostAction
 // channel and cancels it via REST. The action is built using the public
 // NewCreateOrderActionWithGrouping helper, signed with SignL1Action,
-// and dispatched via Stream.PostActionRequest.
+// and dispatched via Stream.PostAction.
 func TestStream_PostAction(t *testing.T) {
 	c := newStreamingClient(t)
 	skipIfNoBalance(t, c)
@@ -51,9 +51,9 @@ func TestStream_PostAction(t *testing.T) {
 		t.Fatalf("SignL1Action: %v", err)
 	}
 
-	resp, err := c.Stream.PostActionRequest(action, sig, nonce, "", 15*time.Second)
+	resp, err := c.Stream.PostAction(action, sig, nonce, "", 15*time.Second)
 	if err != nil {
-		t.Fatalf("Stream.PostActionRequest: %v", err)
+		t.Fatalf("Stream.PostAction: %v", err)
 	}
 	t.Logf("WS PostAction response: %s", string(resp))
 

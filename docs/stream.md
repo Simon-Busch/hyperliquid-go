@@ -149,39 +149,39 @@ defer sub.Close()
 
 The Stream also services REST-style requests. This is useful when the caller wants tighter latency or to keep all traffic on one socket.
 
-### `PostInfoRequest`
+### `PostInfo`
 
 Send an info request and wait up to `timeout` (`0` means 30s). Returns the raw payload bytes.
 
 ```go
-func (w *Stream) PostInfoRequest(payload map[string]any, timeout time.Duration) (json.RawMessage, error)
+func (w *Stream) PostInfo(payload map[string]any, timeout time.Duration) (json.RawMessage, error)
 ```
 
 **Example**
 
 ```go
-data, err := c.Stream.PostInfoRequest(map[string]any{
+data, err := c.Stream.PostInfo(map[string]any{
     "type": "l2Book",
     "coin": "ETH",
 }, 5*time.Second)
 ```
 
-### `PostActionRequest`
+### `PostAction`
 
 Send a pre-signed action. `vaultAddress` is forwarded verbatim — pass `""` to set the wire field to `null`. When `timeout == 0` the call waits up to 30s.
 
 ```go
-func (w *Stream) PostActionRequest(action any, signature SignatureResult, nonce int64, vaultAddress string, timeout time.Duration) (json.RawMessage, error)
+func (w *Stream) PostAction(action any, signature SignatureResult, nonce int64, vaultAddress string, timeout time.Duration) (json.RawMessage, error)
 ```
 
 The action must already be signed via `SignL1Action` or `SignUserSignedAction` — see [signing.md](./signing.md).
 
-### `PostRequest`
+### `Post`
 
-Lower-level than `PostInfoRequest` / `PostActionRequest`. Prefer those.
+Lower-level than `PostInfo` / `PostAction`. Prefer those.
 
 ```go
-func (w *Stream) PostRequest(requestType string, payload any, timeout time.Duration) (*WsPostResponseData, error)
+func (w *Stream) Post(requestType string, payload any, timeout time.Duration) (*WsPostResponseData, error)
 ```
 
 ---
