@@ -16,12 +16,12 @@ func TestPlaceGTC_WithBracket(t *testing.T) {
 	skipIfNoBalance(t, c)
 
 	coin := testCoin(t)
-	size := testSize(t, c, coin)
 	m := mid(t, c, coin)
 
 	entry := snapPrice(m*0.5, c, coin)
 	tp := snapPrice(m*0.6, c, coin)
 	sl := snapPrice(m*0.4, c, coin)
+	size := testSizeForLimit(t, c, coin, entry)
 
 	res, err := c.Trade.PlaceGTC(coin, hl.Buy, size, entry, hl.WithBracket(tp, sl))
 	if err != nil {

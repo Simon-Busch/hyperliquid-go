@@ -15,11 +15,11 @@ func TestCancelAll(t *testing.T) {
 	skipIfNoBalance(t, c)
 
 	coin := testCoin(t)
-	size := testSize(t, c, coin)
 	m := mid(t, c, coin)
 
 	px1 := snapPrice(m*0.5, c, coin)
 	px2 := snapPrice(m*0.55, c, coin)
+	size := testSizeForLimit(t, c, coin, px1)
 
 	r1, err := c.Trade.PlaceALO(coin, hl.Buy, size, px1)
 	if err != nil {

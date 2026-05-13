@@ -5,6 +5,7 @@ package integration
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	hl "github.com/Simon-Busch/hyperliquid-go"
 )
@@ -23,6 +24,11 @@ func TestClosePosition_AutoDirection(t *testing.T) {
 		t.Fatalf("PlaceMarket buy: %v", err)
 	}
 	t.Cleanup(func() { _, _ = c.Trade.ClosePosition(coin) })
+
+	// IOC market may not fill on thin books — skip rather than fail.
+	if awaitPosition(t, c, coin, 5*time.Second) == nil {
+		t.Skipf("PlaceMarket did not produce a position on %s within 5s (likely thin book); skipping", coin)
+	}
 
 	if _, err := c.Trade.ClosePosition(coin); err != nil {
 		t.Fatalf("ClosePosition: %v", err)

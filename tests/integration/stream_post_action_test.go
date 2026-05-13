@@ -18,9 +18,9 @@ func TestStream_PostAction(t *testing.T) {
 	skipIfNoBalance(t, c)
 
 	coin := testCoin(t)
-	size := testSize(t, c, coin)
 	m := mid(t, c, coin)
 	px := snapPrice(m*0.5, c, coin)
+	size := testSizeForLimit(t, c, coin, px)
 
 	req := hl.CreateOrderRequest{
 		Coin:       coin,

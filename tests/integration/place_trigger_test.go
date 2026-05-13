@@ -15,12 +15,12 @@ func TestPlaceTrigger_Cancel(t *testing.T) {
 	skipIfNoBalance(t, c)
 
 	coin := testCoin(t)
-	size := testSize(t, c, coin)
 	m := mid(t, c, coin)
 
 	// Buy stop above market — triggers if price rises 50%. Far enough to
 	// stay un-triggered for the duration of the test.
 	trigger := snapPrice(m*1.5, c, coin)
+	size := testSizeForLimit(t, c, coin, trigger)
 
 	res, err := c.Trade.PlaceTrigger(coin, hl.Buy, size, trigger, hl.AsMarket())
 	if err != nil {

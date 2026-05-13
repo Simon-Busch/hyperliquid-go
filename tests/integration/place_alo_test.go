@@ -16,9 +16,9 @@ func TestPlaceALO_QueryAndCancel(t *testing.T) {
 	skipIfNoBalance(t, c)
 
 	coin := testCoin(t)
-	size := testSize(t, c, coin)
 	m := mid(t, c, coin)
 	px := snapPrice(m*0.5, c, coin) // 50% below mid → no risk of crossing
+	size := testSizeForLimit(t, c, coin, px)
 
 	res, err := c.Trade.PlaceALO(coin, hl.Buy, size, px)
 	if err != nil {

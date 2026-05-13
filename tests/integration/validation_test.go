@@ -5,6 +5,7 @@ package integration
 import (
 	"errors"
 	"testing"
+	"time"
 
 	hl "github.com/Simon-Busch/hyperliquid-go"
 )
@@ -12,7 +13,9 @@ import (
 // TestValidation_LongShortHardErrors opens a tiny long, then attempts a
 // Buy reduce-only on the same coin. Validation must reject it with
 // ValidationError{Code:"wrong_side_for_reduce"}. The tiny long is closed
-// at test end.
+// at test end. If PlaceMarket does not produce a position (thin book on
+// testnet), the scenario skips rather than asserting the wrong-side
+// check against an empty account.
 func TestValidation_LongShortHardErrors(t *testing.T) {
 	c := newClient(t)
 	skipIfNoBalance(t, c)
@@ -24,6 +27,10 @@ func TestValidation_LongShortHardErrors(t *testing.T) {
 		t.Fatalf("PlaceMarket buy: %v", err)
 	}
 	t.Cleanup(func() { _, _ = c.Trade.ClosePosition(coin) })
+
+	if awaitPosition(t, c, coin, 5*time.Second) == nil {
+		t.Skipf("PlaceMarket did not produce a position on %s within 5s (likely thin book); cannot exercise reduce-only validation", coin)
+	}
 
 	// Reduce-only Buy on a long must be rejected by validate().
 	m := mid(t, c, coin)

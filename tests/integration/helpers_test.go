@@ -110,11 +110,37 @@ func testSize(t *testing.T, client *hl.Client, coin string) float64 {
 	if target < meta.MinSize {
 		return meta.MinSize
 	}
-	// Snap down to the size step so the order does not exceed the budget.
-	steps := math.Floor(target / meta.MinSize)
+	// Snap UP to the size step. Rounding down could put us under the
+	// venue's $10 minimum order value when the target sits between two
+	// steps; the small overshoot is acceptable for an integration budget.
+	steps := math.Ceil(target / meta.MinSize)
 	if steps < 1 {
 		steps = 1
 	}
+	return steps * meta.MinSize
+}
+
+// testSizeForLimit returns a coin-unit size such that size * limitPx is
+// at least HL_TEST_NOTIONAL — used by tests that place orders far from
+// mid (resting ALO/GTC, brackets, triggers) where sizing at mid would
+// produce a sub-$10 notional and get rejected by the venue's minimum
+// order-value rule. Snaps UP to the size step to ensure the threshold
+// is cleared.
+func testSizeForLimit(t *testing.T, client *hl.Client, coin string, limitPx float64) float64 {
+	t.Helper()
+	cfg, _ := loadConfig()
+	if cfg.TestNotional <= 0 || limitPx <= 0 {
+		return testSize(t, client, coin)
+	}
+	target := cfg.TestNotional / limitPx
+	meta, err := client.Info.Asset(coin)
+	if err != nil || meta.MinSize == 0 {
+		return target
+	}
+	if target < meta.MinSize {
+		return meta.MinSize
+	}
+	steps := math.Ceil(target / meta.MinSize)
 	return steps * meta.MinSize
 }
 
@@ -172,6 +198,26 @@ func skipIfNoSpotBalance(t *testing.T, client *hl.Client) {
 	t.Skipf("account %s has no spot balance", c.AccountAddr)
 }
 
+// awaitPosition polls Info.Position until coin has a non-zero size or
+// the timeout elapses. Returns the position or nil. Used by scenarios
+// that need to act on a freshly-opened position when testnet/mainnet
+// state propagation lags behind a market order ack.
+func awaitPosition(t *testing.T, client *hl.Client, coin string, timeout time.Duration) *hl.Position {
+	t.Helper()
+	cfg, _ := loadConfig()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		pos, err := client.Info.Position(cfg.AccountAddr, coin)
+		if err == nil && pos != nil {
+			if szi, perr := strconv.ParseFloat(pos.Szi, 64); perr == nil && szi != 0 {
+				return pos
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return nil
+}
+
 // awaitFill polls Info.Fill for up to timeout, returning the first fill
 // matching oid or nil if none seen.
 func awaitFill(t *testing.T, client *hl.Client, oid int64, timeout time.Duration) bool {
@@ -188,9 +234,22 @@ func awaitFill(t *testing.T, client *hl.Client, oid int64, timeout time.Duration
 	return false
 }
 
-// snapPrice rounds px to the asset's tick size so the order does not
-// fail the 5-significant-figure / tick-alignment validators.
+// snapPrice rounds px to a wire-valid Hyperliquid price: at most five
+// significant figures AND a multiple of the asset's tick size. The
+// significant-figure cap is the protocol rule; tick alignment is the
+// per-asset constraint. Order matters: round to 5 sig figs first, then
+// snap to tick — otherwise a tick-aligned price like 1250.25 (6 sig
+// figs) sails through the tick check but fails the wire validator.
 func snapPrice(px float64, client *hl.Client, coin string) float64 {
+	if px <= 0 {
+		return px
+	}
+	// 1. Round to 5 significant figures.
+	digits := math.Ceil(math.Log10(math.Abs(px)))
+	scale := math.Pow(10, 5-digits)
+	px = math.Round(px*scale) / scale
+
+	// 2. Snap to the asset's tick size.
 	meta, err := client.Info.Asset(coin)
 	if err != nil || meta.TickSize == 0 {
 		return px
