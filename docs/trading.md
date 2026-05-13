@@ -550,7 +550,7 @@ func (t *Trader) UseBigBlocks(enable bool) (*ApprovalResponse, error)
 
 Rare expert operations. All methods return `*SpotDeployResponse` (spot) or `*PerpDeployResponse` (perp).
 
-### Spot deploy
+### Spot deploy {#spot-deploy}
 
 ```go
 func (t *Trader) SpotDeployRegisterToken(tokenName string, szDecimals, weiDecimals, maxGas int, fullName string) (*SpotDeployResponse, error)
@@ -564,7 +564,7 @@ func (t *Trader) SpotDeployRegisterHyperliquidity(name string, tokens []string) 
 func (t *Trader) SpotDeploySetDeployerTradingFeeShare(feeShare float64) (*SpotDeployResponse, error)
 ```
 
-### Perp deploy
+### Perp deploy {#perp-deploy}
 
 ```go
 func (t *Trader) PerpDeployRegisterAsset(asset string, perpDexInput PerpDexSchemaInput) (*PerpDeployResponse, error)
