@@ -16,6 +16,20 @@ To list scenarios without running them:
 go test -tags=integration -list "Test.*" ./tests/integration/...
 ```
 
+The same suite runs against testnet (default) and mainnet — point
+`HL_BASE_URL` at the environment you want:
+
+```sh
+# testnet (default)
+HL_BASE_URL=https://api.hyperliquid-testnet.xyz
+
+# mainnet
+HL_BASE_URL=https://api.hyperliquid.xyz
+```
+
+Scenarios use the small order size from `HL_TEST_SIZE` (default `0.01`)
+so mainnet runs stay cheap. Read-only scenarios cost nothing.
+
 ## Configuration
 
 Configuration is read from a `.env` file. The loader resolves `.env`,

@@ -120,8 +120,11 @@ func mid(t *testing.T, client *hl.Client, coin string) float64 {
 	return px
 }
 
-// skipIfNoBalance skips the test when the account has no withdrawable
-// USDC, since trading scenarios cannot meaningfully execute.
+// skipIfNoBalance skips the test when the account has no perp margin
+// to trade with. Withdrawable is the wrong field here: it is zero
+// whenever margin is locked by an open position, even if the account
+// has plenty of equity. AccountValue is the right semantic check for
+// "can this account place perp orders".
 func skipIfNoBalance(t *testing.T, client *hl.Client) {
 	t.Helper()
 	c, _ := loadConfig()
@@ -129,10 +132,28 @@ func skipIfNoBalance(t *testing.T, client *hl.Client) {
 	if err != nil {
 		t.Skipf("UserState failed: %v", err)
 	}
-	w, err := strconv.ParseFloat(state.Withdrawable, 64)
-	if err != nil || w <= 0 {
-		t.Skipf("account %s has no withdrawable balance (%s)", c.AccountAddr, state.Withdrawable)
+	v, err := strconv.ParseFloat(state.MarginSummary.AccountValue, 64)
+	if err != nil || v <= 0 {
+		t.Skipf("account %s has no perp account value (%q); fund the perp wallet to run trading scenarios",
+			c.AccountAddr, state.MarginSummary.AccountValue)
 	}
+}
+
+// skipIfNoSpotBalance skips when the account has no spot USDC, used by
+// scenarios that transfer or convert between spot and perp classes.
+func skipIfNoSpotBalance(t *testing.T, client *hl.Client) {
+	t.Helper()
+	c, _ := loadConfig()
+	spot, err := client.Info.SpotBalances(c.AccountAddr)
+	if err != nil {
+		t.Skipf("SpotBalances failed: %v", err)
+	}
+	for _, b := range spot.Balances {
+		if v, err := strconv.ParseFloat(b.Total, 64); err == nil && v > 0 {
+			return
+		}
+	}
+	t.Skipf("account %s has no spot balance", c.AccountAddr)
 }
 
 // awaitFill polls Info.Fill for up to timeout, returning the first fill
