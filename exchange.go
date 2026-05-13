@@ -9,8 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
+// Trader is the signed-action surface. Construct it indirectly via New;
+// direct construction is not part of the public API.
 type Trader struct {
-	client       *Client
+	client       *httpAPI
 	privateKey   *ecdsa.PrivateKey
 	vault        string
 	accountAddr  string
@@ -19,10 +21,10 @@ type Trader struct {
 	expiresAfter *int64
 }
 
-// NewTrader creates a new Trader instance.
-// perpDexs is optional - pass nil for the default perp dex.
-// perpDexName is optional - set to empty string for the default perp dex,
-// or provide a builder dex name (e.g., "flx") for HIP-3 builder-deployed perps.
+// NewTrader builds a Trader pinned to baseURL with the supplied metadata.
+// Prefer hyperliquid.New; this constructor is exported for backwards
+// compatibility with older test fixtures and will be removed once those
+// migrate.
 func NewTrader(
 	privateKey *ecdsa.PrivateKey,
 	baseURL string,
@@ -33,7 +35,7 @@ func NewTrader(
 	perpDexName string,
 ) *Trader {
 	return &Trader{
-		client:      NewClient(baseURL),
+		client:      newHTTPAPI(baseURL, nil),
 		privateKey:  privateKey,
 		vault:       vaultAddr,
 		accountAddr: accountAddr,
@@ -158,5 +160,5 @@ func (e *Trader) GetInfo() *Info {
 // WarmUp pre-establishes the HTTP/2 connection so the first order doesn't pay
 // the cold-start penalty (TCP + TLS + ALPN). Call once after creating the Trader.
 func (e *Trader) WarmUp() error {
-	return e.client.WarmUp()
+	return e.client.warmUp()
 }

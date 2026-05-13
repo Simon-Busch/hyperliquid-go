@@ -16,8 +16,9 @@ const (
 	outcomeAssetBase = 100000000
 )
 
+// Info is the read-only query surface. Construct it indirectly via New.
 type Info struct {
-	client         *Client
+	client         *httpAPI
 	coinToAsset    map[string]int
 	nameToCoin     map[string]string
 	assetToDecimal map[int]int
@@ -57,7 +58,7 @@ func (i *Info) postTimeRangeRequest(
 // or provide a builder dex name (e.g., "flx") for HIP-3 builder-deployed perps.
 func NewInfo(baseURL string, skipWS bool, meta *Meta, spotMeta *SpotMeta, perpDexs *MixedArray, perpDexName string) *Info {
 	info := &Info{
-		client:         NewClient(baseURL),
+		client:         newHTTPAPI(baseURL, nil),
 		coinToAsset:    make(map[string]int),
 		nameToCoin:     make(map[string]string),
 		assetToDecimal: make(map[int]int),
