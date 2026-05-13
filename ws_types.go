@@ -12,11 +12,11 @@ type WSMessage struct {
 	Data    json.RawMessage `json:"data"`
 }
 
-// subscriptionFilter is the wire-shape that the Hyperliquid WS API
+// SubscriptionFilter is the wire-shape that the Hyperliquid WS API
 // expects in subscribe/unsubscribe commands. It is built by the
 // package-level constructors (Trades, Book, etc.) and consumed by
 // Stream.Subscribe.
-type subscriptionFilter struct {
+type SubscriptionFilter struct {
 	Type     string `json:"type"`
 	Coin     string `json:"coin,omitempty"`
 	User     string `json:"user,omitempty"`
@@ -32,7 +32,7 @@ type subKey struct {
 	dex      string
 }
 
-func (s subscriptionFilter) key() subKey {
+func (s SubscriptionFilter) key() subKey {
 	return subKey{
 		typ:      s.Type,
 		coin:     s.Coin,
@@ -46,7 +46,7 @@ func (s subscriptionFilter) key() subKey {
 // command over the websocket.
 type WsCommand struct {
 	Method       string              `json:"method"`
-	Subscription *subscriptionFilter `json:"subscription,omitempty"`
+	Subscription *SubscriptionFilter `json:"subscription,omitempty"`
 }
 
 type subscriptionCallback struct {

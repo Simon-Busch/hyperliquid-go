@@ -196,7 +196,7 @@ func (s *Stream) Connect(ctx context.Context) error {
 // deregister the callback and emit an unsubscribe frame when no listener
 // remains.
 type Subscription struct {
-	filter subscriptionFilter
+	filter SubscriptionFilter
 	id     int
 	stream *Stream
 	closed atomic.Bool
@@ -217,7 +217,7 @@ func (s *Subscription) Close() error {
 
 // Subscribe registers a callback for the given subscription filter and
 // returns a Subscription handle. Call sub.Close() to deregister.
-func (s *Stream) Subscribe(filter subscriptionFilter, callback func(WSMessage)) (*Subscription, error) {
+func (s *Stream) Subscribe(filter SubscriptionFilter, callback func(WSMessage)) (*Subscription, error) {
 	if callback == nil {
 		return nil, fmt.Errorf("callback cannot be nil")
 	}
@@ -450,7 +450,7 @@ func (s *Stream) resubscribeAll() error {
 	s.subMu.RUnlock()
 
 	for _, key := range keys {
-		f := subscriptionFilter{
+		f := SubscriptionFilter{
 			Type:     key.typ,
 			Coin:     key.coin,
 			User:     key.user,
@@ -464,14 +464,14 @@ func (s *Stream) resubscribeAll() error {
 	return nil
 }
 
-func (s *Stream) sendSubscribe(f subscriptionFilter) error {
+func (s *Stream) sendSubscribe(f SubscriptionFilter) error {
 	return s.writeJSON(WsCommand{
 		Method:       "subscribe",
 		Subscription: &f,
 	})
 }
 
-func (s *Stream) sendUnsubscribe(f subscriptionFilter) error {
+func (s *Stream) sendUnsubscribe(f SubscriptionFilter) error {
 	return s.writeJSON(WsCommand{
 		Method:       "unsubscribe",
 		Subscription: &f,

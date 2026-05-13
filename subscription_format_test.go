@@ -9,7 +9,7 @@ import (
 func TestOrderUpdatesSubscriptionFormat(t *testing.T) {
 	testAddress := "0x1234567890abcdef1234567890abcdef12345678"
 
-	sub := subscriptionFilter{
+	sub := SubscriptionFilter{
 		Type: "orderUpdates",
 		User: testAddress,
 	}
@@ -41,7 +41,7 @@ func TestOrderUpdatesSubscriptionFormat(t *testing.T) {
 	if string(expectedJSON) != string(actualJSON) {
 		t.Errorf("Subscription format mismatch!\nExpected: %s\nGot:      %s", expectedJSON, actualJSON)
 	} else {
-		t.Log("✅ Subscription format is correct!")
+		t.Log("subscription format is correct")
 	}
 }
 
@@ -49,7 +49,7 @@ func TestOrderUpdatesSubscriptionFormat(t *testing.T) {
 func TestUserEventsSubscriptionFormat(t *testing.T) {
 	testAddress := "0x1234567890abcdef1234567890abcdef12345678"
 
-	sub := subscriptionFilter{
+	sub := SubscriptionFilter{
 		Type: "userEvents",
 		User: testAddress,
 	}
@@ -81,6 +81,6 @@ func TestUserEventsSubscriptionFormat(t *testing.T) {
 	if string(expectedJSON) != string(actualJSON) {
 		t.Errorf("Subscription format mismatch!\nExpected: %s\nGot:      %s", expectedJSON, actualJSON)
 	} else {
-		t.Log("✅ Subscription format is correct!")
+		t.Log("subscription format is correct")
 	}
 }

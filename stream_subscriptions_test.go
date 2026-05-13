@@ -8,26 +8,26 @@ import "testing"
 func TestSubscriptionConstructors(t *testing.T) {
 	cases := []struct {
 		name string
-		got  subscriptionFilter
-		want subscriptionFilter
+		got  SubscriptionFilter
+		want SubscriptionFilter
 	}{
-		{"Trades", Trades("BTC"), subscriptionFilter{Type: "trades", Coin: "BTC"}},
-		{"Book", Book("ETH"), subscriptionFilter{Type: "l2Book", Coin: "ETH"}},
-		{"BBO", BBO("SOL"), subscriptionFilter{Type: "bbo", Coin: "SOL"}},
-		{"ActiveAssetCtx", ActiveAssetCtx("BTC"), subscriptionFilter{Type: "activeAssetCtx", Coin: "BTC"}},
-		{"Candles", Candles("BTC", "1m"), subscriptionFilter{Type: "candle", Coin: "BTC", Interval: "1m"}},
-		{"AllMids", AllMids(), subscriptionFilter{Type: "allMids"}},
-		{"AllMidsOn", AllMidsOn("flx"), subscriptionFilter{Type: "allMids", Dex: "flx"}},
-		{"UserEvents", UserEvents("0xabc"), subscriptionFilter{Type: "userEvents", User: "0xabc"}},
-		{"UserFills", UserFills("0xabc"), subscriptionFilter{Type: "userFills", User: "0xabc"}},
-		{"OrderUpdates", OrderUpdates("0xabc"), subscriptionFilter{Type: "orderUpdates", User: "0xabc"}},
-		{"UserFundings", UserFundings("0xabc"), subscriptionFilter{Type: "userFundings", User: "0xabc"}},
-		{"UserLedger", UserLedger("0xabc"), subscriptionFilter{Type: "userNonFundingLedgerUpdates", User: "0xabc"}},
-		{"WebData", WebData("0xabc"), subscriptionFilter{Type: "webData2", User: "0xabc"}},
-		{"Notifications", Notifications("0xabc"), subscriptionFilter{Type: "notification", User: "0xabc"}},
-		{"ActiveAssetData", ActiveAssetData("0xabc", "BTC"), subscriptionFilter{Type: "activeAssetData", User: "0xabc", Coin: "BTC"}},
-		{"UserTwapFills", UserTwapFills("0xabc"), subscriptionFilter{Type: "userTwapSliceFills", User: "0xabc"}},
-		{"UserTwapHistory", UserTwapHistory("0xabc"), subscriptionFilter{Type: "userTwapHistory", User: "0xabc"}},
+		{"Trades", Trades("BTC"), SubscriptionFilter{Type: "trades", Coin: "BTC"}},
+		{"Book", Book("ETH"), SubscriptionFilter{Type: "l2Book", Coin: "ETH"}},
+		{"BBO", BBO("SOL"), SubscriptionFilter{Type: "bbo", Coin: "SOL"}},
+		{"ActiveAssetCtx", ActiveAssetCtx("BTC"), SubscriptionFilter{Type: "activeAssetCtx", Coin: "BTC"}},
+		{"Candles", Candles("BTC", "1m"), SubscriptionFilter{Type: "candle", Coin: "BTC", Interval: "1m"}},
+		{"AllMids", AllMids(), SubscriptionFilter{Type: "allMids"}},
+		{"AllMidsOn", AllMidsOn("flx"), SubscriptionFilter{Type: "allMids", Dex: "flx"}},
+		{"UserEvents", UserEvents("0xabc"), SubscriptionFilter{Type: "userEvents", User: "0xabc"}},
+		{"UserFills", UserFills("0xabc"), SubscriptionFilter{Type: "userFills", User: "0xabc"}},
+		{"OrderUpdates", OrderUpdates("0xabc"), SubscriptionFilter{Type: "orderUpdates", User: "0xabc"}},
+		{"UserFundings", UserFundings("0xabc"), SubscriptionFilter{Type: "userFundings", User: "0xabc"}},
+		{"UserLedger", UserLedger("0xabc"), SubscriptionFilter{Type: "userNonFundingLedgerUpdates", User: "0xabc"}},
+		{"WebData", WebData("0xabc"), SubscriptionFilter{Type: "webData2", User: "0xabc"}},
+		{"Notifications", Notifications("0xabc"), SubscriptionFilter{Type: "notification", User: "0xabc"}},
+		{"ActiveAssetData", ActiveAssetData("0xabc", "BTC"), SubscriptionFilter{Type: "activeAssetData", User: "0xabc", Coin: "BTC"}},
+		{"UserTwapFills", UserTwapFills("0xabc"), SubscriptionFilter{Type: "userTwapSliceFills", User: "0xabc"}},
+		{"UserTwapHistory", UserTwapHistory("0xabc"), SubscriptionFilter{Type: "userTwapHistory", User: "0xabc"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -41,7 +41,7 @@ func TestSubscriptionConstructors(t *testing.T) {
 func TestSubscriptionKey(t *testing.T) {
 	cases := []struct {
 		name string
-		sub  subscriptionFilter
+		sub  SubscriptionFilter
 		want subKey
 	}{
 		{"allMids", AllMids(), subKey{typ: "allMids"}},
