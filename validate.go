@@ -2,6 +2,7 @@ package hyperliquid
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 )
@@ -53,10 +54,14 @@ func (t *Trader) validate(spec *OrderSpec) error {
 		return err
 	}
 
-	// Position-state rules. Refresh the cache once (best-effort: a failure
-	// here surfaces only when a rule actually depends on the state).
+	// Position-state rules. RefreshState must succeed; if the SDK cannot
+	// fetch the caller's state we fail closed rather than silently skip
+	// the long/short safety checks. Callers that cannot reach the API or
+	// want to bypass these rules must pass hl.SkipValidation() per call.
 	if t != nil {
-		_ = t.RefreshState(context.Background())
+		if err := t.RefreshState(context.Background()); err != nil {
+			return fmt.Errorf("validate: refresh user state: %w (use hl.SkipValidation() to bypass)", err)
+		}
 		if err := t.validatePositionState(spec); err != nil {
 			return err
 		}
@@ -65,10 +70,10 @@ func (t *Trader) validate(spec *OrderSpec) error {
 }
 
 // validatePositionState enforces the reduce-only direction, close
-// direction, and close size rules using the cached UserState. When no
-// state is available the rules are skipped silently (the spec calls for
-// SkipValidation to be required in that case; we degrade gracefully
-// instead so that fresh accounts without history still place orders).
+// direction, and close size rules using the cached UserState. If the
+// cache is nil (refresh never ran or the account has never traded) the
+// rules are skipped; the cache is guaranteed non-nil by the caller in
+// validate, which propagates any RefreshState failure.
 func (t *Trader) validatePositionState(spec *OrderSpec) error {
 	state := t.cachedUserState()
 	if state == nil {
