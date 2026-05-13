@@ -161,26 +161,13 @@ func getAssetTickSize(assetID int) float64 {
 	return 0.0001 // Default to 0.0001 for spot assets
 }
 
-// validateAndAdjustPrice ensures the price meets tick size requirements
+// validateAndAdjustPrice ensures the price meets tick size requirements.
 // Based on Hyperliquid docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size
+// Tick-violation surfacing now lives in validate() as
+// ValidationError{Code:"tick_violation"}; this helper silently rounds.
 func validateAndAdjustPrice(price float64, assetID int) (float64, error) {
-	// This function is called from contexts where we don't have access to the Trader instance
-	// So we use the fallback method for now
 	tickSize := getAssetTickSize(assetID)
-
-	// Round to nearest tick size first to handle floating-point precision issues
-	adjustedPrice := roundToTickSize(price, tickSize)
-
-	// Check if the adjusted price is significantly different from the original
-	// Use a small epsilon to account for floating-point precision
-	epsilon := tickSize * 0.0001 // Very small tolerance
-	if math.Abs(adjustedPrice-price) > epsilon {
-		// Log the adjustment for debugging
-		fmt.Printf("WARNING: Price %.8f adjusted to %.8f to meet tick size %.8f for asset %d\n",
-			price, adjustedPrice, tickSize, assetID)
-	}
-
-	return adjustedPrice, nil
+	return roundToTickSize(price, tickSize), nil
 }
 
 // ScheduleCancel schedules cancellation of all open orders
