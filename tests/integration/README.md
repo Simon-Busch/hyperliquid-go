@@ -42,7 +42,8 @@ test directory, the repo root, or one level above).
 | `HL_ACCOUNT_ADDRESS` | no | derived from key | Account address Trader acts on behalf of (agent flow). |
 | `HL_BASE_URL` | no | `https://api.hyperliquid-testnet.xyz` | REST endpoint. |
 | `HL_TEST_COIN` | no | `ETH` | Coin used for placement scenarios. |
-| `HL_TEST_SIZE` | no | `0.01` | Order size; must meet the coin's minimum lot. |
+| `HL_TEST_NOTIONAL` | no | `10` | Target USD notional per test order. Size is derived from the current mid and snapped down to the coin's size step. Set to `0` to fall back to `HL_TEST_SIZE`. |
+| `HL_TEST_SIZE` | no | `0.01` | Fixed coin-unit fallback. Used only when `HL_TEST_NOTIONAL=0`. |
 | `HL_BUILDER_ADDR` | no | — | Builder fee referral target. |
 | `HL_BUILDER_FEE_BPS` | no | `1` | Builder fee in basis points. |
 | `HL_SKIP_TRANSFER` | no | — | Set `true` to skip transfer scenarios. |

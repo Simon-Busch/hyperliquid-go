@@ -85,20 +85,36 @@ func testCoin(t *testing.T) string {
 	return c.TestCoin
 }
 
-// testSize returns the integration order size, capped so it is at least
-// the asset's MinSize.
+// testSize returns the integration order size in coin units. When
+// HL_TEST_NOTIONAL is set (default $10), the size is derived from the
+// current mid so mainnet and testnet stay within the same USD budget.
+// HL_TEST_SIZE is a fixed-size fallback used only when HL_TEST_NOTIONAL=0.
+// The result is always snapped to the asset's MinSize step and clamped
+// to at least one step.
 func testSize(t *testing.T, client *hl.Client, coin string) float64 {
 	t.Helper()
 	c, _ := loadConfig()
+
+	target := c.TestSize
+	if c.TestNotional > 0 {
+		px := mid(t, client, coin)
+		if px > 0 {
+			target = c.TestNotional / px
+		}
+	}
+
 	meta, err := client.Info.Asset(coin)
 	if err != nil || meta.MinSize == 0 {
-		return c.TestSize
+		return target
 	}
-	if c.TestSize < meta.MinSize {
+	if target < meta.MinSize {
 		return meta.MinSize
 	}
-	// Snap to the size step.
-	steps := math.Round(c.TestSize / meta.MinSize)
+	// Snap down to the size step so the order does not exceed the budget.
+	steps := math.Floor(target / meta.MinSize)
+	if steps < 1 {
+		steps = 1
+	}
 	return steps * meta.MinSize
 }
 

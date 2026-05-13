@@ -37,7 +37,8 @@ type integrationConfig struct {
 	PrivateKeyHex  string
 	AccountAddr    string
 	TestCoin       string
-	TestSize       float64
+	TestSize       float64 // explicit coin-unit size; used only when TestNotional == 0
+	TestNotional   float64 // target USD notional; size = TestNotional / mid
 	BuilderAddr    string
 	BuilderFeeBps  int
 	SkipTransfer   bool
@@ -100,6 +101,16 @@ func loadConfig() (*integrationConfig, error) {
 			size = v
 		}
 
+		notional := 10.0 // default safe budget — mainnet-friendly
+		if s := strings.TrimSpace(os.Getenv("HL_TEST_NOTIONAL")); s != "" {
+			v, err := strconv.ParseFloat(s, 64)
+			if err != nil {
+				cfgErr = fmt.Errorf("parse HL_TEST_NOTIONAL: %w", err)
+				return
+			}
+			notional = v
+		}
+
 		feeBps := 1
 		if s := strings.TrimSpace(os.Getenv("HL_BUILDER_FEE_BPS")); s != "" {
 			v, err := strconv.Atoi(s)
@@ -116,6 +127,7 @@ func loadConfig() (*integrationConfig, error) {
 			AccountAddr:   strings.TrimSpace(os.Getenv("HL_ACCOUNT_ADDRESS")),
 			TestCoin:      coin,
 			TestSize:      size,
+			TestNotional:  notional,
 			BuilderAddr:   strings.TrimSpace(os.Getenv("HL_BUILDER_ADDR")),
 			BuilderFeeBps: feeBps,
 			SkipTransfer:  strings.EqualFold(os.Getenv("HL_SKIP_TRANSFER"), "true"),
