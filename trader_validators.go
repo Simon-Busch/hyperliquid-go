@@ -8,7 +8,7 @@ import (
 // CSigner Methods
 
 // CSignerUnjailSelf unjails self as consensus signer
-func (e *Trader) CSignerUnjailSelf() (*ValidatorResponse, error) {
+func (t *Trader) CSignerUnjailSelf() (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -16,18 +16,18 @@ func (e *Trader) CSignerUnjailSelf() (*ValidatorResponse, error) {
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (e *Trader) CSignerUnjailSelf() (*ValidatorResponse, error) {
 }
 
 // CSignerJailSelf jails self as consensus signer
-func (e *Trader) CSignerJailSelf() (*ValidatorResponse, error) {
+func (t *Trader) CSignerJailSelf() (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -48,18 +48,18 @@ func (e *Trader) CSignerJailSelf() (*ValidatorResponse, error) {
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (e *Trader) CSignerJailSelf() (*ValidatorResponse, error) {
 }
 
 // CSignerInner executes inner consensus signer action
-func (e *Trader) CSignerInner(innerAction map[string]any) (*ValidatorResponse, error) {
+func (t *Trader) CSignerInner(innerAction map[string]any) (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -81,18 +81,18 @@ func (e *Trader) CSignerInner(innerAction map[string]any) (*ValidatorResponse, e
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (e *Trader) CSignerInner(innerAction map[string]any) (*ValidatorResponse, e
 // CValidator Methods
 
 // CValidatorRegister registers as consensus validator
-func (e *Trader) CValidatorRegister(validatorProfile map[string]any) (*ValidatorResponse, error) {
+func (t *Trader) CValidatorRegister(validatorProfile map[string]any) (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -116,18 +116,18 @@ func (e *Trader) CValidatorRegister(validatorProfile map[string]any) (*Validator
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (e *Trader) CValidatorRegister(validatorProfile map[string]any) (*Validator
 }
 
 // CValidatorChangeProfile changes validator profile
-func (e *Trader) CValidatorChangeProfile(newProfile map[string]any) (*ValidatorResponse, error) {
+func (t *Trader) CValidatorChangeProfile(newProfile map[string]any) (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -149,18 +149,18 @@ func (e *Trader) CValidatorChangeProfile(newProfile map[string]any) (*ValidatorR
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func (e *Trader) CValidatorChangeProfile(newProfile map[string]any) (*ValidatorR
 }
 
 // CValidatorUnregister unregisters as consensus validator
-func (e *Trader) CValidatorUnregister() (*ValidatorResponse, error) {
+func (t *Trader) CValidatorUnregister() (*ValidatorResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -181,18 +181,18 @@ func (e *Trader) CValidatorUnregister() (*ValidatorResponse, error) {
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}

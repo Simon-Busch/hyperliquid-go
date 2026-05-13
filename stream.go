@@ -74,21 +74,21 @@ type Stream struct {
 
 // SetLogger plugs in a Logger to receive warnings and reconnection
 // diagnostics. A nil logger reverts to the no-op default.
-func (w *Stream) SetLogger(l Logger) {
+func (s *Stream) SetLogger(l Logger) {
 	if l == nil {
-		w.logger = nopLogger{}
+		s.logger = nopLogger{}
 		return
 	}
-	w.logger = l
+	s.logger = l
 }
 
 // logf is a tiny helper that dispatches to the configured Logger's Warnf,
 // falling back to the no-op logger when none is set.
-func (w *Stream) warnf(format string, args ...any) {
-	if w.logger == nil {
+func (s *Stream) warnf(format string, args ...any) {
+	if s.logger == nil {
 		return
 	}
-	w.logger.Warnf(format, args...)
+	s.logger.Warnf(format, args...)
 }
 
 // NewStream creates a new WebSocket Stream targeting baseURL. The Stream
@@ -118,33 +118,33 @@ func NewStream(baseURL string) (*Stream, error) {
 
 // Connect establishes the WebSocket connection.
 // It's safe to call multiple times - subsequent calls return immediately if already connected.
-func (w *Stream) Connect(ctx context.Context) error {
-	if w.closed.Load() {
+func (s *Stream) Connect(ctx context.Context) error {
+	if s.closed.Load() {
 		return fmt.Errorf("client is closed")
 	}
 
-	if w.connected.Load() {
+	if s.connected.Load() {
 		return nil
 	}
 
-	w.connMu.Lock()
-	defer w.connMu.Unlock()
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
 
 	// Double-check after acquiring lock
-	if w.conn != nil && w.connected.Load() {
+	if s.conn != nil && s.connected.Load() {
 		return nil
 	}
 
 	// Clean up any existing connection
-	if w.conn != nil {
-		_ = w.conn.Close()
-		w.conn = nil
+	if s.conn != nil {
+		_ = s.conn.Close()
+		s.conn = nil
 	}
 
 	// Cancel previous goroutines if any
-	if w.cancel != nil {
-		w.cancel()
-		w.wg.Wait()
+	if s.cancel != nil {
+		s.cancel()
+		s.wg.Wait()
 	}
 
 	// Dial new connection
@@ -156,36 +156,36 @@ func (w *Stream) Connect(ctx context.Context) error {
 	defer dialCancel()
 
 	//nolint:bodyclose // WebSocket connections don't have response bodies to close
-	conn, _, err := dialer.DialContext(dialCtx, w.url, nil)
+	conn, _, err := dialer.DialContext(dialCtx, s.url, nil)
 	if err != nil {
 		return fmt.Errorf("websocket dial: %w", err)
 	}
 
-	w.conn = conn
-	w.connected.Store(true)
+	s.conn = conn
+	s.connected.Store(true)
 
 	// Reset reconnection state on successful connection.
 	// reconnectWait is reset only if it was never customized via
 	// WithReconnectWait; in that case it remains at its starting value.
-	w.reconnectMu.Lock()
-	w.reconnectAttempts = 0
-	w.reconnectMu.Unlock()
+	s.reconnectMu.Lock()
+	s.reconnectAttempts = 0
+	s.reconnectMu.Unlock()
 
 	// Create context for this connection's goroutines
 	connCtx, cancel := context.WithCancel(context.Background())
-	w.cancel = cancel
+	s.cancel = cancel
 
 	// Start read and ping pumps (per-connection, like upstream)
-	w.wg.Add(2)
-	go w.readPump(connCtx)
-	go w.pingPump(connCtx)
+	s.wg.Add(2)
+	go s.readPump(connCtx)
+	go s.pingPump(connCtx)
 
 	// Resubscribe to all previous subscriptions
-	if err := w.resubscribeAll(); err != nil {
-		w.connected.Store(false)
+	if err := s.resubscribeAll(); err != nil {
+		s.connected.Store(false)
 		cancel()
 		_ = conn.Close()
-		w.conn = nil
+		s.conn = nil
 		return fmt.Errorf("resubscribe failed: %w", err)
 	}
 
@@ -217,49 +217,49 @@ func (s *Subscription) Close() error {
 
 // Subscribe registers a callback for the given subscription filter and
 // returns a Subscription handle. Call sub.Close() to deregister.
-func (w *Stream) Subscribe(filter subscriptionFilter, callback func(WSMessage)) (*Subscription, error) {
+func (s *Stream) Subscribe(filter subscriptionFilter, callback func(WSMessage)) (*Subscription, error) {
 	if callback == nil {
 		return nil, fmt.Errorf("callback cannot be nil")
 	}
 
-	w.subMu.Lock()
+	s.subMu.Lock()
 	key := filter.key()
-	id := int(w.nextSubID.Add(1))
+	id := int(s.nextSubID.Add(1))
 
-	if w.subscriptions[key] == nil {
-		w.subscriptions[key] = make(map[int]*subscriptionCallback)
+	if s.subscriptions[key] == nil {
+		s.subscriptions[key] = make(map[int]*subscriptionCallback)
 	}
 
-	w.subscriptions[key][id] = &subscriptionCallback{
+	s.subscriptions[key][id] = &subscriptionCallback{
 		id:       id,
 		callback: callback,
 	}
-	w.subMu.Unlock()
+	s.subMu.Unlock()
 
 	// Send subscribe message (outside lock to avoid deadlock)
-	if err := w.sendSubscribe(filter); err != nil {
-		w.subMu.Lock()
-		delete(w.subscriptions[key], id)
-		w.subMu.Unlock()
+	if err := s.sendSubscribe(filter); err != nil {
+		s.subMu.Lock()
+		delete(s.subscriptions[key], id)
+		s.subMu.Unlock()
 		return nil, fmt.Errorf("subscribe: %w", err)
 	}
 
-	return &Subscription{filter: filter, id: id, stream: w}, nil
+	return &Subscription{filter: filter, id: id, stream: s}, nil
 }
 
 // unsubscribe drops the callback registration recorded by Subscribe and
 // emits an unsubscribe frame once no listener remains for the filter.
-func (w *Stream) unsubscribe(sub *Subscription) error {
-	w.subMu.Lock()
+func (s *Stream) unsubscribe(sub *Subscription) error {
+	s.subMu.Lock()
 	key := sub.filter.key()
-	subs, ok := w.subscriptions[key]
+	subs, ok := s.subscriptions[key]
 	if !ok {
-		w.subMu.Unlock()
+		s.subMu.Unlock()
 		return fmt.Errorf("subscription not found")
 	}
 
 	if _, ok := subs[sub.id]; !ok {
-		w.subMu.Unlock()
+		s.subMu.Unlock()
 		return fmt.Errorf("subscription ID not found")
 	}
 
@@ -267,12 +267,12 @@ func (w *Stream) unsubscribe(sub *Subscription) error {
 
 	shouldUnsubscribe := len(subs) == 0
 	if shouldUnsubscribe {
-		delete(w.subscriptions, key)
+		delete(s.subscriptions, key)
 	}
-	w.subMu.Unlock()
+	s.subMu.Unlock()
 
 	if shouldUnsubscribe {
-		if err := w.sendUnsubscribe(sub.filter); err != nil {
+		if err := s.sendUnsubscribe(sub.filter); err != nil {
 			return fmt.Errorf("unsubscribe: %w", err)
 		}
 	}
@@ -281,55 +281,55 @@ func (w *Stream) unsubscribe(sub *Subscription) error {
 }
 
 // Close shuts down the WebSocket client and releases all resources.
-func (w *Stream) Close() error {
+func (s *Stream) Close() error {
 	var err error
-	w.closeOnce.Do(func() {
-		w.closed.Store(true)
-		w.connected.Store(false)
+	s.closeOnce.Do(func() {
+		s.closed.Store(true)
+		s.connected.Store(false)
 
 		// Cancel reconnection timer
-		w.reconnectMu.Lock()
-		if w.reconnectTimer != nil {
-			w.reconnectTimer.Stop()
-			w.reconnectTimer = nil
+		s.reconnectMu.Lock()
+		if s.reconnectTimer != nil {
+			s.reconnectTimer.Stop()
+			s.reconnectTimer = nil
 		}
-		w.reconnectMu.Unlock()
+		s.reconnectMu.Unlock()
 
 		// Clean up pending POST requests
-		w.pendingMu.Lock()
-		for id, pending := range w.pendingRequests {
+		s.pendingMu.Lock()
+		for id, pending := range s.pendingRequests {
 			close(pending.responseChan)
-			delete(w.pendingRequests, id)
+			delete(s.pendingRequests, id)
 		}
-		w.pendingMu.Unlock()
+		s.pendingMu.Unlock()
 
 		// Cancel goroutines and close connection
-		w.connMu.Lock()
-		if w.cancel != nil {
-			w.cancel()
+		s.connMu.Lock()
+		if s.cancel != nil {
+			s.cancel()
 		}
-		if w.conn != nil {
-			err = w.conn.Close()
-			w.conn = nil
+		if s.conn != nil {
+			err = s.conn.Close()
+			s.conn = nil
 		}
-		w.connMu.Unlock()
+		s.connMu.Unlock()
 
 		// Wait for goroutines to finish
-		w.wg.Wait()
+		s.wg.Wait()
 	})
 	return err
 }
 
 // readPump reads messages from the WebSocket connection.
 // Runs for the lifetime of a single connection (context-aware, like upstream).
-func (w *Stream) readPump(ctx context.Context) {
-	defer w.wg.Done()
-	defer w.handleDisconnect()
+func (s *Stream) readPump(ctx context.Context) {
+	defer s.wg.Done()
+	defer s.handleDisconnect()
 
 	// Grab conn once — if it changes, context will be cancelled and we exit.
-	w.connMu.RLock()
-	conn := w.conn
-	w.connMu.RUnlock()
+	s.connMu.RLock()
+	conn := s.conn
+	s.connMu.RUnlock()
 	if conn == nil {
 		return
 	}
@@ -341,7 +341,7 @@ func (w *Stream) readPump(ctx context.Context) {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			if ctx.Err() == nil && !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-				w.warnf("websocket read error: %v", err)
+				s.warnf("websocket read error: %v", err)
 			}
 			return // Exit pump, handleDisconnect will trigger reconnection
 		}
@@ -354,18 +354,18 @@ func (w *Stream) readPump(ctx context.Context) {
 		// Parse and dispatch
 		var wsMsg WSMessage
 		if err := json.Unmarshal(msg, &wsMsg); err != nil {
-			w.warnf("websocket message parse error: %v", err)
+			s.warnf("websocket message parse error: %v", err)
 			continue
 		}
 
-		w.dispatch(wsMsg)
+		s.dispatch(wsMsg)
 	}
 }
 
 // pingPump sends periodic ping messages to keep the connection alive.
 // Runs for the lifetime of a single connection (context-aware, like upstream).
-func (w *Stream) pingPump(ctx context.Context) {
-	defer w.wg.Done()
+func (s *Stream) pingPump(ctx context.Context) {
+	defer s.wg.Done()
 
 	ticker := time.NewTicker(pingInterval)
 	defer ticker.Stop()
@@ -375,8 +375,8 @@ func (w *Stream) pingPump(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := w.sendPing(); err != nil {
-				w.warnf("ping error: %v", err)
+			if err := s.sendPing(); err != nil {
+				s.warnf("ping error: %v", err)
 				// Don't return here - readPump will detect the error
 				// and handleDisconnect will trigger reconnection
 			}
@@ -385,7 +385,7 @@ func (w *Stream) pingPump(ctx context.Context) {
 }
 
 // dispatch routes messages to appropriate callbacks.
-func (w *Stream) dispatch(msg WSMessage) {
+func (s *Stream) dispatch(msg WSMessage) {
 	// Handle pong responses (sent by Hyperliquid as JSON, not WebSocket protocol pongs)
 	if msg.Channel == "pong" {
 		// Pong received - connection is alive, nothing to do
@@ -402,13 +402,13 @@ func (w *Stream) dispatch(msg WSMessage) {
 	if msg.Channel == "post" {
 		var postResp WsPostResponseData
 		if err := json.Unmarshal(msg.Data, &postResp); err != nil {
-			w.warnf("failed to unmarshal post response: %v", err)
+			s.warnf("failed to unmarshal post response: %v", err)
 			return
 		}
 
-		w.pendingMu.RLock()
-		pending, ok := w.pendingRequests[postResp.ID]
-		w.pendingMu.RUnlock()
+		s.pendingMu.RLock()
+		pending, ok := s.pendingRequests[postResp.ID]
+		s.pendingMu.RUnlock()
 
 		if ok {
 			select {
@@ -421,16 +421,16 @@ func (w *Stream) dispatch(msg WSMessage) {
 	}
 
 	// Copy matching callbacks under lock
-	w.subMu.RLock()
+	s.subMu.RLock()
 	var callbacks []func(WSMessage)
-	for key, subs := range w.subscriptions {
+	for key, subs := range s.subscriptions {
 		if matchSubscription(key, msg) {
 			for _, sub := range subs {
 				callbacks = append(callbacks, sub.callback)
 			}
 		}
 	}
-	w.subMu.RUnlock()
+	s.subMu.RUnlock()
 
 	// Execute callbacks without holding lock
 	for _, cb := range callbacks {
@@ -439,15 +439,15 @@ func (w *Stream) dispatch(msg WSMessage) {
 }
 
 // resubscribeAll resends subscribe messages for all active subscriptions.
-func (w *Stream) resubscribeAll() error {
-	w.subMu.RLock()
-	keys := make([]subKey, 0, len(w.subscriptions))
-	for key, subs := range w.subscriptions {
+func (s *Stream) resubscribeAll() error {
+	s.subMu.RLock()
+	keys := make([]subKey, 0, len(s.subscriptions))
+	for key, subs := range s.subscriptions {
 		if len(subs) > 0 {
 			keys = append(keys, key)
 		}
 	}
-	w.subMu.RUnlock()
+	s.subMu.RUnlock()
 
 	for _, key := range keys {
 		f := subscriptionFilter{
@@ -457,48 +457,48 @@ func (w *Stream) resubscribeAll() error {
 			Interval: key.interval,
 			Dex:      key.dex,
 		}
-		if err := w.sendSubscribe(f); err != nil {
+		if err := s.sendSubscribe(f); err != nil {
 			return fmt.Errorf("resubscribe %s: %w", key.typ, err)
 		}
 	}
 	return nil
 }
 
-func (w *Stream) sendSubscribe(f subscriptionFilter) error {
-	return w.writeJSON(WsCommand{
+func (s *Stream) sendSubscribe(f subscriptionFilter) error {
+	return s.writeJSON(WsCommand{
 		Method:       "subscribe",
 		Subscription: &f,
 	})
 }
 
-func (w *Stream) sendUnsubscribe(f subscriptionFilter) error {
-	return w.writeJSON(WsCommand{
+func (s *Stream) sendUnsubscribe(f subscriptionFilter) error {
+	return s.writeJSON(WsCommand{
 		Method:       "unsubscribe",
 		Subscription: &f,
 	})
 }
 
-func (w *Stream) sendPing() error {
-	return w.writeJSON(WsCommand{Method: "ping"})
+func (s *Stream) sendPing() error {
+	return s.writeJSON(WsCommand{Method: "ping"})
 }
 
-func (w *Stream) writeJSON(v any) error {
+func (s *Stream) writeJSON(v any) error {
 	// Marshal outside the lock so serialization doesn't block other writers
 	data, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("json marshal: %w", err)
 	}
 
-	w.writeMu.Lock()
-	defer w.writeMu.Unlock()
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
-	if !w.connected.Load() {
+	if !s.connected.Load() {
 		return fmt.Errorf("not connected")
 	}
 
-	w.connMu.RLock()
-	conn := w.conn
-	w.connMu.RUnlock()
+	s.connMu.RLock()
+	conn := s.conn
+	s.connMu.RUnlock()
 
 	if conn == nil {
 		return fmt.Errorf("connection closed")

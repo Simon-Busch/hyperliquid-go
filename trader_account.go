@@ -34,16 +34,16 @@ type Agent struct {
 // positions), Isolated to isCross=false (per-position collateral).
 // leverage is an integer multiple in the range allowed by the asset's
 // margin table.
-func (e *Trader) SetLeverage(coin string, leverage int, mode MarginMode) (*UserState, error) {
+func (t *Trader) SetLeverage(coin string, leverage int, mode MarginMode) (*UserState, error) {
 	action := UpdateLeverageAction{
 		Type:     "updateLeverage",
-		Asset:    e.info.AssetID(coin),
+		Asset:    t.info.AssetID(coin),
 		IsCross:  mode == Cross,
 		Leverage: leverage,
 	}
 
 	var result UserState
-	if err := e.executeAction(action, &result); err != nil {
+	if err := t.executeAction(action, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -52,15 +52,15 @@ func (e *Trader) SetLeverage(coin string, leverage int, mode MarginMode) (*UserS
 // AdjustMargin adds or removes isolated-margin collateral on the position
 // in coin. A positive amount increases collateral; a negative amount
 // withdraws it. amount is in USDC (decimal).
-func (e *Trader) AdjustMargin(coin string, amount float64) (*APIResponse[DefaultResponse], error) {
+func (t *Trader) AdjustMargin(coin string, amount float64) (*APIResponse[DefaultResponse], error) {
 	action := UpdateIsolatedMarginAction{
 		Type:  "updateIsolatedMargin",
-		Asset: e.info.AssetID(coin),
+		Asset: t.info.AssetID(coin),
 		IsBuy: true,
 		Ntli:  int64(math.Round(amount * 1e6)),
 	}
 	var result APIResponse[DefaultResponse]
-	if err := e.executeAction(action, &result); err != nil {
+	if err := t.executeAction(action, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -69,20 +69,20 @@ func (e *Trader) AdjustMargin(coin string, amount float64) (*APIResponse[Default
 // SetExpiresAfter updates the expiration deadline stamped on every
 // signed action the Trader subsequently dispatches. A zero deadline
 // (the zero value of time.Time) clears the field.
-func (e *Trader) SetExpiresAfter(deadline time.Time) {
+func (t *Trader) SetExpiresAfter(deadline time.Time) {
 	if deadline.IsZero() {
-		e.expiresAfter = nil
+		t.expiresAfter = nil
 		return
 	}
 	ms := deadline.UnixMilli()
-	e.expiresAfter = &ms
+	t.expiresAfter = &ms
 }
 
 // ScheduleCancelAll schedules cancellation of all open orders at
 // deadline. A nil deadline clears any scheduled cancel and lets existing
 // orders rest indefinitely. A non-nil deadline is converted to a
 // Unix-millisecond timestamp before signing.
-func (e *Trader) ScheduleCancelAll(deadline *time.Time) (*ScheduleCancelResponse, error) {
+func (t *Trader) ScheduleCancelAll(deadline *time.Time) (*ScheduleCancelResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	var scheduleTime *int64
@@ -97,18 +97,18 @@ func (e *Trader) ScheduleCancelAll(deadline *time.Time) (*ScheduleCancelResponse
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (e *Trader) ScheduleCancelAll(deadline *time.Time) (*ScheduleCancelResponse
 }
 
 // SetReferrer sets a referral code for the signing account.
-func (e *Trader) SetReferrer(code string) (*SetReferrerResponse, error) {
+func (t *Trader) SetReferrer(code string) (*SetReferrerResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := SetReferrerAction{
@@ -130,18 +130,18 @@ func (e *Trader) SetReferrer(code string) (*SetReferrerResponse, error) {
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
 		"",
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func (e *Trader) SetReferrer(code string) (*SetReferrerResponse, error) {
 }
 
 // UseBigBlocks enables or disables big-block evm-user mode.
-func (e *Trader) UseBigBlocks(enable bool) (*ApprovalResponse, error) {
+func (t *Trader) UseBigBlocks(enable bool) (*ApprovalResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := UseBigBlocksAction{
@@ -163,18 +163,18 @@ func (e *Trader) UseBigBlocks(enable bool) (*ApprovalResponse, error) {
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
 		"",
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (e *Trader) UseBigBlocks(enable bool) (*ApprovalResponse, error) {
 // ApproveAgent generates a fresh agent key, registers it with
 // Hyperliquid under the optional name, and returns the resulting Agent.
 // The empty string disables the agent-name field on the wire.
-func (e *Trader) ApproveAgent(name string) (Agent, error) {
+func (t *Trader) ApproveAgent(name string) (Agent, error) {
 	agentBytes := make([]byte, 32)
 	if _, err := rand.Read(agentBytes); err != nil {
 		return Agent{}, fmt.Errorf("generate agent key: %w", err)
@@ -209,7 +209,7 @@ func (e *Trader) ApproveAgent(name string) (Agent, error) {
 		"nonce":        nonce,
 	}
 	var result AgentApprovalResponse
-	if err := e.executeUserSignedAction(
+	if err := t.executeUserSignedAction(
 		action, approveAgentSignTypes,
 		"HyperliquidTransaction:ApproveAgent", nonce, &result,
 	); err != nil {
@@ -220,7 +220,7 @@ func (e *Trader) ApproveAgent(name string) (Agent, error) {
 
 // ApproveBuilderFee approves a builder address to charge up to
 // maxFeeRate. maxFeeRate must be a percent string like "0.1%".
-func (e *Trader) ApproveBuilderFee(builder string, maxFeeRate string) (*ApprovalResponse, error) {
+func (t *Trader) ApproveBuilderFee(builder string, maxFeeRate string) (*ApprovalResponse, error) {
 	nonce := time.Now().UnixMilli()
 	action := map[string]any{
 		"type":       "approveBuilderFee",
@@ -229,7 +229,7 @@ func (e *Trader) ApproveBuilderFee(builder string, maxFeeRate string) (*Approval
 		"nonce":      nonce,
 	}
 	var result ApprovalResponse
-	if err := e.executeUserSignedAction(
+	if err := t.executeUserSignedAction(
 		action, approveBuilderFeeSignTypes,
 		"HyperliquidTransaction:ApproveBuilderFee", nonce, &result,
 	); err != nil {

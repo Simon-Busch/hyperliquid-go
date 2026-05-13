@@ -94,27 +94,27 @@ func (t *Trader) attachSubgroups() {
 }
 
 // PerpDex returns the configured builder perp dex name (e.g. "flx"), or empty string for default dex.
-func (e *Trader) PerpDex() string {
-	return e.dex
+func (t *Trader) PerpDex() string {
+	return t.dex
 }
 
 // executeAction executes an action and unmarshals the response into the given result
-func (e *Trader) executeAction(action any, result any) error {
+func (t *Trader) executeAction(action any, result any) error {
 	timestamp := time.Now().UnixMilli()
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func actionTypeOf(action any) string {
 	return peek.Type
 }
 
-func (e *Trader) postAction(
+func (t *Trader) postAction(
 	action any,
 	signature SignatureResult,
 	nonce int64,
@@ -167,15 +167,15 @@ func (e *Trader) postAction(
 	}
 	if userSignedActionTypes[actionTypeOf(action)] {
 		payload["vaultAddress"] = nil
-	} else if e.vault != "" {
-		payload["vaultAddress"] = e.vault
+	} else if t.vault != "" {
+		payload["vaultAddress"] = t.vault
 	}
-	return e.client.post("/exchange", payload)
+	return t.client.post("/exchange", payload)
 }
 
 // executeUserSignedAction signs a user-signed action with the proper
 // HyperliquidSignTransaction EIP-712 domain and POSTs to /exchange.
-func (e *Trader) executeUserSignedAction(
+func (t *Trader) executeUserSignedAction(
 	action map[string]any,
 	payloadTypes []apitypes.Type,
 	primaryType string,
@@ -183,13 +183,13 @@ func (e *Trader) executeUserSignedAction(
 	result any,
 ) error {
 	sig, err := SignUserSignedAction(
-		e.privateKey, action, payloadTypes, primaryType,
-		e.client.baseURL == MainnetAPIURL,
+		t.privateKey, action, payloadTypes, primaryType,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return err
 	}
-	resp, err := e.postAction(action, sig, nonce)
+	resp, err := t.postAction(action, sig, nonce)
 	if err != nil {
 		return err
 	}
@@ -197,17 +197,17 @@ func (e *Trader) executeUserSignedAction(
 }
 
 // GetAccountAddr returns the account address
-func (e *Trader) GetAccountAddr() string {
-	return e.accountAddr
+func (t *Trader) GetAccountAddr() string {
+	return t.accountAddr
 }
 
 // GetInfo returns the info instance
-func (e *Trader) GetInfo() *Info {
-	return e.info
+func (t *Trader) GetInfo() *Info {
+	return t.info
 }
 
 // WarmUp pre-establishes the HTTP/2 connection so the first order doesn't pay
 // the cold-start penalty (TCP + TLS + ALPN). Call once after creating the Trader.
-func (e *Trader) WarmUp() error {
-	return e.client.warmUp()
+func (t *Trader) WarmUp() error {
+	return t.client.warmUp()
 }

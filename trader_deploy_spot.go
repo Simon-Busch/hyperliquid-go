@@ -6,7 +6,7 @@ import (
 )
 
 // SpotDeployRegisterToken registers a new spot token
-func (e *Trader) SpotDeployRegisterToken(
+func (t *Trader) SpotDeployRegisterToken(
 	tokenName string,
 	szDecimals int,
 	weiDecimals int,
@@ -29,18 +29,18 @@ func (e *Trader) SpotDeployRegisterToken(
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
 		"", // No vault address for spot deploy
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (e *Trader) SpotDeployRegisterToken(
 }
 
 // SpotDeployUserGenesis initializes user genesis for spot trading
-func (e *Trader) SpotDeployUserGenesis(balances map[string]float64) (*SpotDeployResponse, error) {
+func (t *Trader) SpotDeployUserGenesis(balances map[string]float64) (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -62,18 +62,18 @@ func (e *Trader) SpotDeployUserGenesis(balances map[string]float64) (*SpotDeploy
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (e *Trader) SpotDeployUserGenesis(balances map[string]float64) (*SpotDeploy
 }
 
 // SpotDeployEnableFreezePrivilege enables freeze privilege for spot deployer
-func (e *Trader) SpotDeployEnableFreezePrivilege() (*SpotDeployResponse, error) {
+func (t *Trader) SpotDeployEnableFreezePrivilege() (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -94,18 +94,18 @@ func (e *Trader) SpotDeployEnableFreezePrivilege() (*SpotDeployResponse, error) 
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (e *Trader) SpotDeployEnableFreezePrivilege() (*SpotDeployResponse, error) 
 }
 
 // SpotDeployFreezeUser freezes a user in spot trading
-func (e *Trader) SpotDeployFreezeUser(userAddress string) (*SpotDeployResponse, error) {
+func (t *Trader) SpotDeployFreezeUser(userAddress string) (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -127,18 +127,18 @@ func (e *Trader) SpotDeployFreezeUser(userAddress string) (*SpotDeployResponse, 
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (e *Trader) SpotDeployFreezeUser(userAddress string) (*SpotDeployResponse, 
 }
 
 // SpotDeployRevokeFreezePrivilege revokes freeze privilege for spot deployer
-func (e *Trader) SpotDeployRevokeFreezePrivilege() (*SpotDeployResponse, error) {
+func (t *Trader) SpotDeployRevokeFreezePrivilege() (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -159,18 +159,18 @@ func (e *Trader) SpotDeployRevokeFreezePrivilege() (*SpotDeployResponse, error) 
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func (e *Trader) SpotDeployRevokeFreezePrivilege() (*SpotDeployResponse, error) 
 }
 
 // SpotDeployGenesis initializes spot genesis
-func (e *Trader) SpotDeployGenesis(deployer string, dexName string) (*SpotDeployResponse, error) {
+func (t *Trader) SpotDeployGenesis(deployer string, dexName string) (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
 
 	action := map[string]any{
@@ -193,18 +193,18 @@ func (e *Trader) SpotDeployGenesis(deployer string, dexName string) (*SpotDeploy
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (e *Trader) SpotDeployGenesis(deployer string, dexName string) (*SpotDeploy
 }
 
 // SpotDeployRegisterSpot registers spot market
-func (e *Trader) SpotDeployRegisterSpot(
+func (t *Trader) SpotDeployRegisterSpot(
 	baseToken string,
 	quoteToken string,
 ) (*SpotDeployResponse, error) {
@@ -230,18 +230,18 @@ func (e *Trader) SpotDeployRegisterSpot(
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func (e *Trader) SpotDeployRegisterSpot(
 }
 
 // SpotDeployRegisterHyperliquidity registers hyperliquidity spot
-func (e *Trader) SpotDeployRegisterHyperliquidity(
+func (t *Trader) SpotDeployRegisterHyperliquidity(
 	name string,
 	tokens []string,
 ) (*SpotDeployResponse, error) {
@@ -267,18 +267,18 @@ func (e *Trader) SpotDeployRegisterHyperliquidity(
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func (e *Trader) SpotDeployRegisterHyperliquidity(
 }
 
 // SpotDeploySetDeployerTradingFeeShare sets deployer trading fee share
-func (e *Trader) SpotDeploySetDeployerTradingFeeShare(
+func (t *Trader) SpotDeploySetDeployerTradingFeeShare(
 	feeShare float64,
 ) (*SpotDeployResponse, error) {
 	timestamp := time.Now().UnixMilli()
@@ -302,18 +302,18 @@ func (e *Trader) SpotDeploySetDeployerTradingFeeShare(
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}

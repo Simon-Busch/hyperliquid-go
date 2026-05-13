@@ -6,7 +6,7 @@ import (
 )
 
 // PerpDeployRegisterAsset registers a new perpetual asset
-func (e *Trader) PerpDeployRegisterAsset(
+func (t *Trader) PerpDeployRegisterAsset(
 	asset string,
 	perpDexInput PerpDexSchemaInput,
 ) (*PerpDeployResponse, error) {
@@ -19,18 +19,18 @@ func (e *Trader) PerpDeployRegisterAsset(
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (e *Trader) PerpDeployRegisterAsset(
 }
 
 // PerpDeploySetOracle sets oracle for perpetual asset
-func (e *Trader) PerpDeploySetOracle(
+func (t *Trader) PerpDeploySetOracle(
 	asset string,
 	oracleAddress string,
 ) (*SpotDeployResponse, error) {
@@ -56,18 +56,18 @@ func (e *Trader) PerpDeploySetOracle(
 	}
 
 	sig, err := SignL1Action(
-		e.privateKey,
+		t.privateKey,
 		action,
-		e.vault,
+		t.vault,
 		timestamp,
-		e.expiresAfter,
-		e.client.baseURL == MainnetAPIURL,
+		t.expiresAfter,
+		t.client.baseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.postAction(action, sig, timestamp)
+	resp, err := t.postAction(action, sig, timestamp)
 	if err != nil {
 		return nil, err
 	}

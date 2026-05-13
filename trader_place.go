@@ -10,7 +10,7 @@ import (
 // SlippagePrice computes the worst-case fill price for a market order on
 // name using the supplied slippage fraction. When px is non-nil it
 // substitutes for the live mid price.
-func (e *Trader) SlippagePrice(
+func (t *Trader) SlippagePrice(
 	name string,
 	isBuy bool,
 	slippage float64,
@@ -21,7 +21,7 @@ func (e *Trader) SlippagePrice(
 	if px != nil {
 		price = *px
 	} else {
-		mids, err := e.info.AllMids()
+		mids, err := t.info.AllMids()
 		if err != nil {
 			return 0, err
 		}
@@ -41,8 +41,8 @@ func (e *Trader) SlippagePrice(
 		price = price * (1 - slippage)
 	}
 
-	asset := e.info.AssetID(name)
-	szDecimals := e.info.assetToDecimal[asset]
+	asset := t.info.AssetID(name)
+	szDecimals := t.info.assetToDecimal[asset]
 	class := ClassifyAsset(asset)
 
 	price = formatPriceToTickSize(price, szDecimals, class)

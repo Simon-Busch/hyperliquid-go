@@ -14,30 +14,30 @@ type pendingRequest struct {
 // Post sends a POST-style request over the WebSocket and waits up to
 // timeout for the response. Lower-level than PostInfo / PostAction;
 // prefer those.
-func (w *Stream) Post(
+func (s *Stream) Post(
 	requestType string,
 	payload any,
 	timeout time.Duration,
 ) (*WsPostResponseData, error) {
-	if !w.connected.Load() {
+	if !s.connected.Load() {
 		return nil, fmt.Errorf("not connected")
 	}
 
-	id := int(w.nextPostID.Add(1))
+	id := int(s.nextPostID.Add(1))
 	responseChan := make(chan WsPostResponseData, 1)
 
 	pending := &pendingRequest{
 		responseChan: responseChan,
 	}
 
-	w.pendingMu.Lock()
-	w.pendingRequests[id] = pending
-	w.pendingMu.Unlock()
+	s.pendingMu.Lock()
+	s.pendingRequests[id] = pending
+	s.pendingMu.Unlock()
 
 	defer func() {
-		w.pendingMu.Lock()
-		delete(w.pendingRequests, id)
-		w.pendingMu.Unlock()
+		s.pendingMu.Lock()
+		delete(s.pendingRequests, id)
+		s.pendingMu.Unlock()
 	}()
 
 	request := WsPostRequest{
@@ -49,7 +49,7 @@ func (w *Stream) Post(
 		},
 	}
 
-	if err := w.writeJSON(request); err != nil {
+	if err := s.writeJSON(request); err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
@@ -69,7 +69,7 @@ func (w *Stream) Post(
 
 // PostInfo sends an info-style request over the WebSocket. When timeout
 // is zero the call waits up to 30s.
-func (w *Stream) PostInfo(
+func (s *Stream) PostInfo(
 	payload map[string]any,
 	timeout time.Duration,
 ) (json.RawMessage, error) {
@@ -77,7 +77,7 @@ func (w *Stream) PostInfo(
 		timeout = 30 * time.Second
 	}
 
-	resp, err := w.Post("info", payload, timeout)
+	resp, err := s.Post("info", payload, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (w *Stream) PostInfo(
 // PostAction sends a signed action over the WebSocket. vaultAddress is
 // forwarded as-is -- supply an empty string to set vaultAddress: null.
 // When timeout is zero the call waits up to 30s.
-func (w *Stream) PostAction(
+func (s *Stream) PostAction(
 	action any,
 	signature SignatureResult,
 	nonce int64,
@@ -115,7 +115,7 @@ func (w *Stream) PostAction(
 		payload["vaultAddress"] = nil
 	}
 
-	resp, err := w.Post("action", payload, timeout)
+	resp, err := s.Post("action", payload, timeout)
 	if err != nil {
 		return nil, err
 	}
