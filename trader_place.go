@@ -2,8 +2,106 @@ package hyperliquid
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"strconv"
 )
+
+// SlippagePrice computes the worst-case fill price for a market order on
+// name using the supplied slippage fraction. When px is non-nil it
+// substitutes for the live mid price.
+func (e *Trader) SlippagePrice(
+	name string,
+	isBuy bool,
+	slippage float64,
+	px *float64,
+) (float64, error) {
+	var price float64
+
+	if px != nil {
+		price = *px
+	} else {
+		mids, err := e.info.AllMids()
+		if err != nil {
+			return 0, err
+		}
+		if midPriceStr, ok := mids[name]; ok {
+			price, err = strconv.ParseFloat(midPriceStr, 64)
+			if err != nil {
+				return 0, fmt.Errorf("failed to parse midprice for %s: %w", name, err)
+			}
+		} else {
+			return 0, fmt.Errorf("no midprice found for %s", name)
+		}
+	}
+
+	if isBuy {
+		price = price * (1 + slippage)
+	} else {
+		price = price * (1 - slippage)
+	}
+
+	asset := e.info.NameToAsset(name)
+	szDecimals := e.info.assetToDecimal[asset]
+	class := ClassifyAsset(asset)
+
+	price = formatPriceToTickSize(price, szDecimals, class)
+
+	adjustedPrice, err := validateAndAdjustPrice(price, asset)
+	if err != nil {
+		return 0, fmt.Errorf("failed to validate price for tick size: %w", err)
+	}
+
+	return adjustedPrice, nil
+}
+
+// formatPriceToTickSize rounds price to satisfy both significant-figure
+// and decimal-place constraints documented at
+// https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size
+func formatPriceToTickSize(price float64, szDecimals int, class AssetClass) float64 {
+	sigFigsRounded, err := roundToSignificantFigures(price, 5)
+	if err != nil {
+		return price
+	}
+
+	maxPriceDecimals := class.MaxPriceDecimals() - szDecimals
+	if maxPriceDecimals < 0 {
+		maxPriceDecimals = 0
+	}
+	multiplier := math.Pow(10, float64(maxPriceDecimals))
+	return math.Round(sigFigsRounded*multiplier) / multiplier
+}
+
+// roundToTickSize rounds price to the nearest multiple of tickSize.
+func roundToTickSize(price, tickSize float64) float64 {
+	return math.Round(price/tickSize) * tickSize
+}
+
+// getAssetTickSize returns the conservative tick size used for fallback
+// rounding when the wire metadata cannot be consulted.
+func getAssetTickSize(assetID int) float64 {
+	if assetID < 10000 {
+		switch assetID {
+		case 0: // BTC
+			return 0.1
+		case 1: // ETH
+			return 0.01
+		case 2: // SOL
+			return 0.01
+		default:
+			return 0.01
+		}
+	}
+	return 0.0001
+}
+
+// validateAndAdjustPrice silently rounds price to the asset's tick grid.
+// Tick-violation surfacing now lives in validate() as
+// ValidationError{Code:"tick_violation"}.
+func validateAndAdjustPrice(price float64, assetID int) (float64, error) {
+	tickSize := getAssetTickSize(assetID)
+	return roundToTickSize(price, tickSize), nil
+}
 
 // PlaceMany packages multiple OrderSpec legs into a single signed action.
 // Use the hl.ALO/IOC/GTC/Market/Trigger constructors to build the specs.
