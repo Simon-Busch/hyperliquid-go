@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 )
 
-//go:generate easyjson -all ws_types.go
-
 type WSMessage struct {
 	Channel string          `json:"channel"`
 	Data    json.RawMessage `json:"data"`

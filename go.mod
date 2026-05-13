@@ -6,7 +6,6 @@ require (
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
-	github.com/mailru/easyjson v0.9.0
 	github.com/sonirico/vago v0.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/valyala/fastjson v1.6.4
@@ -23,7 +22,6 @@ require (
 	github.com/ethereum/c-kzg-4844/v2 v2.1.1 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
-	github.com/josharian/intern v1.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/supranational/blst v0.3.15 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
