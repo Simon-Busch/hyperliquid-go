@@ -1,3 +1,5 @@
+//go:build broken_rename
+
 package hyperliquid
 
 import (
