@@ -33,16 +33,26 @@ import (
 // integrationConfig is the typed view of the .env variables used by the
 // suite.
 type integrationConfig struct {
-	BaseURL        string
-	PrivateKeyHex  string
-	AccountAddr    string
-	TestCoin       string
-	TestSize       float64 // explicit coin-unit size; used only when TestNotional == 0
-	TestNotional   float64 // target USD notional; size = TestNotional / mid
-	BuilderAddr    string
-	BuilderFeeBps  int
-	SkipTransfer   bool
-	SkipWS         bool
+	BaseURL       string
+	PrivateKeyHex string
+	AccountAddr   string
+	TestCoin      string
+	TestSize      float64 // explicit coin-unit size; used only when TestNotional == 0
+	TestNotional  float64 // target USD notional; size = TestNotional / mid
+	BuilderAddr   string
+	BuilderFeeBps int
+	SkipTransfer  bool
+	SkipWS        bool
+
+	// HIP-3 (builder-deployed perp dex). When HIP3Dex is empty the entire
+	// HIP-3 suite skips cleanly.
+	HIP3Dex  string
+	HIP3Coin string
+
+	// HIP-4 (binary outcome markets). When HIP4Outcome is empty the suite
+	// falls back to the first outcome returned by Info.OutcomeMeta; if no
+	// outcomes are live, every HIP-4 scenario skips cleanly.
+	HIP4Outcome string
 
 	privateKey *ecdsa.PrivateKey
 	signerAddr string
@@ -132,6 +142,9 @@ func loadConfig() (*integrationConfig, error) {
 			BuilderFeeBps: feeBps,
 			SkipTransfer:  strings.EqualFold(os.Getenv("HL_SKIP_TRANSFER"), "true"),
 			SkipWS:        strings.EqualFold(os.Getenv("HL_SKIP_WS"), "true"),
+			HIP3Dex:       strings.TrimSpace(os.Getenv("HL_HIP3_DEX")),
+			HIP3Coin:      strings.TrimSpace(os.Getenv("HL_HIP3_COIN")),
+			HIP4Outcome:   strings.TrimSpace(os.Getenv("HL_HIP4_OUTCOME")),
 			privateKey:    priv,
 			signerAddr:    signerAddr,
 		}
@@ -148,7 +161,7 @@ func loadConfig() (*integrationConfig, error) {
 func TestMain(m *testing.M) {
 	if _, err := loadConfig(); err != nil {
 		log.Printf("integration suite not configured: %v", err)
-		log.Printf("Required env vars: HL_PRIVATE_KEY. Optional: HL_ACCOUNT_ADDRESS, HL_BASE_URL, HL_TEST_COIN, HL_TEST_SIZE, HL_BUILDER_ADDR, HL_BUILDER_FEE_BPS, HL_SKIP_TRANSFER, HL_SKIP_WS.")
+		log.Printf("Required env vars: HL_PRIVATE_KEY. Optional: HL_ACCOUNT_ADDRESS, HL_BASE_URL, HL_TEST_COIN, HL_TEST_SIZE, HL_BUILDER_ADDR, HL_BUILDER_FEE_BPS, HL_SKIP_TRANSFER, HL_SKIP_WS, HL_HIP3_DEX, HL_HIP3_COIN, HL_HIP4_OUTCOME.")
 	}
 	os.Exit(m.Run())
 }

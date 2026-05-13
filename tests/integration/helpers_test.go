@@ -268,3 +268,90 @@ func cancelIfResting(t *testing.T, client *hl.Client, coin string, oid int64) {
 		t.Logf("Cancel(%s, %d): %v (best-effort)", coin, oid, err)
 	}
 }
+
+// cleanupCloid attempts to cancel a resting order identified by its
+// client order id, ignoring "order not found" errors. Symmetric to
+// cancelIfResting for cloid-based tests.
+func cleanupCloid(t *testing.T, client *hl.Client, coin, cloid string) {
+	t.Helper()
+	if cloid == "" {
+		return
+	}
+	if _, err := client.Trade.CancelByCloid(coin, cloid); err != nil {
+		t.Logf("CancelByCloid(%s, %s): %v (best-effort)", coin, cloid, err)
+	}
+}
+
+// pickHIP3Dex returns the HIP-3 dex configured via HL_HIP3_DEX. The
+// second return value signals whether the suite should skip — true means
+// no dex configured, run a clean t.Skip in the caller.
+func pickHIP3Dex(t *testing.T) (string, bool) {
+	t.Helper()
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Skipf("integration env not configured: %v", err)
+	}
+	if cfg.HIP3Dex == "" {
+		return "", true
+	}
+	return cfg.HIP3Dex, false
+}
+
+// pickHIP3Coin picks a coin on the HIP-3 dex. If HL_HIP3_COIN is set the
+// caller is taken at their word; otherwise the first entry of
+// Info.Meta(dex).Universe is returned. Returns ("", true) to signal skip
+// when the dex has no usable assets.
+func pickHIP3Coin(t *testing.T, client *hl.Client, dex string) (string, bool) {
+	t.Helper()
+	cfg, _ := loadConfig()
+	if cfg.HIP3Coin != "" {
+		return cfg.HIP3Coin, false
+	}
+	meta, err := client.Info.Meta(dex)
+	if err != nil {
+		t.Logf("Info.Meta(%q) failed: %v", dex, err)
+		return "", true
+	}
+	if meta == nil || len(meta.Universe) == 0 {
+		return "", true
+	}
+	return meta.Universe[0].Name, false
+}
+
+// requireOutcomeOrSkip looks up an active HIP-4 outcome and returns the
+// canonical name ("#<enc>"), friendly name ("<question>:<side>") and the
+// current mid price. The caller can place / cancel against the canonical
+// name. The test is skipped cleanly when:
+//   - OutcomeMeta fails (network or feature unavailable),
+//   - no outcomes are returned (env without HIP-4 support),
+//   - HL_HIP4_OUTCOME is set but does not match any side.
+func requireOutcomeOrSkip(t *testing.T, client *hl.Client) (canonical, friendly string, midPx float64) {
+	t.Helper()
+	meta, err := client.Info.OutcomeMeta()
+	if err != nil {
+		t.Skipf("OutcomeMeta failed: %v", err)
+	}
+	if meta == nil || len(meta.Outcomes) == 0 {
+		t.Skip("no HIP-4 outcomes available on this environment")
+	}
+	cfg, _ := loadConfig()
+	want := cfg.HIP4Outcome
+	for _, oc := range meta.Outcomes {
+		for sideIdx, spec := range oc.SideSpecs {
+			f := oc.Name + ":" + spec.Name
+			c := "#" + strconv.Itoa(10*oc.Outcome+sideIdx)
+			if want != "" && want != f && want != c {
+				continue
+			}
+			// Skip outcomes with no live mid: a Mid() failure here means the
+			// outcome is delisted or its book is empty.
+			px, err := client.Info.Mid(c)
+			if err != nil || px <= 0 || px >= 1 {
+				continue
+			}
+			return c, f, px
+		}
+	}
+	t.Skip("no usable HIP-4 outcome with a live mid found")
+	return "", "", 0
+}
