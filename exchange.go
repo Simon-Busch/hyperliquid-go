@@ -84,34 +84,8 @@ func (t *Trader) cachedUserState() *UserState {
 	return t.userState
 }
 
-// NewTrader builds a Trader pinned to baseURL with the supplied metadata.
-// Prefer hyperliquid.New; this constructor is exported for backwards
-// compatibility with older test fixtures and will be removed once those
-// migrate.
-func NewTrader(
-	privateKey *ecdsa.PrivateKey,
-	baseURL string,
-	meta *Meta,
-	vaultAddr, accountAddr string,
-	spotMeta *SpotMeta,
-	perpDexs *MixedArray,
-	perpDexName string,
-) *Trader {
-	t := &Trader{
-		client:      newHTTPAPI(baseURL, nil),
-		privateKey:  privateKey,
-		vault:       vaultAddr,
-		accountAddr: accountAddr,
-		dex:         perpDexName,
-		info:        NewInfo(baseURL, true, meta, spotMeta, perpDexs, perpDexName),
-	}
-	t.attachSubgroups()
-	return t
-}
-
 // attachSubgroups initialises the Transfer/SubAccount/Stake/MultiSig
-// subgroup fields. Called by NewTrader and by hl.New after constructing
-// the Trader.
+// subgroup fields. Called by hl.New after constructing the Trader.
 func (t *Trader) attachSubgroups() {
 	t.Transfer = &TransferGroup{t: t}
 	t.SubAccount = &SubAccountGroup{t: t}
