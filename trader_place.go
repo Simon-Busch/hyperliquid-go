@@ -46,3 +46,31 @@ func GTC(coin string, side Side, size, px float64, opts ...PlaceOpt) OrderSpec {
 	}
 	return s
 }
+
+// PlaceMarket places a market order, implemented as an IOC limit at the
+// current mid price adjusted by the requested slippage fraction (default
+// 5% if WithSlippage is not supplied).
+func (t *Trader) PlaceMarket(coin string, side Side, size float64, opts ...PlaceOpt) (Result, error) {
+	spec := Market(coin, side, size, opts...)
+	slippage := spec.Slippage
+	if slippage == 0 {
+		slippage = 0.05
+	}
+	px, err := t.SlippagePrice(coin, side.IsBuy(), slippage, nil)
+	if err != nil {
+		return Result{}, err
+	}
+	spec.Price = px
+	return t.place(&spec)
+}
+
+// Market returns an OrderSpec describing a market order. The Price field is
+// resolved later (against mid) when the spec is consumed by PlaceMany or
+// PlaceMarket; callers do not need to supply px.
+func Market(coin string, side Side, size float64, opts ...PlaceOpt) OrderSpec {
+	s := OrderSpec{Method: "market", Coin: coin, Side: side, Size: size, TIF: tifIOC}
+	for _, o := range opts {
+		o(&s)
+	}
+	return s
+}
