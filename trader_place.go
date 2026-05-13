@@ -82,6 +82,74 @@ func (t *Trader) PlaceTrigger(coin string, side Side, size, triggerPx float64, o
 	return t.place(&spec)
 }
 
+// ClosePosition flattens the caller's open position on coin. The order
+// side is inferred from the position: long positions are exited with a
+// sell, short with a buy. By default this is a market close; supply
+// WithLimit(px) to close at a specific price and WithSize(x) to close
+// partially.
+func (t *Trader) ClosePosition(coin string, opts ...PlaceOpt) (Result, error) {
+	addr := t.accountAddr
+	if addr == "" {
+		addr = t.vault
+	}
+	state, err := t.info.UserState(addr)
+	if err != nil {
+		return Result{}, err
+	}
+	var (
+		found bool
+		szi   float64
+	)
+	for _, ap := range state.AssetPositions {
+		if ap.Position.Coin == coin {
+			szi = parseFloat(ap.Position.Szi)
+			found = true
+			break
+		}
+	}
+	if !found || szi == 0 {
+		return Result{}, &ValidationError{Field: "Coin", Code: "no_position", Message: "no open position to close"}
+	}
+
+	isBuy := szi < 0
+	size := abs(szi)
+
+	// Apply options to a placeholder spec to surface WithSize/WithLimit/etc.
+	tmp := OrderSpec{Method: "close", Coin: coin, Size: size, Side: sideFromIsBuy(isBuy), TIF: tifIOC}
+	for _, o := range opts {
+		o(&tmp)
+	}
+	if tmp.OverrideSize > 0 {
+		tmp.Size = tmp.OverrideSize
+	}
+
+	var price float64
+	if tmp.LimitPrice > 0 {
+		price = tmp.LimitPrice
+	} else {
+		slip := tmp.Slippage
+		if slip == 0 {
+			slip = 0.05
+		}
+		price, err = t.SlippagePrice(coin, isBuy, slip, nil)
+		if err != nil {
+			return Result{}, err
+		}
+	}
+	tmp.Price = price
+	tmp.ReduceOnly = true
+	return t.place(&tmp)
+}
+
+// sideFromIsBuy is a tiny adapter used while we still convert between the
+// boolean wire encoding and the typed Side enum.
+func sideFromIsBuy(isBuy bool) Side {
+	if isBuy {
+		return Buy
+	}
+	return Sell
+}
+
 // Trigger returns an OrderSpec describing a trigger order. Default fills
 // as a market; combine with AsLimit(px) to fill as a limit.
 func Trigger(coin string, side Side, size, triggerPx float64, opts ...PlaceOpt) OrderSpec {
