@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 )
 
 // SlippagePrice computes the worst-case fill price for a market order on
@@ -21,7 +22,13 @@ func (t *Trader) SlippagePrice(
 	if px != nil {
 		price = *px
 	} else {
-		mids, err := t.info.AllMids()
+		// HIP-3 coins are prefixed "<dex>:<coin>" and only appear in
+		// the mid table when AllMids is called with that dex.
+		var midsDex []string
+		if idx := strings.Index(name, ":"); idx > 0 {
+			midsDex = []string{name[:idx]}
+		}
+		mids, err := t.info.AllMids(midsDex...)
 		if err != nil {
 			return 0, err
 		}

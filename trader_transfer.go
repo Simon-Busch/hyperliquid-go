@@ -2,6 +2,7 @@ package hyperliquid
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -131,48 +132,48 @@ func (g *TransferGroup) usdClassTransfer(amount float64, toPerp bool) (*Transfer
 	return &result, nil
 }
 
-// MoveToDex moves tokens into a HIP-3 builder-deployed perp dex.
+// MoveToDex moves tokens from the default perp wallet into a builder-
+// deployed (HIP-3) perp dex. The destination address is the signing
+// account; HIP-3 transfers are user-signed sendAsset actions whose
+// sourceDex is the empty string for the default perp class.
 func (g *TransferGroup) MoveToDex(dex, token string, amount float64) (*TransferResponse, error) {
-	return g.perpDexClassTransfer(dex, token, amount, true)
+	return g.sendAsset("", dex, token, amount)
 }
 
-// MoveFromDex moves tokens out of a HIP-3 builder-deployed perp dex.
+// MoveFromDex moves tokens out of a builder-deployed perp dex back
+// to the default perp wallet of the signing account.
 func (g *TransferGroup) MoveFromDex(dex, token string, amount float64) (*TransferResponse, error) {
-	return g.perpDexClassTransfer(dex, token, amount, false)
+	return g.sendAsset(dex, "", token, amount)
 }
 
-// perpDexClassTransfer signs and submits a perpDexClassTransfer action.
-func (g *TransferGroup) perpDexClassTransfer(dex, token string, amount float64, toPerp bool) (*TransferResponse, error) {
+// sendAsset is the underlying user-signed action for cross-DEX and
+// cross-class transfers. sourceDex / destinationDex use the empty
+// string for the default perp class and "spot" for the spot class;
+// any other value is a builder-deployed perp dex name. The destination
+// address is always the signing account — sub-account routing goes via
+// the fromSubAccount field, which currently mirrors the trader's vault.
+func (g *TransferGroup) sendAsset(sourceDex, destinationDex, token string, amount float64) (*TransferResponse, error) {
 	t := g.t
-	timestamp := time.Now().UnixMilli()
-
-	action := PerpDexClassTransferAction{
-		Type:   "perpDexClassTransfer",
-		Dex:    dex,
-		Token:  token,
-		Amount: amount,
-		ToPerp: toPerp,
+	nonce := time.Now().UnixMilli()
+	dest := t.effectiveAddr()
+	if dest == "" {
+		return nil, fmt.Errorf("sendAsset: no destination address available")
 	}
-
-	sig, err := SignL1Action(
-		t.privateKey,
-		action,
-		t.vault,
-		timestamp,
-		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
-	)
-	if err != nil {
-		return nil, err
+	action := map[string]any{
+		"type":           "sendAsset",
+		"destination":    dest,
+		"sourceDex":      sourceDex,
+		"destinationDex": destinationDex,
+		"token":          token,
+		"amount":         formatUsdAmount(amount),
+		"fromSubAccount": t.vault,
+		"nonce":          nonce,
 	}
-
-	resp, err := t.postAction(action, sig, timestamp)
-	if err != nil {
-		return nil, err
-	}
-
 	var result TransferResponse
-	if err := json.Unmarshal(resp, &result); err != nil {
+	if err := t.executeUserSignedAction(
+		action, sendAssetSignTypes,
+		"HyperliquidTransaction:SendAsset", nonce, &result,
+	); err != nil {
 		return nil, err
 	}
 	return &result, nil

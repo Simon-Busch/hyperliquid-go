@@ -68,7 +68,17 @@ func (t *Trader) RefreshState(ctx context.Context) error {
 	if addr == "" {
 		return fmt.Errorf("hyperliquid: no address available for RefreshState")
 	}
-	state, err := t.info.UserState(addr)
+	// When the trader is pinned to a HIP-3 builder dex, the position
+	// state lives under that dex's clearinghouse view, not the default
+	// perp dex. Without the dex argument the cache would always be empty
+	// and the long/short safety rules in validate() would no-op.
+	var state *UserState
+	var err error
+	if t.dex != "" {
+		state, err = t.info.UserState(addr, t.dex)
+	} else {
+		state, err = t.info.UserState(addr)
+	}
 	if err != nil {
 		return err
 	}
@@ -134,6 +144,7 @@ func (t *Trader) executeAction(action any, result any) error {
 // /exchange expects vaultAddress: null in the envelope.
 var userSignedActionTypes = map[string]bool{
 	"usdClassTransfer":      true,
+	"sendAsset":             true,
 	"usdSend":               true,
 	"spotSend":              true,
 	"withdraw3":             true,

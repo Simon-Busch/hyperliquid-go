@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/Simon-Busch/hyperliquid-go/internal/transport"
 )
@@ -46,6 +47,10 @@ func (c *httpAPI) post(path string, payload any) ([]byte, error) {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	if os.Getenv("HL_DEBUG_HTTP") == "true" {
+		fmt.Fprintf(os.Stderr, ">>> POST %s%s\n%s\n", c.baseURL, path, jsonData)
 	}
 
 	url := c.baseURL + path

@@ -35,7 +35,6 @@ func (t *Trader) bulkCancel(requests []CancelOrderRequest) (*APIResponse[CancelO
 
 	action := CancelAction{
 		Type:    "cancel",
-		Dex:     t.dex,
 		Cancels: cancels,
 	}
 
@@ -57,7 +56,6 @@ func (t *Trader) CancelByCloid(coin, cloid string) (CancelResult, error) {
 	cancels := []CancelByCloidWire{{Asset: t.info.AssetID(coin), ClientID: cloid}}
 	action := CancelByCloidAction{
 		Type:    "cancelByCloid",
-		Dex:     t.dex,
 		Cancels: cancels,
 	}
 	var res *APIResponse[CancelOrderResponse]

@@ -103,9 +103,11 @@ func newCreateOrderActionWithGrouping(
 		}
 	}
 
+	// The order action does NOT carry the builder dex name on the wire —
+	// HIP-3 routing is encoded in the asset id itself. Including a `dex`
+	// field makes Hyperliquid reject the action with a JSON-shape error.
 	return OrderAction{
 		Type:     "order",
-		Dex:      t.dex,
 		Orders:   orderRequests,
 		Grouping: string(grouping),
 		Builder:  info,
@@ -154,7 +156,6 @@ func newModifyOrderAction(
 
 	return ModifyAction{
 		Type: "modify",
-		Dex:  t.dex,
 		Oid:  modifyRequest.Oid,
 		Order: OrderWire{
 			Asset:      asset,

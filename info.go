@@ -72,7 +72,16 @@ func NewInfo(baseURL string, skipWS bool, meta *Meta, spotMeta *SpotMeta, perpDe
 
 	if meta == nil {
 		var err error
-		meta, err = info.Meta()
+		// When the client is pinned to a HIP-3 builder dex, the asset
+		// registration below iterates the meta universe under the
+		// assumption that it lists coins for THAT dex. Fetching the
+		// default-dex meta would silently register the wrong universe
+		// and break every subsequent AssetID / validate lookup.
+		if info.perpDexName != "" {
+			meta, err = info.Meta(info.perpDexName)
+		} else {
+			meta, err = info.Meta()
+		}
 		if err != nil {
 			panic(err)
 		}

@@ -144,20 +144,14 @@ func testSizeForLimit(t *testing.T, client *hl.Client, coin string, limitPx floa
 	return steps * meta.MinSize
 }
 
-// mid returns the current mid price for coin.
+// mid returns the current mid price for coin. Delegates to Info.Mid
+// which auto-routes by the "<dex>:" prefix so HIP-3 coins resolve
+// without the caller having to pass a dex argument.
 func mid(t *testing.T, client *hl.Client, coin string) float64 {
 	t.Helper()
-	m, err := client.Info.AllMids()
+	px, err := client.Info.Mid(coin)
 	if err != nil {
-		t.Fatalf("AllMids: %v", err)
-	}
-	raw, ok := m[coin]
-	if !ok {
-		t.Skipf("no mid for %s — skipping", coin)
-	}
-	px, err := strconv.ParseFloat(raw, 64)
-	if err != nil {
-		t.Fatalf("parse mid %q: %v", raw, err)
+		t.Skipf("no mid for %s — skipping: %v", coin, err)
 	}
 	return px
 }
@@ -297,16 +291,14 @@ func pickHIP3Dex(t *testing.T) (string, bool) {
 	return cfg.HIP3Dex, false
 }
 
-// pickHIP3Coin picks a coin on the HIP-3 dex. If HL_HIP3_COIN is set the
-// caller is taken at their word; otherwise the first entry of
-// Info.Meta(dex).Universe is returned. Returns ("", true) to signal skip
-// when the dex has no usable assets.
+// pickHIP3Coin picks a coin on the HIP-3 dex. Resolves against the
+// dex's universe so that HL_HIP3_COIN can be supplied either bare
+// ("COPPER") or fully qualified ("xyz:COPPER"); HIP-3 dexes namespace
+// their coin names with the dex prefix on the wire. Returns ("", true)
+// to signal skip when the dex has no usable assets.
 func pickHIP3Coin(t *testing.T, client *hl.Client, dex string) (string, bool) {
 	t.Helper()
 	cfg, _ := loadConfig()
-	if cfg.HIP3Coin != "" {
-		return cfg.HIP3Coin, false
-	}
 	meta, err := client.Info.Meta(dex)
 	if err != nil {
 		t.Logf("Info.Meta(%q) failed: %v", dex, err)
@@ -315,7 +307,21 @@ func pickHIP3Coin(t *testing.T, client *hl.Client, dex string) (string, bool) {
 	if meta == nil || len(meta.Universe) == 0 {
 		return "", true
 	}
-	return meta.Universe[0].Name, false
+	want := cfg.HIP3Coin
+	if want == "" {
+		return meta.Universe[0].Name, false
+	}
+	// Accept the user's name as-is, with the dex prefix, or as a suffix
+	// match (canonical form). Universe entries are like "xyz:COPPER".
+	prefixed := dex + ":" + want
+	for _, a := range meta.Universe {
+		if a.Name == want || a.Name == prefixed || strings.EqualFold(strings.TrimPrefix(a.Name, dex+":"), want) {
+			return a.Name, false
+		}
+	}
+	t.Logf("HL_HIP3_COIN=%q not found in dex %q universe (size=%d, first=%q)",
+		want, dex, len(meta.Universe), meta.Universe[0].Name)
+	return "", true
 }
 
 // requireYesOutcomeOrSkip restricts requireOutcomeOrSkip to the YES side

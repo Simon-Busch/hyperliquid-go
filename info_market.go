@@ -4,11 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
-// Mid returns the current mid price for coin as a float64.
+// Mid returns the current mid price for coin as a float64. Coin names
+// containing a "<dex>:" prefix (HIP-3 builder-deployed perps) cause the
+// lookup to pin to that dex automatically, since the default-dex mid
+// table does not include builder-DEX coins.
 func (i *Info) Mid(coin string) (float64, error) {
-	mids, err := i.AllMids()
+	var dex []string
+	if idx := strings.Index(coin, ":"); idx > 0 {
+		dex = []string{coin[:idx]}
+	}
+	mids, err := i.AllMids(dex...)
 	if err != nil {
 		return 0, err
 	}

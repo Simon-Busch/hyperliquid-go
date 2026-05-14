@@ -146,6 +146,16 @@ var (
 		{Name: "toPerp", Type: "bool"},
 		{Name: "nonce", Type: "uint64"},
 	}
+	sendAssetSignTypes = []apitypes.Type{
+		{Name: "hyperliquidChain", Type: "string"},
+		{Name: "destination", Type: "string"},
+		{Name: "sourceDex", Type: "string"},
+		{Name: "destinationDex", Type: "string"},
+		{Name: "token", Type: "string"},
+		{Name: "amount", Type: "string"},
+		{Name: "fromSubAccount", Type: "string"},
+		{Name: "nonce", Type: "uint64"},
+	}
 	tokenDelegateSignTypes = []apitypes.Type{
 		{Name: "hyperliquidChain", Type: "string"},
 		{Name: "validator", Type: "address"},
