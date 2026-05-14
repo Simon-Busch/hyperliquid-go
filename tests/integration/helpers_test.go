@@ -318,6 +318,41 @@ func pickHIP3Coin(t *testing.T, client *hl.Client, dex string) (string, bool) {
 	return meta.Universe[0].Name, false
 }
 
+// requireYesOutcomeOrSkip restricts requireOutcomeOrSkip to the YES side
+// (sideIdx == 0; SideSpecs is documented as [YES, NO] in that order).
+// Use this when the test deliberately wants to long an outcome rather
+// than whichever side happens to have a live mid first.
+func requireYesOutcomeOrSkip(t *testing.T, client *hl.Client) (canonical, friendly string, midPx float64) {
+	t.Helper()
+	meta, err := client.Info.OutcomeMeta()
+	if err != nil {
+		t.Skipf("OutcomeMeta failed: %v", err)
+	}
+	if meta == nil || len(meta.Outcomes) == 0 {
+		t.Skip("no HIP-4 outcomes available on this environment")
+	}
+	cfg, _ := loadConfig()
+	want := cfg.HIP4Outcome
+	for _, oc := range meta.Outcomes {
+		if len(oc.SideSpecs) == 0 {
+			continue
+		}
+		spec := oc.SideSpecs[0] // YES
+		f := oc.Name + ":" + spec.Name
+		c := "#" + strconv.Itoa(10*oc.Outcome+0)
+		if want != "" && want != f && want != c {
+			continue
+		}
+		px, err := client.Info.Mid(c)
+		if err != nil || px <= 0 || px >= 1 {
+			continue
+		}
+		return c, f, px
+	}
+	t.Skip("no HIP-4 outcome with a live YES-side mid found")
+	return "", "", 0
+}
+
 // requireOutcomeOrSkip looks up an active HIP-4 outcome and returns the
 // canonical name ("#<enc>"), friendly name ("<question>:<side>") and the
 // current mid price. The caller can place / cancel against the canonical
