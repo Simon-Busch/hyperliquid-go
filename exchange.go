@@ -39,6 +39,8 @@ type Trader struct {
 	Stake *StakeGroup
 	// MultiSig exposes multi-sig conversion and execution helpers.
 	MultiSig *MultiSigGroup
+	// Convert exposes spot-token conversion helpers (e.g. USDC <-> USDH).
+	Convert *ConvertGroup
 }
 
 // effectiveAddr returns the address used for position-state lookups. It
@@ -84,13 +86,14 @@ func (t *Trader) cachedUserState() *UserState {
 	return t.userState
 }
 
-// attachSubgroups initialises the Transfer/SubAccount/Stake/MultiSig
-// subgroup fields. Called by hl.New after constructing the Trader.
+// attachSubgroups initialises the Transfer/SubAccount/Stake/MultiSig/
+// Convert subgroup fields. Called by hl.New after constructing the Trader.
 func (t *Trader) attachSubgroups() {
 	t.Transfer = &TransferGroup{t: t}
 	t.SubAccount = &SubAccountGroup{t: t}
 	t.Stake = &StakeGroup{t: t}
 	t.MultiSig = &MultiSigGroup{t: t}
+	t.Convert = &ConvertGroup{t: t}
 }
 
 // PerpDex returns the configured builder perp dex name (e.g. "flx"), or empty string for default dex.
