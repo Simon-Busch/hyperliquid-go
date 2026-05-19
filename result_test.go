@@ -81,28 +81,51 @@ func TestBatchResultFromResponse_Error(t *testing.T) {
 	}
 }
 
-func TestFirstCancelResult_Nil(t *testing.T) {
-	if r := firstCancelResult(nil); r != (CancelResult{}) {
-		t.Errorf("expected zero, got %+v", r)
+func TestCancelResultOrError_Nil(t *testing.T) {
+	r, err := cancelResultOrError(nil)
+	if r != (CancelResult{}) {
+		t.Errorf("expected zero result, got %+v", r)
+	}
+	if err == nil {
+		t.Errorf("expected error on nil response")
 	}
 }
 
-func TestFirstCancelResult_Error(t *testing.T) {
-	r := firstCancelResult(&APIResponse[CancelOrderResponse]{Ok: false, Err: "bad oid"})
+func TestCancelResultOrError_TransportError(t *testing.T) {
+	r, err := cancelResultOrError(&APIResponse[CancelOrderResponse]{Ok: false, Err: "bad oid"})
 	if r.Error != "bad oid" {
 		t.Errorf("Error = %q", r.Error)
 	}
+	if err == nil {
+		t.Errorf("expected error when resp.Ok == false")
+	}
 }
 
-func TestFirstCancelResult_Status(t *testing.T) {
+func TestCancelResultOrError_Success(t *testing.T) {
 	resp := &APIResponse[CancelOrderResponse]{Ok: true, Data: CancelOrderResponse{Statuses: MixedArray{
 		MixedValue(`"success"`),
 	}}}
-	r := firstCancelResult(resp)
-	// firstCancelResult stringifies the raw MixedValue verbatim, so the
-	// surrounding JSON quotes are preserved.
+	r, err := cancelResultOrError(resp)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	// The raw MixedValue is preserved verbatim, including the surrounding
+	// JSON quotes — callers parse it if they need the unquoted form.
 	if r.Status != `"success"` {
 		t.Errorf("Status = %q", r.Status)
+	}
+}
+
+func TestCancelResultOrError_PerOrderError(t *testing.T) {
+	resp := &APIResponse[CancelOrderResponse]{Ok: true, Data: CancelOrderResponse{Statuses: MixedArray{
+		MixedValue(`{"error":"Order was never placed, already canceled, or filled. asset=1"}`),
+	}}}
+	r, err := cancelResultOrError(resp)
+	if err == nil {
+		t.Fatalf("expected error from {\"error\": ...} status")
+	}
+	if r.Error == "" {
+		t.Errorf("expected r.Error to be populated, got empty")
 	}
 }
 

@@ -324,6 +324,64 @@ func pickHIP3Coin(t *testing.T, client *hl.Client, dex string) (string, bool) {
 	return "", true
 }
 
+// multiBucketSide is one bucket of a multi-bucket HIP-4 question
+// (e.g. one of the three price ranges of a BTC range market).
+type multiBucketSide struct {
+	YesCanonical string  // "#<10*outcome+0>"
+	NoCanonical  string  // "#<10*outcome+1>"
+	Label        string  // human-readable bucket label, e.g. "75348 to 78423"
+	Outcome      int     // outcome id of the bucket
+	Mid          float64 // YES-side mid in (0, 1); 0 when no live book
+}
+
+// pickMultiBucketQuestionOrSkip walks OutcomeMeta.Questions looking for
+// a price-bucket question whose NamedOutcomes count meets minBuckets.
+// HL_HIP4_OUTCOME pins the search to a specific question name when set.
+// Returns the question name and every bucket, ready for trading.
+func pickMultiBucketQuestionOrSkip(t *testing.T, client *hl.Client, minBuckets int) (question string, buckets []multiBucketSide) {
+	t.Helper()
+	meta, err := client.Info.OutcomeMeta()
+	if err != nil {
+		t.Skipf("OutcomeMeta failed: %v", err)
+	}
+	if meta == nil {
+		t.Skip("no HIP-4 outcome metadata on this environment")
+	}
+	cfg, _ := loadConfig()
+	want := cfg.HIP4Outcome
+
+	for i := range meta.Questions {
+		q := &meta.Questions[i]
+		if len(q.NamedOutcomes) < minBuckets {
+			continue
+		}
+		if want != "" && q.Name != want {
+			continue
+		}
+		raw := q.Buckets()
+		if raw == nil {
+			continue
+		}
+		out := make([]multiBucketSide, 0, len(raw))
+		for _, b := range raw {
+			px, err := client.Info.Mid(b.YesCanonical)
+			if err != nil || px <= 0 || px >= 1 {
+				px = 0
+			}
+			out = append(out, multiBucketSide{
+				YesCanonical: b.YesCanonical,
+				NoCanonical:  b.NoCanonical,
+				Label:        b.Label,
+				Outcome:      b.Outcome,
+				Mid:          px,
+			})
+		}
+		return q.Name, out
+	}
+	t.Skipf("no HIP-4 question with >= %d named outcomes found", minBuckets)
+	return "", nil
+}
+
 // requireYesOutcomeOrSkip restricts requireOutcomeOrSkip to the YES side
 // (sideIdx == 0; SideSpecs is documented as [YES, NO] in that order).
 // Use this when the test deliberately wants to long an outcome rather

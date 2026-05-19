@@ -94,11 +94,28 @@ type OutcomeInfo struct {
 	SideSpecs   []OutcomeSideSpec `json:"sideSpecs"`   // [YES, NO] in that order
 }
 
+// Question groups several binary outcomes into a multi-bucket market.
+// A price-bucket question over thresholds [T1, T2, ..., Tn] is split
+// into n+1 child outcomes referenced by NamedOutcomes, each tradable
+// on its own YES/NO sides. FallbackOutcome catches edge cases the
+// named buckets do not cover (e.g. an oracle outage). The Description
+// is the same pipe-delimited "k:v|k:v" format as OutcomeInfo and
+// usually carries class, underlying, expiry, priceThresholds, period.
+type Question struct {
+	Question             int    `json:"question"`
+	Name                 string `json:"name"`
+	Description          string `json:"description"`
+	FallbackOutcome      int    `json:"fallbackOutcome"`
+	NamedOutcomes        []int  `json:"namedOutcomes"`
+	SettledNamedOutcomes []int  `json:"settledNamedOutcomes"`
+}
+
 // OutcomeMeta is the response to POST /info {"type":"outcomeMeta"}.
-// Questions is currently always empty on mainnet; reserved for future use.
+// Outcomes lists every tradable binary YES/NO market; Questions groups
+// them — multi-bucket markets (e.g. BTC price ranges) appear here.
 type OutcomeMeta struct {
 	Outcomes  []OutcomeInfo `json:"outcomes"`
-	Questions []any         `json:"questions"`
+	Questions []Question    `json:"questions"`
 }
 
 // SpotAssetCtx is the spot asset context payload returned alongside

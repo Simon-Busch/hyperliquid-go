@@ -24,9 +24,18 @@ type Info struct {
 	nameToCoin     map[string]string
 	assetToDecimal map[int]int
 	perpDexName    string // For HIP-3 builder-deployed perps (e.g., "flx")
+	outcomeMeta    *OutcomeMeta // Cached at construction so multi-bucket lookups don't re-fetch
 
 	// Stake exposes the staking-info sub-group.
 	Stake *InfoStakeGroup
+}
+
+// OutcomeMetaCached returns the OutcomeMeta snapshot captured during
+// NewInfo, or nil if the call failed at construction. Useful for
+// callers that want to navigate questions / buckets without paying
+// another HTTP round-trip.
+func (i *Info) OutcomeMetaCached() *OutcomeMeta {
+	return i.outcomeMeta
 }
 
 // postTimeRangeRequest makes a POST request with time-range parameters.
@@ -159,7 +168,16 @@ func NewInfo(baseURL string, skipWS bool, meta *Meta, spotMeta *SpotMeta, perpDe
 	// Failure here is non-fatal: outcomeMeta may be empty or missing on
 	// some environments, and the SDK should still work for perp/spot users.
 	if outcomeMeta, err := info.OutcomeMeta(); err == nil {
+		info.outcomeMeta = outcomeMeta
 		for _, oc := range outcomeMeta.Outcomes {
+			// For named buckets of a Question, build a richer friendly
+			// name like "<question>:<bucket label>:<Yes|No>" — three
+			// price-bucket child outcomes can otherwise share the same
+			// generic friendly name ("Recurring Named Outcome:Yes")
+			// and collide in coinToAsset.
+			bucketLabel := outcomeMeta.BucketLabel(oc.Outcome)
+			parentQ := outcomeMeta.FindQuestion(oc.Outcome)
+
 			for sideIdx, spec := range oc.SideSpecs {
 				enc := 10*oc.Outcome + sideIdx
 				asset := outcomeAssetBase + enc
@@ -168,11 +186,22 @@ func NewInfo(baseURL string, skipWS bool, meta *Meta, spotMeta *SpotMeta, perpDe
 				// "+<enc>" form does NOT work for L2 queries despite being
 				// mentioned in the docs, so we don't register it.
 				canonical := fmt.Sprintf("#%d", enc)
+
+				// Register the plain friendly form first for backwards
+				// compatibility, then a bucket-aware form when the
+				// outcome belongs to a multi-bucket question.
 				friendly := fmt.Sprintf("%s:%s", oc.Name, spec.Name)
-				info.coinToAsset[canonical] = asset
 				info.coinToAsset[friendly] = asset
-				info.nameToCoin[canonical] = canonical
 				info.nameToCoin[friendly] = canonical
+
+				if parentQ != nil && bucketLabel != "" {
+					bucketFriendly := fmt.Sprintf("%s:%s:%s", parentQ.Name, bucketLabel, spec.Name)
+					info.coinToAsset[bucketFriendly] = asset
+					info.nameToCoin[bucketFriendly] = canonical
+				}
+
+				info.coinToAsset[canonical] = asset
+				info.nameToCoin[canonical] = canonical
 				// szDecimals=0: HIP-4 contracts are integer-quantised. The L2
 				// wire format shows sizes like "18.0" but the exchange rejects
 				// fractional sizes ("Order has invalid size"). outcomeMeta
