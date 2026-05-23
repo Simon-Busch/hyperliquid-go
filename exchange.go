@@ -41,6 +41,10 @@ type Trader struct {
 	MultiSig *MultiSigGroup
 	// Convert exposes spot-token conversion helpers (e.g. USDC <-> USDH).
 	Convert *ConvertGroup
+	// Outcome exposes HIP-4 user-outcome actions (split, merge,
+	// mergeQuestion, negate) — mint and burn outcome shares against USDH
+	// without crossing the order book.
+	Outcome *OutcomeGroup
 }
 
 // effectiveAddr returns the address used for position-state lookups. It
@@ -104,6 +108,7 @@ func (t *Trader) attachSubgroups() {
 	t.Stake = &StakeGroup{t: t}
 	t.MultiSig = &MultiSigGroup{t: t}
 	t.Convert = &ConvertGroup{t: t}
+	t.Outcome = &OutcomeGroup{t: t}
 }
 
 // PerpDex returns the configured builder perp dex name (e.g. "flx"), or empty string for default dex.

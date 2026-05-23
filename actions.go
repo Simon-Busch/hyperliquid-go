@@ -254,3 +254,62 @@ type ReserveRequestWeightAction struct {
 	Type   string `json:"type"   msgpack:"type"`
 	Weight int    `json:"weight" msgpack:"weight"`
 }
+
+// HIP-4 userOutcome actions. Every variant shares the same envelope —
+// type:"userOutcome" plus exactly one inner body keyed by the verb. The
+// venue parses by which inner key is present.
+
+// SplitOutcomeWire is the inner body for splitting USDH into Yes+No
+// shares of an outcome. Amount is the USDH notional, as a decimal string.
+type SplitOutcomeWire struct {
+	Outcome uint64 `json:"outcome" msgpack:"outcome"`
+	Amount  string `json:"amount"  msgpack:"amount"`
+}
+
+// MergeOutcomeWire is the inner body for merging Yes+No shares back into
+// USDH for a single outcome. Amount=nil burns the maximum holdable.
+type MergeOutcomeWire struct {
+	Outcome uint64  `json:"outcome" msgpack:"outcome"`
+	Amount  *string `json:"amount"  msgpack:"amount"`
+}
+
+// MergeQuestionWire is the inner body for collapsing X Yes shares from
+// every named outcome of a question into X USDH. Amount=nil burns the
+// maximum the caller holds across all buckets (min Yes balance).
+type MergeQuestionWire struct {
+	Question uint64  `json:"question" msgpack:"question"`
+	Amount   *string `json:"amount"   msgpack:"amount"`
+}
+
+// NegateOutcomeWire is the inner body for converting X No shares of one
+// outcome into X Yes shares of every OTHER outcome in the same question
+// (because No(B) is equivalent to Yes of any non-B bucket).
+type NegateOutcomeWire struct {
+	Question uint64 `json:"question" msgpack:"question"`
+	Outcome  uint64 `json:"outcome"  msgpack:"outcome"`
+	Amount   string `json:"amount"   msgpack:"amount"`
+}
+
+// SplitOutcomeAction is { type:"userOutcome", splitOutcome:{ outcome, amount } }.
+type SplitOutcomeAction struct {
+	Type         string           `json:"type"         msgpack:"type"`
+	SplitOutcome SplitOutcomeWire `json:"splitOutcome" msgpack:"splitOutcome"`
+}
+
+// MergeOutcomeAction is { type:"userOutcome", mergeOutcome:{ outcome, amount } }.
+type MergeOutcomeAction struct {
+	Type         string           `json:"type"         msgpack:"type"`
+	MergeOutcome MergeOutcomeWire `json:"mergeOutcome" msgpack:"mergeOutcome"`
+}
+
+// MergeQuestionAction is { type:"userOutcome", mergeQuestion:{ question, amount } }.
+type MergeQuestionAction struct {
+	Type          string            `json:"type"          msgpack:"type"`
+	MergeQuestion MergeQuestionWire `json:"mergeQuestion" msgpack:"mergeQuestion"`
+}
+
+// NegateOutcomeAction is { type:"userOutcome", negateOutcome:{ question, outcome, amount } }.
+type NegateOutcomeAction struct {
+	Type          string            `json:"type"          msgpack:"type"`
+	NegateOutcome NegateOutcomeWire `json:"negateOutcome" msgpack:"negateOutcome"`
+}

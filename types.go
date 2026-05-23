@@ -547,11 +547,16 @@ type ModifyResponse struct {
 }
 
 // TransferResponse is the response shape returned by transfer-style
-// signed actions (usdSend, spotSend, vaultTransfer, etc.).
+// signed actions (usdSend, spotSend, vaultTransfer, etc.) and the
+// HIP-4 userOutcome action family. Hyperliquid encodes failure as
+// {"status":"err","response":"<message>"}; Response captures the raw
+// payload so callers can extract the reason without re-parsing the
+// wire bytes.
 type TransferResponse struct {
-	Status string `json:"status"`
-	TxHash string `json:"txHash,omitempty"`
-	Error  string `json:"error,omitempty"`
+	Status   string          `json:"status"`
+	TxHash   string          `json:"txHash,omitempty"`
+	Error    string          `json:"error,omitempty"`
+	Response json.RawMessage `json:"response,omitempty"`
 }
 
 // ApprovalResponse is the response shape returned by approval-style
