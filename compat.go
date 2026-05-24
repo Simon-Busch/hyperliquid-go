@@ -38,3 +38,14 @@ const (
 	tifIOC TIF = "Ioc"
 	tifGTC TIF = "Gtc"
 )
+
+// --- types.go order-type aliases ---
+
+type OrderType = types.OrderType
+type LimitOrderType = types.LimitOrderType
+type TriggerOrderType = types.TriggerOrderType
+type BuilderInfo = types.BuilderInfo
+type OrderTypeWire = types.OrderTypeWire
+type LimitOrderTypeWire = types.LimitOrderTypeWire
+type TriggerOrderTypeWire = types.TriggerOrderTypeWire
+type Cloid = types.Cloid
