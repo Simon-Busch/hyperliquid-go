@@ -1,9 +1,11 @@
-package hyperliquid
+package stream
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
 // pendingRequest tracks an in-flight WS POST awaiting its response.
@@ -14,30 +16,30 @@ type pendingRequest struct {
 // Post sends a POST-style request over the WebSocket and waits up to
 // timeout for the response. Lower-level than PostInfo / PostAction;
 // prefer those.
-func (s *Stream) Post(
+func (c *Client) Post(
 	requestType string,
 	payload any,
 	timeout time.Duration,
 ) (*WsPostResponseData, error) {
-	if !s.connected.Load() {
+	if !c.connected.Load() {
 		return nil, fmt.Errorf("not connected")
 	}
 
-	id := int(s.nextPostID.Add(1))
+	id := int(c.nextPostID.Add(1))
 	responseChan := make(chan WsPostResponseData, 1)
 
 	pending := &pendingRequest{
 		responseChan: responseChan,
 	}
 
-	s.pendingMu.Lock()
-	s.pendingRequests[id] = pending
-	s.pendingMu.Unlock()
+	c.pendingMu.Lock()
+	c.pendingRequests[id] = pending
+	c.pendingMu.Unlock()
 
 	defer func() {
-		s.pendingMu.Lock()
-		delete(s.pendingRequests, id)
-		s.pendingMu.Unlock()
+		c.pendingMu.Lock()
+		delete(c.pendingRequests, id)
+		c.pendingMu.Unlock()
 	}()
 
 	request := WsPostRequest{
@@ -49,7 +51,7 @@ func (s *Stream) Post(
 		},
 	}
 
-	if err := s.writeJSON(request); err != nil {
+	if err := c.writeJSON(request); err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
@@ -69,7 +71,7 @@ func (s *Stream) Post(
 
 // PostInfo sends an info-style request over the WebSocket. When timeout
 // is zero the call waits up to 30s.
-func (s *Stream) PostInfo(
+func (c *Client) PostInfo(
 	payload map[string]any,
 	timeout time.Duration,
 ) (json.RawMessage, error) {
@@ -77,7 +79,7 @@ func (s *Stream) PostInfo(
 		timeout = 30 * time.Second
 	}
 
-	resp, err := s.Post("info", payload, timeout)
+	resp, err := c.Post("info", payload, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -92,9 +94,9 @@ func (s *Stream) PostInfo(
 // PostAction sends a signed action over the WebSocket. vaultAddress is
 // forwarded as-is -- supply an empty string to set vaultAddress: null.
 // When timeout is zero the call waits up to 30s.
-func (s *Stream) PostAction(
+func (c *Client) PostAction(
 	action any,
-	signature SignatureResult,
+	signature signing.SignatureResult,
 	nonce int64,
 	vaultAddress string,
 	timeout time.Duration,
@@ -115,7 +117,7 @@ func (s *Stream) PostAction(
 		payload["vaultAddress"] = nil
 	}
 
-	resp, err := s.Post("action", payload, timeout)
+	resp, err := c.Post("action", payload, timeout)
 	if err != nil {
 		return nil, err
 	}

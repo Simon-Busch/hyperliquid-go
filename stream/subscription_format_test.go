@@ -1,4 +1,4 @@
-package hyperliquid
+package stream
 
 import (
 	"encoding/json"

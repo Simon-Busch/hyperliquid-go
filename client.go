@@ -12,6 +12,7 @@ import (
 
 	"github.com/Simon-Busch/hyperliquid-go/info"
 	"github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/stream"
 	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
@@ -25,7 +26,7 @@ import (
 type Client struct {
 	Info   *info.Client
 	Trade  *trade.Client
-	Stream *Stream
+	Stream *stream.Client
 }
 
 // New builds a Client configured by the supplied options. At minimum either
@@ -56,16 +57,14 @@ func New(opts ...Option) (*Client, error) {
 	}
 
 	if !cfg.skipStream {
-		stream, err := NewStream(cfg.baseURL)
+		s, err := stream.New(cfg.baseURL)
 		if err != nil {
 			return nil, err
 		}
-		stream.SetLogger(cfg.logger)
-		stream.maxReconnectAttempts = cfg.maxReconnectAttempts
-		if cfg.reconnectWait > 0 {
-			stream.reconnectWait = cfg.reconnectWait
-		}
-		c.Stream = stream
+		s.SetLogger(cfg.logger)
+		s.SetMaxReconnectAttempts(cfg.maxReconnectAttempts)
+		s.SetReconnectWait(cfg.reconnectWait)
+		c.Stream = s
 	}
 
 	return c, nil
@@ -92,7 +91,7 @@ type clientConfig struct {
 func defaultClientConfig() *clientConfig {
 	return &clientConfig{
 		baseURL: transport.MainnetAPIURL,
-		logger:  nopLogger{},
+		logger:  nil, // stream.Client falls back to its internal nop logger
 	}
 }
 

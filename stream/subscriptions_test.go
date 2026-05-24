@@ -1,10 +1,10 @@
-package hyperliquid
+package stream
 
 import "testing"
 
-// TestSubscriptionConstructors covers every typed Stream subscription
-// constructor. Each builds a Subscription value matching the wire shape
-// expected by the Hyperliquid WS API.
+// TestSubscriptionConstructors covers every typed Client subscription
+// constructor. Each builds a SubscriptionFilter value matching the wire
+// shape expected by the Hyperliquid WS API.
 func TestSubscriptionConstructors(t *testing.T) {
 	cases := []struct {
 		name string

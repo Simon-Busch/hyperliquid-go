@@ -1,8 +1,8 @@
-package hyperliquid
+package stream
 
 // Logger is the leveled-logging surface the SDK uses for internal warnings
-// and diagnostic output. Supply one with WithLogger; the default is a
-// silent no-op.
+// and diagnostic output. Supply one with Client.SetLogger; the default is
+// a silent no-op.
 type Logger interface {
 	Debugf(format string, args ...any)
 	Infof(format string, args ...any)

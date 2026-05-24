@@ -1,4 +1,4 @@
-package hyperliquid
+package stream
 
 import (
 	"context"
@@ -81,13 +81,13 @@ func newFakeWS(t *testing.T) *fakeWSServer {
 	return fws
 }
 
-// streamForURL builds a Stream targeted at the test server's URL. The
-// httptest server speaks plain ws://, so we cannot route through NewStream
+// streamForURL builds a Client targeted at the test server's URL. The
+// httptest server speaks plain ws://, so we cannot route through New
 // (which rewrites the scheme to wss).
-func streamForURL(t *testing.T, httpURL string) *Stream {
+func streamForURL(t *testing.T, httpURL string) *Client {
 	t.Helper()
 	ws := "ws" + strings.TrimPrefix(httpURL, "http") + "/ws"
-	return &Stream{
+	return &Client{
 		url:             ws,
 		subscriptions:   make(map[subKey]map[int]*subscriptionCallback),
 		pendingRequests: make(map[int]*pendingRequest),
@@ -266,7 +266,7 @@ func TestStream_SubscribeNotConnected(t *testing.T) {
 }
 
 func TestNewStreamInvalidURL(t *testing.T) {
-	if _, err := NewStream("://nope"); err == nil {
+	if _, err := New("://nope"); err == nil {
 		t.Errorf("invalid URL should error")
 	}
 }

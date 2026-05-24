@@ -9,8 +9,54 @@ import (
 	"github.com/Simon-Busch/hyperliquid-go/info"
 	"github.com/Simon-Busch/hyperliquid-go/internal/transport"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
+	"github.com/Simon-Busch/hyperliquid-go/stream"
 	"github.com/Simon-Busch/hyperliquid-go/trade"
 	"github.com/Simon-Busch/hyperliquid-go/types"
+)
+
+// --- stream package aliases ---
+//
+// The websocket surface — Stream (renamed Client inside stream/),
+// SubscriptionFilter, WSMessage, the WS POST envelope types, plus the
+// WsMsg / Trade message types — moved into stream/ in the Phase-6
+// extraction. Root callers and integration tests keep working through
+// these aliases. The Logger interface lives in stream/ now too because
+// stream/ is the only consumer.
+
+type Stream = stream.Client
+type Subscription = stream.Subscription
+type SubscriptionFilter = stream.SubscriptionFilter
+type WSMessage = stream.WSMessage
+type WsCommand = stream.WsCommand
+type WsRequest = stream.WsRequest
+type WsResponse = stream.WsResponse
+type WsPostRequest = stream.WsPostRequest
+type WsPostResponseData = stream.WsPostResponseData
+type WsMsg = stream.WsMsg
+type Trade = stream.Trade
+type Logger = stream.Logger
+
+var NewStream = stream.New
+
+// Stream subscription-filter constructors re-exported.
+var (
+	Trades          = stream.Trades
+	Book            = stream.Book
+	BBO             = stream.BBO
+	ActiveAssetCtx  = stream.ActiveAssetCtx
+	Candles         = stream.Candles
+	AllMids         = stream.AllMids
+	AllMidsOn       = stream.AllMidsOn
+	UserEvents      = stream.UserEvents
+	UserFills       = stream.UserFills
+	OrderUpdates    = stream.OrderUpdates
+	UserFundings    = stream.UserFundings
+	UserLedger      = stream.UserLedger
+	WebData         = stream.WebData
+	Notifications   = stream.Notifications
+	ActiveAssetData = stream.ActiveAssetData
+	UserTwapFills   = stream.UserTwapFills
+	UserTwapHistory = stream.UserTwapHistory
 )
 
 // --- side.go aliases ---

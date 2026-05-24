@@ -1,4 +1,4 @@
-package hyperliquid
+package stream
 
 // Trades returns a subscription filter for the trades feed of coin.
 func Trades(coin string) SubscriptionFilter {
