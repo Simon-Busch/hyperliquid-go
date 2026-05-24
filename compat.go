@@ -69,3 +69,10 @@ const (
 // --- orderspec.go alias ---
 
 type OrderSpec = types.OrderSpec
+
+// --- result.go aliases ---
+
+type Result            = types.Result
+type BatchResult       = types.BatchResult
+type CancelResult      = types.CancelResult
+type BatchCancelResult = types.BatchCancelResult

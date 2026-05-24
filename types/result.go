@@ -1,4 +1,4 @@
-package hyperliquid
+package types
 
 // Result is the trader-friendly outcome of a single placement call.
 // Fields are populated best-effort from the underlying server response;
