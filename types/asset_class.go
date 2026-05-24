@@ -1,8 +1,16 @@
-package hyperliquid
+package types
+
+// Asset-id range constants. Duplicated from internal info package
+// constants during the refactor; the info package retains its own copy.
+const (
+	assetSpotOffset      = 10_000
+	assetBuilderPerpBase = 100_000
+	assetOutcomeBase     = 100_000_000
+)
 
 // AssetClass categorises a numeric asset ID by its origin and tick rules.
 //
-// Ranges follow the Hyperliquid asset-IDs reference:
+// Ranges (per Hyperliquid asset-IDs reference):
 //   - default perp:    0..9_999
 //   - spot:            10_000..99_999
 //   - builder perp:    100_000..99_999_999       (HIP-3)
@@ -19,11 +27,11 @@ const (
 // ClassifyAsset maps a numeric asset ID to its AssetClass.
 func ClassifyAsset(asset int) AssetClass {
 	switch {
-	case asset >= outcomeAssetBase:
+	case asset >= assetOutcomeBase:
 		return AssetClassOutcome
-	case asset >= builderPerpAssetBase:
+	case asset >= assetBuilderPerpBase:
 		return AssetClassBuilderPerp
-	case asset >= spotAssetIndexOffset:
+	case asset >= assetSpotOffset:
 		return AssetClassSpot
 	default:
 		return AssetClassPerp
@@ -34,10 +42,8 @@ func ClassifyAsset(asset int) AssetClass {
 //
 //	allowedPriceDecimals = MaxPriceDecimals() - szDecimals
 //
-// Values: 8 for spot, 6 for everything else (perps, HIP-3 builder perps,
-// HIP-4 outcome markets). For HIP-4 the value was confirmed empirically:
-// mainnet L2 books for outcomes show prices up to 5 decimals (e.g. 0.66782)
-// with szDecimals=1, i.e. 6 - 1 = 5.
+// 8 for spot, 6 for everything else (perps, HIP-3 builder perps,
+// HIP-4 outcome markets).
 func (c AssetClass) MaxPriceDecimals() int {
 	if c == AssetClassSpot {
 		return 8

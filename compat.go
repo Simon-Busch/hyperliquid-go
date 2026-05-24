@@ -76,3 +76,16 @@ type Result            = types.Result
 type BatchResult       = types.BatchResult
 type CancelResult      = types.CancelResult
 type BatchCancelResult = types.BatchCancelResult
+
+// --- asset_class.go aliases ---
+
+type AssetClass = types.AssetClass
+
+const (
+	AssetClassPerp        = types.AssetClassPerp
+	AssetClassSpot        = types.AssetClassSpot
+	AssetClassBuilderPerp = types.AssetClassBuilderPerp
+	AssetClassOutcome     = types.AssetClassOutcome
+)
+
+var ClassifyAsset = types.ClassifyAsset
