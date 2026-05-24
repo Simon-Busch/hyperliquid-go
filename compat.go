@@ -49,3 +49,19 @@ type OrderTypeWire = types.OrderTypeWire
 type LimitOrderTypeWire = types.LimitOrderTypeWire
 type TriggerOrderTypeWire = types.TriggerOrderTypeWire
 type Cloid = types.Cloid
+
+// --- types.go grouping/Tif aliases ---
+
+type Grouping = types.Grouping
+
+const (
+	GroupingNA           = types.GroupingNA
+	GroupingNormalTpsl   = types.GroupingNormalTpsl
+	GroupingPositionTpls = types.GroupingPositionTpls
+
+	DefaultSlippage = types.DefaultSlippage
+
+	TifAlo = types.TifAlo
+	TifIoc = types.TifIoc
+	TifGtc = types.TifGtc
+)
