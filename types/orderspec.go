@@ -1,4 +1,4 @@
-package hyperliquid
+package types
 
 // OrderSpec is the internal-shape value type produced by the public
 // placement constructors (hl.ALO, hl.IOC, hl.GTC, hl.Market, hl.Trigger)
@@ -50,4 +50,3 @@ type OrderSpec struct {
 	// SkipValidate suppresses validate() for this spec.
 	SkipValidate bool
 }
-

@@ -65,3 +65,7 @@ const (
 	TifIoc = types.TifIoc
 	TifGtc = types.TifGtc
 )
+
+// --- orderspec.go alias ---
+
+type OrderSpec = types.OrderSpec
