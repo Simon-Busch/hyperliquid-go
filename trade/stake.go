@@ -1,10 +1,14 @@
-package hyperliquid
+package trade
 
-import "time"
+import (
+	"time"
 
-// StakeGroup exposes HYPE staking actions on Trader.
+	"github.com/Simon-Busch/hyperliquid-go/signing"
+)
+
+// StakeGroup exposes HYPE staking actions on Client.
 type StakeGroup struct {
-	t *Trader
+	t *Client
 }
 
 // Delegate stakes wei units of HYPE to validator.
@@ -30,7 +34,7 @@ func (g *StakeGroup) tokenDelegate(validator string, wei int, isUndelegate bool)
 	}
 	var result TransferResponse
 	if err := t.executeUserSignedAction(
-		action, tokenDelegateSignTypes,
+		action, signing.TokenDelegateSignTypes,
 		"HyperliquidTransaction:TokenDelegate", nonce, &result,
 	); err != nil {
 		return nil, err

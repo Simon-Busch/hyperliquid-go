@@ -1,12 +1,14 @@
-package hyperliquid
+package trade
 
 import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+
+	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
-// OutcomeGroup is the HIP-4 user-outcome subgroup on Trader. The four
+// OutcomeGroup is the HIP-4 user-outcome subgroup on Client. The four
 // methods mint or burn outcome shares against USDH without touching the
 // order book — they're the prediction-market equivalent of conversion
 // between collateral and synthetic positions.
@@ -15,12 +17,12 @@ import (
 //   - Merge:        X Yes + X No of one outcome -> X USDH (amount nil = max)
 //   - MergeQuestion: X Yes of every named outcome -> X USDH (amount nil = max)
 //   - Negate:       X No of one bucket -> X Yes of every OTHER bucket in
-//                   the same question
+//     the same question
 //
 // Every variant is L1-signed and posted to /exchange under
 // type:"userOutcome"; HL parses by the inner body key.
 type OutcomeGroup struct {
-	t *Trader
+	t *Client
 }
 
 // Split mints `amount` Yes shares and `amount` No shares of `outcome`
@@ -29,9 +31,9 @@ func (g *OutcomeGroup) Split(outcome uint64, amount float64) (*TransferResponse,
 	if amount <= 0 {
 		return nil, fmt.Errorf("split: amount must be > 0, got %v", amount)
 	}
-	action := SplitOutcomeAction{
+	action := signing.SplitOutcomeAction{
 		Type: "userOutcome",
-		SplitOutcome: SplitOutcomeWire{
+		SplitOutcome: signing.SplitOutcomeWire{
 			Outcome: outcome,
 			Amount:  formatUsdAmount(amount),
 		},
@@ -42,7 +44,7 @@ func (g *OutcomeGroup) Split(outcome uint64, amount float64) (*TransferResponse,
 // Merge burns `amount` Yes + `amount` No of `outcome` back into
 // `amount` USDH. Pass nil to burn the maximum holdable (min(Yes, No)).
 func (g *OutcomeGroup) Merge(outcome uint64, amount *float64) (*TransferResponse, error) {
-	wire := MergeOutcomeWire{Outcome: outcome}
+	wire := signing.MergeOutcomeWire{Outcome: outcome}
 	if amount != nil {
 		if *amount <= 0 {
 			return nil, fmt.Errorf("merge: amount must be > 0 (pass nil for max), got %v", *amount)
@@ -50,7 +52,7 @@ func (g *OutcomeGroup) Merge(outcome uint64, amount *float64) (*TransferResponse
 		s := formatUsdAmount(*amount)
 		wire.Amount = &s
 	}
-	action := MergeOutcomeAction{Type: "userOutcome", MergeOutcome: wire}
+	action := signing.MergeOutcomeAction{Type: "userOutcome", MergeOutcome: wire}
 	return g.submit(action)
 }
 
@@ -60,7 +62,7 @@ func (g *OutcomeGroup) Merge(outcome uint64, amount *float64) (*TransferResponse
 // realises that early. Pass nil to burn the maximum (the min Yes
 // balance across buckets).
 func (g *OutcomeGroup) MergeQuestion(question uint64, amount *float64) (*TransferResponse, error) {
-	wire := MergeQuestionWire{Question: question}
+	wire := signing.MergeQuestionWire{Question: question}
 	if amount != nil {
 		if *amount <= 0 {
 			return nil, fmt.Errorf("mergeQuestion: amount must be > 0 (pass nil for max), got %v", *amount)
@@ -68,7 +70,7 @@ func (g *OutcomeGroup) MergeQuestion(question uint64, amount *float64) (*Transfe
 		s := formatUsdAmount(*amount)
 		wire.Amount = &s
 	}
-	action := MergeQuestionAction{Type: "userOutcome", MergeQuestion: wire}
+	action := signing.MergeQuestionAction{Type: "userOutcome", MergeQuestion: wire}
 	return g.submit(action)
 }
 
@@ -80,9 +82,9 @@ func (g *OutcomeGroup) Negate(question, outcome uint64, amount float64) (*Transf
 	if amount <= 0 {
 		return nil, fmt.Errorf("negate: amount must be > 0, got %v", amount)
 	}
-	action := NegateOutcomeAction{
+	action := signing.NegateOutcomeAction{
 		Type: "userOutcome",
-		NegateOutcome: NegateOutcomeWire{
+		NegateOutcome: signing.NegateOutcomeWire{
 			Question: question,
 			Outcome:  outcome,
 			Amount:   formatUsdAmount(amount),
@@ -113,10 +115,12 @@ func (g *OutcomeGroup) submit(action any) (*TransferResponse, error) {
 	return &result, nil
 }
 
-// outcomeAssetIDForCanonical parses "#<enc>" canonical names into the
+// outcomeIDFromCanonical parses "#<enc>" canonical names into the
 // numeric outcome id used by the userOutcome wire actions. enc =
 // 10*outcome + sideIdx, so the outcome id is enc / 10. Returns an
 // error when the name isn't in canonical form.
+//
+//nolint:unused // kept for parity with the legacy root helper; integration tests have their own copy.
 func outcomeIDFromCanonical(canonical string) (uint64, error) {
 	if len(canonical) < 2 || canonical[0] != '#' {
 		return 0, fmt.Errorf("outcome id: expected canonical \"#<enc>\", got %q", canonical)

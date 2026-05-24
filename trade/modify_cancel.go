@@ -1,31 +1,48 @@
-package hyperliquid
+package trade
 
-import "fmt"
+import (
+	"fmt"
+
+	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
+)
+
+// CancelRequest names a single order to cancel by exchange oid.
+type CancelRequest struct {
+	Coin string `json:"coin"`
+	Oid  int64  `json:"oid"`
+}
+
+// CancelByCloidRequest names a single order to cancel by client order id.
+type CancelByCloidRequest struct {
+	Coin  string `json:"coin"`
+	Cloid string `json:"cloid"`
+}
 
 // Modify changes the price (or size, or both) of a resting order identified
 // by oid. The coin is preserved on the existing order — only the supplied
 // fields change. Required: WithLimit(newPx) for a new price, WithSize(x)
 // for a new size, or both.
-func (t *Trader) Modify(oid int64, opts ...PlaceOpt) (Result, error) {
-	spec := OrderSpec{Method: "modify", ModifyOID: oid, TIF: tifGTC}
+func (c *Client) Modify(oid int64, opts ...PlaceOpt) (types.Result, error) {
+	spec := types.OrderSpec{Method: "modify", ModifyOID: oid, TIF: types.TifGtc}
 	for _, o := range opts {
 		o(&spec)
 	}
-	return t.doModify(&spec)
+	return c.doModify(&spec)
 }
 
 // ModifyByCloid changes a resting order identified by its client order id.
-func (t *Trader) ModifyByCloid(cloid string, opts ...PlaceOpt) (Result, error) {
-	spec := OrderSpec{Method: "modify", ModifyCloid: cloid, TIF: tifGTC}
+func (c *Client) ModifyByCloid(cloid string, opts ...PlaceOpt) (types.Result, error) {
+	spec := types.OrderSpec{Method: "modify", ModifyCloid: cloid, TIF: types.TifGtc}
 	for _, o := range opts {
 		o(&spec)
 	}
-	return t.doModify(&spec)
+	return c.doModify(&spec)
 }
 
-func (t *Trader) doModify(spec *OrderSpec) (Result, error) {
-	if err := t.validate(spec); err != nil {
-		return Result{}, err
+func (c *Client) doModify(spec *types.OrderSpec) (types.Result, error) {
+	if err := c.validate(spec); err != nil {
+		return types.Result{}, err
 	}
 	if spec.LimitPrice > 0 {
 		spec.Price = spec.LimitPrice
@@ -35,7 +52,7 @@ func (t *Trader) doModify(spec *OrderSpec) (Result, error) {
 	}
 	// Modify is a cancel + replace under the hood; default the
 	// replacement TIF to ALO (post-only) so a far-from-mid resting order
-	// stays inside Hyperliquid's price-band rules. A future hl.WithTIF
+	// stays inside Hyperliquid's price-band rules. A future WithTIF
 	// option can let callers override when modifying a GTC/IOC order.
 	req := CreateOrderRequest{
 		Coin:       spec.Coin,
@@ -43,11 +60,11 @@ func (t *Trader) doModify(spec *OrderSpec) (Result, error) {
 		Price:      spec.Price,
 		Size:       spec.Size,
 		ReduceOnly: spec.ReduceOnly,
-		OrderType:  OrderType{Limit: &LimitOrderType{Tif: string(tifALO)}},
+		OrderType:  types.OrderType{Limit: &types.LimitOrderType{Tif: string(types.TifAlo)}},
 	}
 	if spec.Cloid != "" {
-		c := spec.Cloid
-		req.ClientOrderID = &c
+		ci := spec.Cloid
+		req.ClientOrderID = &ci
 	}
 	var oidAny any
 	if spec.ModifyOID != 0 {
@@ -55,29 +72,29 @@ func (t *Trader) doModify(spec *OrderSpec) (Result, error) {
 	} else {
 		oidAny = spec.ModifyCloid
 	}
-	action, err := newModifyOrderAction(t, ModifyOrderRequest{Oid: oidAny, Order: req})
+	action, err := newModifyOrderAction(c, ModifyOrderRequest{Oid: oidAny, Order: req})
 	if err != nil {
-		return Result{}, fmt.Errorf("failed to create modify action: %w", err)
+		return types.Result{}, fmt.Errorf("failed to create modify action: %w", err)
 	}
-	resp := APIResponse[OrderResponse]{}
-	if err := t.executeAction(action, &resp); err != nil {
-		return Result{}, fmt.Errorf("failed to modify order: %w", err)
+	resp := xtransport.APIResponse[OrderResponse]{}
+	if err := c.executeAction(action, &resp); err != nil {
+		return types.Result{}, fmt.Errorf("failed to modify order: %w", err)
 	}
 	if !resp.Ok {
-		return Result{}, fmt.Errorf("failed to modify order: %s", resp.Err)
+		return types.Result{}, fmt.Errorf("failed to modify order: %s", resp.Err)
 	}
 	if len(resp.Data.Statuses) == 0 {
-		return Result{}, fmt.Errorf("no status for modified order: %s", resp.Err)
+		return types.Result{}, fmt.Errorf("no status for modified order: %s", resp.Err)
 	}
 	first := resp.Data.Statuses[0]
 	if first.Type() != "object" {
-		return Result{}, fmt.Errorf("unexpected status type: %s", first.Type())
+		return types.Result{}, fmt.Errorf("unexpected status type: %s", first.Type())
 	}
 	var status OrderStatus
 	if err := first.Parse(&status); err != nil {
-		return Result{}, fmt.Errorf("failed to parse modified order status: %w", err)
+		return types.Result{}, fmt.Errorf("failed to parse modified order status: %w", err)
 	}
-	r := Result{}
+	r := types.Result{}
 	if status.Resting != nil {
 		r.OID = status.Resting.Oid
 		r.Cloid = status.Resting.ClientID
@@ -97,21 +114,21 @@ func (t *Trader) doModify(spec *OrderSpec) (Result, error) {
 
 // CancelAll cancels every open order across the supplied coins. With no
 // coins supplied it cancels everything across every asset.
-func (t *Trader) CancelAll(coins ...string) (BatchCancelResult, error) {
-	addr := t.accountAddr
+func (c *Client) CancelAll(coins ...string) (types.BatchCancelResult, error) {
+	addr := c.accountAddr
 	if addr == "" {
-		addr = t.vault
+		addr = c.vault
 	}
-	orders, err := t.info.OpenOrders(addr)
+	orders, err := c.info.OpenOrders(addr)
 	if err != nil {
-		return BatchCancelResult{}, err
+		return types.BatchCancelResult{}, err
 	}
 	keep := func(coin string) bool {
 		if len(coins) == 0 {
 			return true
 		}
-		for _, c := range coins {
-			if c == coin {
+		for _, k := range coins {
+			if k == coin {
 				return true
 			}
 		}
@@ -125,19 +142,19 @@ func (t *Trader) CancelAll(coins ...string) (BatchCancelResult, error) {
 		reqs = append(reqs, CancelOrderRequest{Coin: o.Coin, OrderID: o.Oid})
 	}
 	if len(reqs) == 0 {
-		return BatchCancelResult{}, nil
+		return types.BatchCancelResult{}, nil
 	}
-	resp, err := t.bulkCancel(reqs)
+	resp, err := c.bulkCancel(reqs)
 	if err != nil {
-		return BatchCancelResult{}, err
+		return types.BatchCancelResult{}, err
 	}
 	return cancelBatchFromResponse(resp), nil
 }
 
 // cancelBatchFromResponse maps a bulk-cancel APIResponse into a
 // BatchCancelResult, one entry per status returned by the server.
-func cancelBatchFromResponse(resp *APIResponse[CancelOrderResponse]) BatchCancelResult {
-	br := BatchCancelResult{}
+func cancelBatchFromResponse(resp *xtransport.APIResponse[CancelOrderResponse]) types.BatchCancelResult {
+	br := types.BatchCancelResult{}
 	if resp == nil {
 		return br
 	}
@@ -146,7 +163,7 @@ func cancelBatchFromResponse(resp *APIResponse[CancelOrderResponse]) BatchCancel
 		return br
 	}
 	for _, s := range resp.Data.Statuses {
-		br.Results = append(br.Results, CancelResult{Status: string(s)})
+		br.Results = append(br.Results, types.CancelResult{Status: string(s)})
 	}
 	return br
 }

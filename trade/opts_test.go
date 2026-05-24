@@ -1,12 +1,16 @@
-package hyperliquid
+package trade
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+)
 
 // applyOpts runs every supplied PlaceOpt against a fresh OrderSpec and
 // returns the resulting value. Mirrors how the placement constructors
 // assemble a spec.
-func applyOpts(opts ...PlaceOpt) OrderSpec {
-	var s OrderSpec
+func applyOpts(opts ...PlaceOpt) types.OrderSpec {
+	var s types.OrderSpec
 	for _, o := range opts {
 		o(&s)
 	}
@@ -95,25 +99,25 @@ func TestOptionMatrix_MethodCompatibility(t *testing.T) {
 	// pair from the spec and assert the rejection set.
 	type row struct {
 		name   string
-		spec   OrderSpec
+		spec   types.OrderSpec
 		reject bool
 	}
 	rows := []row{
-		{"alo+slippage", OrderSpec{Method: "alo", Slippage: 0.01}, true},
-		{"ioc+slippage", OrderSpec{Method: "ioc", Slippage: 0.01}, true},
-		{"gtc+slippage", OrderSpec{Method: "gtc", Slippage: 0.01}, true},
-		{"trigger+slippage", OrderSpec{Method: "trigger", Slippage: 0.01}, true},
-		{"market+slippage", OrderSpec{Method: "market", Slippage: 0.01}, false},
-		{"close+slippage", OrderSpec{Method: "close", Slippage: 0.01}, false},
+		{"alo+slippage", types.OrderSpec{Method: "alo", Slippage: 0.01}, true},
+		{"ioc+slippage", types.OrderSpec{Method: "ioc", Slippage: 0.01}, true},
+		{"gtc+slippage", types.OrderSpec{Method: "gtc", Slippage: 0.01}, true},
+		{"trigger+slippage", types.OrderSpec{Method: "trigger", Slippage: 0.01}, true},
+		{"market+slippage", types.OrderSpec{Method: "market", Slippage: 0.01}, false},
+		{"close+slippage", types.OrderSpec{Method: "close", Slippage: 0.01}, false},
 
-		{"alo+overrideSize", OrderSpec{Method: "alo", OverrideSize: 1}, true},
-		{"gtc+overrideSize", OrderSpec{Method: "gtc", OverrideSize: 1}, true},
-		{"close+overrideSize", OrderSpec{Method: "close", OverrideSize: 1}, false},
-		{"modify+overrideSize", OrderSpec{Method: "modify", OverrideSize: 1}, false},
+		{"alo+overrideSize", types.OrderSpec{Method: "alo", OverrideSize: 1}, true},
+		{"gtc+overrideSize", types.OrderSpec{Method: "gtc", OverrideSize: 1}, true},
+		{"close+overrideSize", types.OrderSpec{Method: "close", OverrideSize: 1}, false},
+		{"modify+overrideSize", types.OrderSpec{Method: "modify", OverrideSize: 1}, false},
 
-		{"alo+limitPrice", OrderSpec{Method: "alo", LimitPrice: 1}, true},
-		{"close+limitPrice", OrderSpec{Method: "close", LimitPrice: 1}, false},
-		{"modify+limitPrice", OrderSpec{Method: "modify", LimitPrice: 1}, false},
+		{"alo+limitPrice", types.OrderSpec{Method: "alo", LimitPrice: 1}, true},
+		{"close+limitPrice", types.OrderSpec{Method: "close", LimitPrice: 1}, false},
+		{"modify+limitPrice", types.OrderSpec{Method: "modify", LimitPrice: 1}, false},
 	}
 	for _, r := range rows {
 		t.Run(r.name, func(t *testing.T) {

@@ -1,13 +1,11 @@
-package hyperliquid
+package trade
 
-// NOTE: bracketOrders stays in the root package during Phase 1 because
-// it depends on CreateOrderRequest, which lives in actions.go. It moves
-// alongside CreateOrderRequest in Phase 3 (signing/) or Phase 5 (trade/).
+import "github.com/Simon-Busch/hyperliquid-go/types"
 
 // bracketOrders builds the TP and SL trigger CreateOrderRequests that bracket
 // a parent OrderSpec. Returns an empty slice if no bracket fields are set.
 // The trigger legs are always reduce-only and IsMarket=true.
-func bracketOrders(spec *OrderSpec) []CreateOrderRequest {
+func bracketOrders(spec *types.OrderSpec) []CreateOrderRequest {
 	if spec.TakeProfit == 0 && spec.StopLoss == 0 {
 		return nil
 	}
@@ -24,8 +22,8 @@ func bracketOrders(spec *OrderSpec) []CreateOrderRequest {
 			Price:      spec.TakeProfit,
 			Size:       sz,
 			ReduceOnly: true,
-			OrderType: OrderType{
-				Trigger: &TriggerOrderType{
+			OrderType: types.OrderType{
+				Trigger: &types.TriggerOrderType{
 					TriggerPx: spec.TakeProfit,
 					IsMarket:  true,
 					Tpsl:      "tp",
@@ -49,8 +47,8 @@ func bracketOrders(spec *OrderSpec) []CreateOrderRequest {
 			Price:      spec.StopLoss,
 			Size:       sz,
 			ReduceOnly: true,
-			OrderType: OrderType{
-				Trigger: &TriggerOrderType{
+			OrderType: types.OrderType{
+				Trigger: &types.TriggerOrderType{
 					TriggerPx: spec.StopLoss,
 					IsMarket:  true,
 					Tpsl:      "sl",

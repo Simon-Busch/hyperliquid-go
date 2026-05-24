@@ -26,15 +26,6 @@ func TestSideWireConstants(t *testing.T) {
 	}
 }
 
-func TestSideFromIsBuy(t *testing.T) {
-	if sideFromIsBuy(true) != Buy {
-		t.Errorf("sideFromIsBuy(true) should be Buy")
-	}
-	if sideFromIsBuy(false) != Sell {
-		t.Errorf("sideFromIsBuy(false) should be Sell")
-	}
-}
-
 func TestTIFConstants(t *testing.T) {
 	if tifALO != "Alo" || tifIOC != "Ioc" || tifGTC != "Gtc" {
 		t.Errorf("TIF wire constants drifted: %s/%s/%s", tifALO, tifIOC, tifGTC)

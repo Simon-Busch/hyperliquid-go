@@ -1,9 +1,13 @@
-package hyperliquid
+package trade
 
-import "time"
+import (
+	"time"
+
+	"github.com/Simon-Busch/hyperliquid-go/signing"
+)
 
 // Withdraw off-ramps USDC from L1 to destination.
-func (t *Trader) Withdraw(amount float64, destination string) (*TransferResponse, error) {
+func (c *Client) Withdraw(amount float64, destination string) (*TransferResponse, error) {
 	nonce := time.Now().UnixMilli()
 	action := map[string]any{
 		"type":        "withdraw3",
@@ -12,8 +16,8 @@ func (t *Trader) Withdraw(amount float64, destination string) (*TransferResponse
 		"time":        nonce,
 	}
 	var result TransferResponse
-	if err := t.executeUserSignedAction(
-		action, withdrawSignTypes,
+	if err := c.executeUserSignedAction(
+		action, signing.WithdrawSignTypes,
 		"HyperliquidTransaction:Withdraw", nonce, &result,
 	); err != nil {
 		return nil, err

@@ -1,9 +1,9 @@
-package hyperliquid
+package types
 
 import "fmt"
 
-// ValidationError is returned by validate() when a placement spec fails a
-// pre-flight check. Callers can branch on Code via errors.As.
+// ValidationError is returned by trade pre-flight checks when a placement
+// spec fails. Callers can branch on Code via errors.As.
 type ValidationError struct {
 	Field   string
 	Code    string

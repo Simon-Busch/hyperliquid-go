@@ -1,16 +1,20 @@
-package hyperliquid
+package trade
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+)
 
 func TestBracketOrders_None(t *testing.T) {
-	if got := bracketOrders(&OrderSpec{Side: Buy, Size: 1, Price: 100}); got != nil {
+	if got := bracketOrders(&types.OrderSpec{Side: types.Buy, Size: 1, Price: 100}); got != nil {
 		t.Errorf("expected nil bracket, got %v", got)
 	}
 }
 
 func TestBracketOrders_BuyEntryProducesTwoLegs(t *testing.T) {
-	spec := &OrderSpec{
-		Coin: "BTC", Side: Buy, Size: 1, Price: 100,
+	spec := &types.OrderSpec{
+		Coin: "BTC", Side: types.Buy, Size: 1, Price: 100,
 		TakeProfit: 110, StopLoss: 90,
 	}
 	got := bracketOrders(spec)
@@ -42,8 +46,8 @@ func TestBracketOrders_BuyEntryProducesTwoLegs(t *testing.T) {
 }
 
 func TestBracketOrders_SellEntryFlipsExit(t *testing.T) {
-	spec := &OrderSpec{
-		Coin: "BTC", Side: Sell, Size: 1, Price: 100,
+	spec := &types.OrderSpec{
+		Coin: "BTC", Side: types.Sell, Size: 1, Price: 100,
 		TakeProfit: 90, StopLoss: 110,
 	}
 	got := bracketOrders(spec)
@@ -58,8 +62,8 @@ func TestBracketOrders_SellEntryFlipsExit(t *testing.T) {
 func TestBracketOrders_PartialSizesAndCloids(t *testing.T) {
 	cloidTP := "0xtp"
 	cloidSL := "0xsl"
-	spec := &OrderSpec{
-		Coin: "BTC", Side: Buy, Size: 1, Price: 100,
+	spec := &types.OrderSpec{
+		Coin: "BTC", Side: types.Buy, Size: 1, Price: 100,
 		TakeProfit: 110, StopLoss: 90,
 		TPSize: 0.4, SLSize: 0.6,
 		TPCloid: cloidTP, SLCloid: cloidSL,
@@ -80,7 +84,7 @@ func TestBracketOrders_PartialSizesAndCloids(t *testing.T) {
 }
 
 func TestBracketOrders_TPOnly(t *testing.T) {
-	spec := &OrderSpec{Coin: "BTC", Side: Buy, Size: 1, Price: 100, TakeProfit: 110}
+	spec := &types.OrderSpec{Coin: "BTC", Side: types.Buy, Size: 1, Price: 100, TakeProfit: 110}
 	got := bracketOrders(spec)
 	if len(got) != 1 {
 		t.Fatalf("TP-only should produce 1 leg, got %d", len(got))
@@ -91,7 +95,7 @@ func TestBracketOrders_TPOnly(t *testing.T) {
 }
 
 func TestBracketOrders_SLOnly(t *testing.T) {
-	spec := &OrderSpec{Coin: "BTC", Side: Buy, Size: 1, Price: 100, StopLoss: 90}
+	spec := &types.OrderSpec{Coin: "BTC", Side: types.Buy, Size: 1, Price: 100, StopLoss: 90}
 	got := bracketOrders(spec)
 	if len(got) != 1 {
 		t.Fatalf("SL-only should produce 1 leg, got %d", len(got))
@@ -102,13 +106,13 @@ func TestBracketOrders_SLOnly(t *testing.T) {
 }
 
 func TestBracketGrouping(t *testing.T) {
-	if bracketGrouping(&OrderSpec{}) != GroupingNA {
+	if bracketGrouping(&types.OrderSpec{}) != types.GroupingNA {
 		t.Errorf("no bracket → GroupingNA")
 	}
-	if bracketGrouping(&OrderSpec{TakeProfit: 110}) != GroupingNormalTpsl {
+	if bracketGrouping(&types.OrderSpec{TakeProfit: 110}) != types.GroupingNormalTpsl {
 		t.Errorf("TP-only → GroupingNormalTpsl")
 	}
-	if bracketGrouping(&OrderSpec{StopLoss: 90}) != GroupingNormalTpsl {
+	if bracketGrouping(&types.OrderSpec{StopLoss: 90}) != types.GroupingNormalTpsl {
 		t.Errorf("SL-only → GroupingNormalTpsl")
 	}
 }

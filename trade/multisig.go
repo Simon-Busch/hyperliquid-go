@@ -1,16 +1,34 @@
-package hyperliquid
+package trade
 
 import (
 	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
+
+	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
+// MultiSigConversionResponse is returned by the
+// convertToMultiSigUser action.
+type MultiSigConversionResponse struct {
+	Status string `json:"status"`
+	TxHash string `json:"txHash,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
+// MultiSigResponse is returned by the multiSig action envelope.
+type MultiSigResponse struct {
+	Status string `json:"status"`
+	TxHash string `json:"txHash,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
 // MultiSigGroup exposes multi-sig conversion and execution actions on the
-// Trader. Reach it via t.MultiSig.
+// Client. Reach it via c.MultiSig.
 type MultiSigGroup struct {
-	t *Trader
+	t *Client
 }
 
 // Convert converts the signing account to a multi-sig user authorising
@@ -33,7 +51,7 @@ func (g *MultiSigGroup) Convert(authorized []string, threshold int) (*MultiSigCo
 	}
 	var result MultiSigConversionResponse
 	if err := g.t.executeUserSignedAction(
-		action, convertToMultiSigUserSignTypes,
+		action, signing.ConvertToMultiSigUserSignTypes,
 		"HyperliquidTransaction:ConvertToMultiSigUser", nonce, &result,
 	); err != nil {
 		return nil, err
@@ -53,13 +71,13 @@ func (g *MultiSigGroup) Execute(action map[string]any, signers []string, signatu
 		"signatures": signatures,
 	}
 
-	sig, err := SignL1Action(
+	sig, err := signing.SignL1Action(
 		g.t.privateKey,
 		multiSigAction,
 		g.t.vault,
 		timestamp,
 		g.t.expiresAfter,
-		g.t.client.BaseURL == MainnetAPIURL,
+		g.t.client.BaseURL == xtransport.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

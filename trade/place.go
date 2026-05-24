@@ -1,4 +1,4 @@
-package hyperliquid
+package trade
 
 import (
 	"context"
@@ -6,12 +6,14 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // SlippagePrice computes the worst-case fill price for a market order on
 // name using the supplied slippage fraction. When px is non-nil it
 // substitutes for the live mid price.
-func (t *Trader) SlippagePrice(
+func (c *Client) SlippagePrice(
 	name string,
 	isBuy bool,
 	slippage float64,
@@ -28,7 +30,7 @@ func (t *Trader) SlippagePrice(
 		if idx := strings.Index(name, ":"); idx > 0 {
 			midsDex = []string{name[:idx]}
 		}
-		mids, err := t.info.AllMids(midsDex...)
+		mids, err := c.info.AllMids(midsDex...)
 		if err != nil {
 			return 0, err
 		}
@@ -48,9 +50,9 @@ func (t *Trader) SlippagePrice(
 		price = price * (1 - slippage)
 	}
 
-	asset := t.info.AssetID(name)
-	szDecimals := t.info.SzDecimals(asset)
-	class := ClassifyAsset(asset)
+	asset := c.info.AssetID(name)
+	szDecimals := c.info.SzDecimals(asset)
+	class := types.ClassifyAsset(asset)
 
 	price = formatPriceToTickSize(price, szDecimals, class)
 
@@ -62,83 +64,35 @@ func (t *Trader) SlippagePrice(
 	return adjustedPrice, nil
 }
 
-// formatPriceToTickSize rounds price to satisfy both significant-figure
-// and decimal-place constraints documented at
-// https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size
-func formatPriceToTickSize(price float64, szDecimals int, class AssetClass) float64 {
-	sigFigsRounded, err := roundToSignificantFigures(price, 5)
-	if err != nil {
-		return price
-	}
-
-	maxPriceDecimals := class.MaxPriceDecimals() - szDecimals
-	if maxPriceDecimals < 0 {
-		maxPriceDecimals = 0
-	}
-	multiplier := math.Pow(10, float64(maxPriceDecimals))
-	return math.Round(sigFigsRounded*multiplier) / multiplier
-}
-
-// roundToTickSize rounds price to the nearest multiple of tickSize.
-func roundToTickSize(price, tickSize float64) float64 {
-	return math.Round(price/tickSize) * tickSize
-}
-
-// getAssetTickSize returns the conservative tick size used for fallback
-// rounding when the wire metadata cannot be consulted.
-func getAssetTickSize(assetID int) float64 {
-	if assetID < 10000 {
-		switch assetID {
-		case 0: // BTC
-			return 0.1
-		case 1: // ETH
-			return 0.01
-		case 2: // SOL
-			return 0.01
-		default:
-			return 0.01
-		}
-	}
-	return 0.0001
-}
-
-// validateAndAdjustPrice silently rounds price to the asset's tick grid.
-// Tick-violation surfacing now lives in validate() as
-// ValidationError{Code:"tick_violation"}.
-func validateAndAdjustPrice(price float64, assetID int) (float64, error) {
-	tickSize := getAssetTickSize(assetID)
-	return roundToTickSize(price, tickSize), nil
-}
-
 // PlaceMany packages multiple OrderSpec legs into a single signed action.
-// Use the hl.ALO/IOC/GTC/Market/Trigger constructors to build the specs.
-func (t *Trader) PlaceMany(orders ...OrderSpec) (BatchResult, error) {
-	return t.placeMany(orders)
+// Use the ALO/IOC/GTC/Market/Trigger constructors to build the specs.
+func (c *Client) PlaceMany(orders ...types.OrderSpec) (types.BatchResult, error) {
+	return c.placeMany(orders)
 }
 
 // PlaceALO places an add-liquidity-only (post-only) limit order. Required
 // args are positional; everything else is supplied via options.
-func (t *Trader) PlaceALO(coin string, side Side, size, px float64, opts ...PlaceOpt) (Result, error) {
+func (c *Client) PlaceALO(coin string, side types.Side, size, px float64, opts ...PlaceOpt) (types.Result, error) {
 	spec := ALO(coin, side, size, px, opts...)
-	return t.place(&spec)
+	return c.place(&spec)
 }
 
 // PlaceIOC places an immediate-or-cancel limit order.
-func (t *Trader) PlaceIOC(coin string, side Side, size, px float64, opts ...PlaceOpt) (Result, error) {
+func (c *Client) PlaceIOC(coin string, side types.Side, size, px float64, opts ...PlaceOpt) (types.Result, error) {
 	spec := IOC(coin, side, size, px, opts...)
-	return t.place(&spec)
+	return c.place(&spec)
 }
 
 // PlaceGTC places a good-til-cancel limit order.
-func (t *Trader) PlaceGTC(coin string, side Side, size, px float64, opts ...PlaceOpt) (Result, error) {
+func (c *Client) PlaceGTC(coin string, side types.Side, size, px float64, opts ...PlaceOpt) (types.Result, error) {
 	spec := GTC(coin, side, size, px, opts...)
-	return t.place(&spec)
+	return c.place(&spec)
 }
 
 // ALO returns an OrderSpec describing a post-only limit order. Pass it to
-// Trader.PlaceMany to batch multiple legs into one signed action.
-func ALO(coin string, side Side, size, px float64, opts ...PlaceOpt) OrderSpec {
-	s := OrderSpec{Method: "alo", Coin: coin, Side: side, Size: size, Price: px, TIF: tifALO}
+// Client.PlaceMany to batch multiple legs into one signed action.
+func ALO(coin string, side types.Side, size, px float64, opts ...PlaceOpt) types.OrderSpec {
+	s := types.OrderSpec{Method: "alo", Coin: coin, Side: side, Size: size, Price: px, TIF: types.TifAlo}
 	for _, o := range opts {
 		o(&s)
 	}
@@ -146,8 +100,8 @@ func ALO(coin string, side Side, size, px float64, opts ...PlaceOpt) OrderSpec {
 }
 
 // IOC returns an OrderSpec describing an immediate-or-cancel limit order.
-func IOC(coin string, side Side, size, px float64, opts ...PlaceOpt) OrderSpec {
-	s := OrderSpec{Method: "ioc", Coin: coin, Side: side, Size: size, Price: px, TIF: tifIOC}
+func IOC(coin string, side types.Side, size, px float64, opts ...PlaceOpt) types.OrderSpec {
+	s := types.OrderSpec{Method: "ioc", Coin: coin, Side: side, Size: size, Price: px, TIF: types.TifIoc}
 	for _, o := range opts {
 		o(&s)
 	}
@@ -155,8 +109,8 @@ func IOC(coin string, side Side, size, px float64, opts ...PlaceOpt) OrderSpec {
 }
 
 // GTC returns an OrderSpec describing a good-til-cancel limit order.
-func GTC(coin string, side Side, size, px float64, opts ...PlaceOpt) OrderSpec {
-	s := OrderSpec{Method: "gtc", Coin: coin, Side: side, Size: size, Price: px, TIF: tifGTC}
+func GTC(coin string, side types.Side, size, px float64, opts ...PlaceOpt) types.OrderSpec {
+	s := types.OrderSpec{Method: "gtc", Coin: coin, Side: side, Size: size, Price: px, TIF: types.TifGtc}
 	for _, o := range opts {
 		o(&s)
 	}
@@ -166,25 +120,25 @@ func GTC(coin string, side Side, size, px float64, opts ...PlaceOpt) OrderSpec {
 // PlaceMarket places a market order, implemented as an IOC limit at the
 // current mid price adjusted by the requested slippage fraction (default
 // 5% if WithSlippage is not supplied).
-func (t *Trader) PlaceMarket(coin string, side Side, size float64, opts ...PlaceOpt) (Result, error) {
+func (c *Client) PlaceMarket(coin string, side types.Side, size float64, opts ...PlaceOpt) (types.Result, error) {
 	spec := Market(coin, side, size, opts...)
 	slippage := spec.Slippage
 	if slippage == 0 {
 		slippage = 0.05
 	}
-	px, err := t.SlippagePrice(coin, side.IsBuy(), slippage, nil)
+	px, err := c.SlippagePrice(coin, side.IsBuy(), slippage, nil)
 	if err != nil {
-		return Result{}, err
+		return types.Result{}, err
 	}
 	spec.Price = px
-	return t.place(&spec)
+	return c.place(&spec)
 }
 
 // Market returns an OrderSpec describing a market order. The Price field is
 // resolved later (against mid) when the spec is consumed by PlaceMany or
 // PlaceMarket; callers do not need to supply px.
-func Market(coin string, side Side, size float64, opts ...PlaceOpt) OrderSpec {
-	s := OrderSpec{Method: "market", Coin: coin, Side: side, Size: size, TIF: tifIOC}
+func Market(coin string, side types.Side, size float64, opts ...PlaceOpt) types.OrderSpec {
+	s := types.OrderSpec{Method: "market", Coin: coin, Side: side, Size: size, TIF: types.TifIoc}
 	for _, o := range opts {
 		o(&s)
 	}
@@ -193,9 +147,9 @@ func Market(coin string, side Side, size float64, opts ...PlaceOpt) OrderSpec {
 
 // PlaceTrigger places a trigger order (stop-market by default, or
 // stop-limit when AsLimit(px) is supplied).
-func (t *Trader) PlaceTrigger(coin string, side Side, size, triggerPx float64, opts ...PlaceOpt) (Result, error) {
+func (c *Client) PlaceTrigger(coin string, side types.Side, size, triggerPx float64, opts ...PlaceOpt) (types.Result, error) {
 	spec := Trigger(coin, side, size, triggerPx, opts...)
-	return t.place(&spec)
+	return c.place(&spec)
 }
 
 // ClosePosition flattens the caller's open position on coin. The order
@@ -205,11 +159,11 @@ func (t *Trader) PlaceTrigger(coin string, side Side, size, triggerPx float64, o
 // partially. If position state cannot be fetched (e.g. agent address
 // mismatch) the call returns a ValidationError{Code:"no_position"} via
 // validate().
-func (t *Trader) ClosePosition(coin string, opts ...PlaceOpt) (Result, error) {
-	if err := t.RefreshState(context.Background()); err != nil {
-		return Result{}, err
+func (c *Client) ClosePosition(coin string, opts ...PlaceOpt) (types.Result, error) {
+	if err := c.RefreshState(context.Background()); err != nil {
+		return types.Result{}, err
 	}
-	state := t.cachedUserState()
+	state := c.cachedUserState()
 	var szi float64
 	if state != nil {
 		_, szi = positionFor(state, coin)
@@ -219,7 +173,7 @@ func (t *Trader) ClosePosition(coin string, opts ...PlaceOpt) (Result, error) {
 	size := math.Abs(szi)
 
 	// Apply options to a placeholder spec to surface WithSize/WithLimit/etc.
-	tmp := OrderSpec{Method: "close", Coin: coin, Size: size, Side: sideFromIsBuy(isBuy), TIF: tifIOC}
+	tmp := types.OrderSpec{Method: "close", Coin: coin, Size: size, Side: sideFromIsBuy(isBuy), TIF: types.TifIoc}
 	for _, o := range opts {
 		o(&tmp)
 	}
@@ -235,30 +189,30 @@ func (t *Trader) ClosePosition(coin string, opts ...PlaceOpt) (Result, error) {
 		if slip == 0 {
 			slip = 0.05
 		}
-		p, err := t.SlippagePrice(coin, isBuy, slip, nil)
+		p, err := c.SlippagePrice(coin, isBuy, slip, nil)
 		if err != nil {
-			return Result{}, err
+			return types.Result{}, err
 		}
 		price = p
 	}
 	tmp.Price = price
 	tmp.ReduceOnly = true
-	return t.place(&tmp)
+	return c.place(&tmp)
 }
 
 // sideFromIsBuy is a tiny adapter used while we still convert between the
 // boolean wire encoding and the typed Side enum.
-func sideFromIsBuy(isBuy bool) Side {
+func sideFromIsBuy(isBuy bool) types.Side {
 	if isBuy {
-		return Buy
+		return types.Buy
 	}
-	return Sell
+	return types.Sell
 }
 
 // Trigger returns an OrderSpec describing a trigger order. Default fills
 // as a market; combine with AsLimit(px) to fill as a limit.
-func Trigger(coin string, side Side, size, triggerPx float64, opts ...PlaceOpt) OrderSpec {
-	s := OrderSpec{
+func Trigger(coin string, side types.Side, size, triggerPx float64, opts ...PlaceOpt) types.OrderSpec {
+	s := types.OrderSpec{
 		Method:    "trigger",
 		Coin:      coin,
 		Side:      side,

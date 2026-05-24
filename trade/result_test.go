@@ -1,19 +1,22 @@
-package hyperliquid
+package trade
 
 import (
 	"encoding/json"
 	"testing"
+
+	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 func TestResultFromResponse_Nil(t *testing.T) {
 	r := resultFromResponse(nil)
-	if r != (Result{}) {
+	if r != (types.Result{}) {
 		t.Errorf("nil response should yield zero Result, got %+v", r)
 	}
 }
 
 func TestResultFromResponse_Error(t *testing.T) {
-	resp := &APIResponse[OrderResponse]{Ok: false, Err: "boom"}
+	resp := &xtransport.APIResponse[OrderResponse]{Ok: false, Err: "boom"}
 	r := resultFromResponse(resp)
 	if r.Error != "boom" {
 		t.Errorf("Error = %q", r.Error)
@@ -23,8 +26,8 @@ func TestResultFromResponse_Error(t *testing.T) {
 func TestResultFromResponse_RestingOrder(t *testing.T) {
 	// JSON field for cloid on the wire is "cid".
 	raw := json.RawMessage(`{"resting":{"oid":42,"cid":"0xabc","status":"open"}}`)
-	resp := &APIResponse[OrderResponse]{Ok: true, Data: OrderResponse{Statuses: MixedArray{
-		MixedValue(raw),
+	resp := &xtransport.APIResponse[OrderResponse]{Ok: true, Data: OrderResponse{Statuses: types.MixedArray{
+		types.MixedValue(raw),
 	}}}
 	r := resultFromResponse(resp)
 	if r.OID != 42 || r.Cloid != "0xabc" || r.Status != "open" {
@@ -34,8 +37,8 @@ func TestResultFromResponse_RestingOrder(t *testing.T) {
 
 func TestResultFromResponse_FilledOrder(t *testing.T) {
 	raw := json.RawMessage(`{"filled":{"oid":7,"avgPx":"100.5","totalSz":"0.5"}}`)
-	resp := &APIResponse[OrderResponse]{Ok: true, Data: OrderResponse{Statuses: MixedArray{
-		MixedValue(raw),
+	resp := &xtransport.APIResponse[OrderResponse]{Ok: true, Data: OrderResponse{Statuses: types.MixedArray{
+		types.MixedValue(raw),
 	}}}
 	r := resultFromResponse(resp)
 	if r.OID != 7 || r.AvgPx != "100.5" || r.TotalSz != "0.5" || r.Status != "filled" {
@@ -47,8 +50,8 @@ func TestResultFromResponse_StringStatus(t *testing.T) {
 	// String statuses are forwarded as the raw JSON value (including
 	// surrounding quotes) — this locks the current behaviour.
 	raw := json.RawMessage(`"waitingForOpen"`)
-	resp := &APIResponse[OrderResponse]{Ok: true, Data: OrderResponse{Statuses: MixedArray{
-		MixedValue(raw),
+	resp := &xtransport.APIResponse[OrderResponse]{Ok: true, Data: OrderResponse{Statuses: types.MixedArray{
+		types.MixedValue(raw),
 	}}}
 	r := resultFromResponse(resp)
 	if r.Status != `"waitingForOpen"` {
@@ -57,9 +60,9 @@ func TestResultFromResponse_StringStatus(t *testing.T) {
 }
 
 func TestBatchResultFromResponse_Multi(t *testing.T) {
-	resp := &APIResponse[OrderResponse]{Ok: true, Data: OrderResponse{Statuses: MixedArray{
-		MixedValue(`{"resting":{"oid":1,"cid":"","status":"open"}}`),
-		MixedValue(`{"filled":{"oid":2,"avgPx":"100","totalSz":"1"}}`),
+	resp := &xtransport.APIResponse[OrderResponse]{Ok: true, Data: OrderResponse{Statuses: types.MixedArray{
+		types.MixedValue(`{"resting":{"oid":1,"cid":"","status":"open"}}`),
+		types.MixedValue(`{"filled":{"oid":2,"avgPx":"100","totalSz":"1"}}`),
 	}}}
 	br := batchResultFromResponse(resp)
 	if len(br.Results) != 2 {
@@ -74,7 +77,7 @@ func TestBatchResultFromResponse_Multi(t *testing.T) {
 }
 
 func TestBatchResultFromResponse_Error(t *testing.T) {
-	resp := &APIResponse[OrderResponse]{Ok: false, Err: "rejected"}
+	resp := &xtransport.APIResponse[OrderResponse]{Ok: false, Err: "rejected"}
 	br := batchResultFromResponse(resp)
 	if br.Error != "rejected" {
 		t.Errorf("Error = %q", br.Error)
@@ -83,7 +86,7 @@ func TestBatchResultFromResponse_Error(t *testing.T) {
 
 func TestCancelResultOrError_Nil(t *testing.T) {
 	r, err := cancelResultOrError(nil)
-	if r != (CancelResult{}) {
+	if r != (types.CancelResult{}) {
 		t.Errorf("expected zero result, got %+v", r)
 	}
 	if err == nil {
@@ -92,7 +95,7 @@ func TestCancelResultOrError_Nil(t *testing.T) {
 }
 
 func TestCancelResultOrError_TransportError(t *testing.T) {
-	r, err := cancelResultOrError(&APIResponse[CancelOrderResponse]{Ok: false, Err: "bad oid"})
+	r, err := cancelResultOrError(&xtransport.APIResponse[CancelOrderResponse]{Ok: false, Err: "bad oid"})
 	if r.Error != "bad oid" {
 		t.Errorf("Error = %q", r.Error)
 	}
@@ -102,8 +105,8 @@ func TestCancelResultOrError_TransportError(t *testing.T) {
 }
 
 func TestCancelResultOrError_Success(t *testing.T) {
-	resp := &APIResponse[CancelOrderResponse]{Ok: true, Data: CancelOrderResponse{Statuses: MixedArray{
-		MixedValue(`"success"`),
+	resp := &xtransport.APIResponse[CancelOrderResponse]{Ok: true, Data: CancelOrderResponse{Statuses: types.MixedArray{
+		types.MixedValue(`"success"`),
 	}}}
 	r, err := cancelResultOrError(resp)
 	if err != nil {
@@ -117,8 +120,8 @@ func TestCancelResultOrError_Success(t *testing.T) {
 }
 
 func TestCancelResultOrError_PerOrderError(t *testing.T) {
-	resp := &APIResponse[CancelOrderResponse]{Ok: true, Data: CancelOrderResponse{Statuses: MixedArray{
-		MixedValue(`{"error":"Order was never placed, already canceled, or filled. asset=1"}`),
+	resp := &xtransport.APIResponse[CancelOrderResponse]{Ok: true, Data: CancelOrderResponse{Statuses: types.MixedArray{
+		types.MixedValue(`{"error":"Order was never placed, already canceled, or filled. asset=1"}`),
 	}}}
 	r, err := cancelResultOrError(resp)
 	if err == nil {
@@ -130,9 +133,9 @@ func TestCancelResultOrError_PerOrderError(t *testing.T) {
 }
 
 func TestCancelBatchFromResponse_Multi(t *testing.T) {
-	resp := &APIResponse[CancelOrderResponse]{Ok: true, Data: CancelOrderResponse{Statuses: MixedArray{
-		MixedValue(`"success"`),
-		MixedValue(`"success"`),
+	resp := &xtransport.APIResponse[CancelOrderResponse]{Ok: true, Data: CancelOrderResponse{Statuses: types.MixedArray{
+		types.MixedValue(`"success"`),
+		types.MixedValue(`"success"`),
 	}}}
 	br := cancelBatchFromResponse(resp)
 	if len(br.Results) != 2 {

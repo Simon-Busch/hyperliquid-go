@@ -55,18 +55,3 @@ func TestAssetAndAssetID(t *testing.T) {
 		t.Errorf("PURR/USDC TickSize = %v, want 1e-6", purr.TickSize)
 	}
 }
-
-func TestPositionFor(t *testing.T) {
-	state := &UserState{AssetPositions: []AssetPosition{
-		{Position: Position{Coin: "BTC", Szi: "0.5"}},
-		{Position: Position{Coin: "ETH", Szi: "-1"}},
-	}}
-	p, szi := positionFor(state, "ETH")
-	if p == nil || szi != -1 {
-		t.Errorf("ETH position = %+v / %v", p, szi)
-	}
-	p, szi = positionFor(state, "SOL")
-	if p != nil || szi != 0 {
-		t.Errorf("SOL absent = %+v / %v", p, szi)
-	}
-}

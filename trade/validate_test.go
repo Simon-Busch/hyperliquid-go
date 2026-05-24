@@ -1,4 +1,4 @@
-package hyperliquid
+package trade
 
 import (
 	"encoding/json"
@@ -7,14 +7,16 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	infopkg "github.com/Simon-Busch/hyperliquid-go/info"
+	"github.com/Simon-Busch/hyperliquid-go/info"
+	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
-// stubInfo builds a minimal *Info with the supplied (coin, sz-decimals)
+// stubInfo builds a minimal *info.Client with the supplied (coin, sz-decimals)
 // table registered. Asset ids are assigned sequentially starting at 0;
 // the first coin therefore has id 0 (the legitimate "first asset" case
 // guarded by isFirstAsset).
-func stubInfo(t *testing.T, baseURL string, coins map[string]int) *Info {
+func stubInfo(t *testing.T, baseURL string, coins map[string]int) *info.Client {
 	t.Helper()
 	coinToAsset := make(map[string]int)
 	nameToCoin := make(map[string]string)
@@ -28,26 +30,12 @@ func stubInfo(t *testing.T, baseURL string, coins map[string]int) *Info {
 		assetToDecimal[id] = sz
 		id++
 	}
-	return infopkg.NewForTest(NewHTTPAPI(baseURL, nil), coinToAsset, nameToCoin, assetToDecimal)
-}
-
-// stubTraderWithState returns a Trader prewired with a pre-populated
-// userState cache. Used to drive validatePositionState directly without
-// touching the network. refreshOK indicates whether RefreshState should
-// succeed when validate() invokes it; the underlying httptest stub
-// returns the same user state, so the cache stays in sync.
-func stubTraderWithState(t *testing.T, info *Info, state *UserState) *Trader {
-	t.Helper()
-	tr := &Trader{client: info.Transport(), info: info}
-	if state != nil {
-		tr.userState = state
-	}
-	return tr
+	return info.NewForTest(xtransport.New(baseURL, nil), coinToAsset, nameToCoin, assetToDecimal)
 }
 
 // newUserStateServer returns an httptest server that responds to
 // /info clearinghouseState lookups with the supplied UserState.
-func newUserStateServer(t *testing.T, state UserState) *httptest.Server {
+func newUserStateServer(t *testing.T, state info.UserState) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(state)
@@ -56,16 +44,16 @@ func newUserStateServer(t *testing.T, state UserState) *httptest.Server {
 	return srv
 }
 
-// assertValidationCode checks that err is a *ValidationError with the
-// expected Code. Fails the test otherwise.
+// assertValidationCode checks that err is a *types.ValidationError with
+// the expected Code. Fails the test otherwise.
 func assertValidationCode(t *testing.T, err error, want string) {
 	t.Helper()
 	if err == nil {
 		t.Fatalf("expected ValidationError code=%q, got nil", want)
 	}
-	var ve *ValidationError
+	var ve *types.ValidationError
 	if !errors.As(err, &ve) {
-		t.Fatalf("expected *ValidationError, got %T: %v", err, err)
+		t.Fatalf("expected *types.ValidationError, got %T: %v", err, err)
 	}
 	if ve.Code != want {
 		t.Fatalf("ValidationError.Code = %q, want %q (full err: %v)", ve.Code, want, err)
@@ -75,18 +63,18 @@ func assertValidationCode(t *testing.T, err error, want string) {
 func TestValidateOptionCompatibility(t *testing.T) {
 	cases := []struct {
 		name string
-		spec OrderSpec
+		spec types.OrderSpec
 		want string // "" means no error
 	}{
-		{"slippage on PlaceMarket allowed", OrderSpec{Method: "market", Slippage: 0.05}, ""},
-		{"slippage on ClosePosition allowed", OrderSpec{Method: "close", Slippage: 0.05}, ""},
-		{"slippage on PlaceALO rejected", OrderSpec{Method: "alo", Slippage: 0.05}, "unsupported_option"},
-		{"WithSize on Modify allowed", OrderSpec{Method: "modify", OverrideSize: 0.5}, ""},
-		{"WithSize on Close allowed", OrderSpec{Method: "close", OverrideSize: 0.5}, ""},
-		{"WithSize on PlaceGTC rejected", OrderSpec{Method: "gtc", OverrideSize: 0.5}, "unsupported_option"},
-		{"WithLimit on Modify allowed", OrderSpec{Method: "modify", LimitPrice: 100}, ""},
-		{"WithLimit on Close allowed", OrderSpec{Method: "close", LimitPrice: 100}, ""},
-		{"WithLimit on PlaceIOC rejected", OrderSpec{Method: "ioc", LimitPrice: 100}, "unsupported_option"},
+		{"slippage on PlaceMarket allowed", types.OrderSpec{Method: "market", Slippage: 0.05}, ""},
+		{"slippage on ClosePosition allowed", types.OrderSpec{Method: "close", Slippage: 0.05}, ""},
+		{"slippage on PlaceALO rejected", types.OrderSpec{Method: "alo", Slippage: 0.05}, "unsupported_option"},
+		{"WithSize on Modify allowed", types.OrderSpec{Method: "modify", OverrideSize: 0.5}, ""},
+		{"WithSize on Close allowed", types.OrderSpec{Method: "close", OverrideSize: 0.5}, ""},
+		{"WithSize on PlaceGTC rejected", types.OrderSpec{Method: "gtc", OverrideSize: 0.5}, "unsupported_option"},
+		{"WithLimit on Modify allowed", types.OrderSpec{Method: "modify", LimitPrice: 100}, ""},
+		{"WithLimit on Close allowed", types.OrderSpec{Method: "close", LimitPrice: 100}, ""},
+		{"WithLimit on PlaceIOC rejected", types.OrderSpec{Method: "ioc", LimitPrice: 100}, "unsupported_option"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -104,24 +92,24 @@ func TestValidateOptionCompatibility(t *testing.T) {
 
 func TestValidateModify(t *testing.T) {
 	t.Run("missing target", func(t *testing.T) {
-		err := validateModify(&OrderSpec{Method: "modify"})
+		err := validateModify(&types.OrderSpec{Method: "modify"})
 		assertValidationCode(t, err, "modify_target_required")
 	})
 	t.Run("oid only without change", func(t *testing.T) {
-		err := validateModify(&OrderSpec{Method: "modify", ModifyOID: 42})
+		err := validateModify(&types.OrderSpec{Method: "modify", ModifyOID: 42})
 		assertValidationCode(t, err, "modify_no_change")
 	})
 	t.Run("cloid only without change", func(t *testing.T) {
-		err := validateModify(&OrderSpec{Method: "modify", ModifyCloid: "0xabc"})
+		err := validateModify(&types.OrderSpec{Method: "modify", ModifyCloid: "0xabc"})
 		assertValidationCode(t, err, "modify_no_change")
 	})
 	t.Run("oid + WithLimit ok", func(t *testing.T) {
-		if err := validateModify(&OrderSpec{Method: "modify", ModifyOID: 42, LimitPrice: 100}); err != nil {
+		if err := validateModify(&types.OrderSpec{Method: "modify", ModifyOID: 42, LimitPrice: 100}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 	t.Run("oid + WithSize ok", func(t *testing.T) {
-		if err := validateModify(&OrderSpec{Method: "modify", ModifyOID: 42, OverrideSize: 0.5}); err != nil {
+		if err := validateModify(&types.OrderSpec{Method: "modify", ModifyOID: 42, OverrideSize: 0.5}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -129,41 +117,41 @@ func TestValidateModify(t *testing.T) {
 
 func TestValidateBracket(t *testing.T) {
 	t.Run("no bracket skipped", func(t *testing.T) {
-		if err := validateBracket(&OrderSpec{Side: Buy, Price: 100, Size: 1}); err != nil {
+		if err := validateBracket(&types.OrderSpec{Side: types.Buy, Price: 100, Size: 1}); err != nil {
 			t.Fatalf("unexpected: %v", err)
 		}
 	})
 	t.Run("entry=0 skipped", func(t *testing.T) {
-		if err := validateBracket(&OrderSpec{Side: Buy, Size: 1, TakeProfit: 110, StopLoss: 90}); err != nil {
+		if err := validateBracket(&types.OrderSpec{Side: types.Buy, Size: 1, TakeProfit: 110, StopLoss: 90}); err != nil {
 			t.Fatalf("unexpected: %v", err)
 		}
 	})
 	t.Run("Buy tp must exceed entry", func(t *testing.T) {
-		err := validateBracket(&OrderSpec{Side: Buy, Price: 100, Size: 1, TakeProfit: 90})
+		err := validateBracket(&types.OrderSpec{Side: types.Buy, Price: 100, Size: 1, TakeProfit: 90})
 		assertValidationCode(t, err, "tp_wrong_side_buy")
 	})
 	t.Run("Buy sl must be below entry", func(t *testing.T) {
-		err := validateBracket(&OrderSpec{Side: Buy, Price: 100, Size: 1, StopLoss: 110})
+		err := validateBracket(&types.OrderSpec{Side: types.Buy, Price: 100, Size: 1, StopLoss: 110})
 		assertValidationCode(t, err, "sl_wrong_side_buy")
 	})
 	t.Run("Sell tp must be below entry", func(t *testing.T) {
-		err := validateBracket(&OrderSpec{Side: Sell, Price: 100, Size: 1, TakeProfit: 110})
+		err := validateBracket(&types.OrderSpec{Side: types.Sell, Price: 100, Size: 1, TakeProfit: 110})
 		assertValidationCode(t, err, "tp_wrong_side_sell")
 	})
 	t.Run("Sell sl must exceed entry", func(t *testing.T) {
-		err := validateBracket(&OrderSpec{Side: Sell, Price: 100, Size: 1, StopLoss: 90})
+		err := validateBracket(&types.OrderSpec{Side: types.Sell, Price: 100, Size: 1, StopLoss: 90})
 		assertValidationCode(t, err, "sl_wrong_side_sell")
 	})
 	t.Run("TPSize exceeds entry", func(t *testing.T) {
-		err := validateBracket(&OrderSpec{Side: Buy, Price: 100, Size: 1, TakeProfit: 110, TPSize: 2})
+		err := validateBracket(&types.OrderSpec{Side: types.Buy, Price: 100, Size: 1, TakeProfit: 110, TPSize: 2})
 		assertValidationCode(t, err, "bracket_size_exceeds_entry")
 	})
 	t.Run("SLSize exceeds entry", func(t *testing.T) {
-		err := validateBracket(&OrderSpec{Side: Buy, Price: 100, Size: 1, StopLoss: 90, SLSize: 2})
+		err := validateBracket(&types.OrderSpec{Side: types.Buy, Price: 100, Size: 1, StopLoss: 90, SLSize: 2})
 		assertValidationCode(t, err, "bracket_size_exceeds_entry")
 	})
 	t.Run("partial bracket sizes ok", func(t *testing.T) {
-		err := validateBracket(&OrderSpec{Side: Buy, Price: 100, Size: 1, TakeProfit: 110, StopLoss: 90, TPSize: 0.5, SLSize: 0.5})
+		err := validateBracket(&types.OrderSpec{Side: types.Buy, Price: 100, Size: 1, TakeProfit: 110, StopLoss: 90, TPSize: 0.5, SLSize: 0.5})
 		if err != nil {
 			t.Fatalf("unexpected: %v", err)
 		}
@@ -205,113 +193,128 @@ func TestIsMultipleOf(t *testing.T) {
 }
 
 func TestValidatePositionState_ReduceOnly(t *testing.T) {
-	state := &UserState{
-		AssetPositions: []AssetPosition{
-			{Position: Position{Coin: "BTC", Szi: "0.5"}},
+	state := &info.UserState{
+		AssetPositions: []info.AssetPosition{
+			{Position: info.Position{Coin: "BTC", Szi: "0.5"}},
 		},
 	}
-	tr := &Trader{userState: state}
+	tr := NewForTest(nil, nil, state, "")
 	// Buy reduce-only on a long position must reject.
-	err := tr.validatePositionState(&OrderSpec{Coin: "BTC", Side: Buy, ReduceOnly: true, Method: "ioc"})
+	err := tr.validatePositionState(&types.OrderSpec{Coin: "BTC", Side: types.Buy, ReduceOnly: true, Method: "ioc"})
 	assertValidationCode(t, err, "wrong_side_for_reduce")
 	// Sell reduce-only on a long position is fine.
-	if err := tr.validatePositionState(&OrderSpec{Coin: "BTC", Side: Sell, ReduceOnly: true, Method: "ioc"}); err != nil {
+	if err := tr.validatePositionState(&types.OrderSpec{Coin: "BTC", Side: types.Sell, ReduceOnly: true, Method: "ioc"}); err != nil {
 		t.Fatalf("Sell reduce-only on long should pass: %v", err)
 	}
 }
 
 func TestValidatePositionState_ReduceOnly_Short(t *testing.T) {
-	state := &UserState{
-		AssetPositions: []AssetPosition{
-			{Position: Position{Coin: "BTC", Szi: "-0.5"}},
+	state := &info.UserState{
+		AssetPositions: []info.AssetPosition{
+			{Position: info.Position{Coin: "BTC", Szi: "-0.5"}},
 		},
 	}
-	tr := &Trader{userState: state}
+	tr := NewForTest(nil, nil, state, "")
 	// Sell reduce-only on a short position must reject.
-	err := tr.validatePositionState(&OrderSpec{Coin: "BTC", Side: Sell, ReduceOnly: true, Method: "ioc"})
+	err := tr.validatePositionState(&types.OrderSpec{Coin: "BTC", Side: types.Sell, ReduceOnly: true, Method: "ioc"})
 	assertValidationCode(t, err, "wrong_side_for_reduce")
 	// Buy reduce-only on a short position is fine.
-	if err := tr.validatePositionState(&OrderSpec{Coin: "BTC", Side: Buy, ReduceOnly: true, Method: "ioc"}); err != nil {
+	if err := tr.validatePositionState(&types.OrderSpec{Coin: "BTC", Side: types.Buy, ReduceOnly: true, Method: "ioc"}); err != nil {
 		t.Fatalf("Buy reduce-only on short should pass: %v", err)
 	}
 }
 
 func TestValidatePositionState_Close(t *testing.T) {
 	// no position -> no_position
-	tr := &Trader{userState: &UserState{}}
-	err := tr.validatePositionState(&OrderSpec{Coin: "BTC", Method: "close"})
+	tr := NewForTest(nil, nil, &info.UserState{}, "")
+	err := tr.validatePositionState(&types.OrderSpec{Coin: "BTC", Method: "close"})
 	assertValidationCode(t, err, "no_position")
 
 	// zero szi position still no_position
-	tr.userState = &UserState{AssetPositions: []AssetPosition{{Position: Position{Coin: "BTC", Szi: "0"}}}}
-	err = tr.validatePositionState(&OrderSpec{Coin: "BTC", Method: "close"})
+	tr.userState = &info.UserState{AssetPositions: []info.AssetPosition{{Position: info.Position{Coin: "BTC", Szi: "0"}}}}
+	err = tr.validatePositionState(&types.OrderSpec{Coin: "BTC", Method: "close"})
 	assertValidationCode(t, err, "no_position")
 
 	// partial close larger than size -> close_size_exceeds_position
-	tr.userState = &UserState{AssetPositions: []AssetPosition{{Position: Position{Coin: "BTC", Szi: "0.5"}}}}
-	err = tr.validatePositionState(&OrderSpec{Coin: "BTC", Method: "close", OverrideSize: 1})
+	tr.userState = &info.UserState{AssetPositions: []info.AssetPosition{{Position: info.Position{Coin: "BTC", Szi: "0.5"}}}}
+	err = tr.validatePositionState(&types.OrderSpec{Coin: "BTC", Method: "close", OverrideSize: 1})
 	assertValidationCode(t, err, "close_size_exceeds_position")
 
 	// nil userState -> rules skipped
 	tr.userState = nil
-	if err := tr.validatePositionState(&OrderSpec{Coin: "BTC", Method: "close", OverrideSize: 1}); err != nil {
+	if err := tr.validatePositionState(&types.OrderSpec{Coin: "BTC", Method: "close", OverrideSize: 1}); err != nil {
 		t.Fatalf("nil userState should skip rules: %v", err)
 	}
 }
 
 func TestValidate_TopLevel_CoinAndSize(t *testing.T) {
 	// httptest server returns a non-empty UserState so RefreshState succeeds.
-	srv := newUserStateServer(t, UserState{})
-	info := stubInfo(t, srv.URL, map[string]int{"BTC": 5, "ETH": 4})
-	tr := &Trader{client: info.Transport(), info: info, accountAddr: "0xtest"}
+	srv := newUserStateServer(t, info.UserState{})
+	infoC := stubInfo(t, srv.URL, map[string]int{"BTC": 5, "ETH": 4})
+	tr := NewForTest(infoC.Transport(), infoC, nil, "0xtest")
 
 	// coin_required
-	err := tr.validate(&OrderSpec{Method: "gtc", Size: 1, Price: 100})
+	err := tr.validate(&types.OrderSpec{Method: "gtc", Size: 1, Price: 100})
 	assertValidationCode(t, err, "coin_required")
 
 	// unknown_coin
-	err = tr.validate(&OrderSpec{Method: "gtc", Coin: "XRP", Size: 1, Price: 100})
+	err = tr.validate(&types.OrderSpec{Method: "gtc", Coin: "XRP", Size: 1, Price: 100})
 	assertValidationCode(t, err, "unknown_coin")
 
 	// price_non_positive
-	err = tr.validate(&OrderSpec{Method: "gtc", Coin: "ETH", Side: Buy, Size: 1, Price: 0})
+	err = tr.validate(&types.OrderSpec{Method: "gtc", Coin: "ETH", Side: types.Buy, Size: 1, Price: 0})
 	assertValidationCode(t, err, "price_non_positive")
 
 	// size_below_min: BTC has szDecimals=5 → MinSize 1e-5
-	err = tr.validate(&OrderSpec{Method: "gtc", Coin: "BTC", Side: Buy, Size: 1e-6, Price: 100})
+	err = tr.validate(&types.OrderSpec{Method: "gtc", Coin: "BTC", Side: types.Buy, Size: 1e-6, Price: 100})
 	assertValidationCode(t, err, "size_below_min")
 
 	// size_step_violation: BTC step 1e-5; 1.000001 % 1e-5 != 0
-	err = tr.validate(&OrderSpec{Method: "gtc", Coin: "BTC", Side: Buy, Size: 0.000015, Price: 100})
+	err = tr.validate(&types.OrderSpec{Method: "gtc", Coin: "BTC", Side: types.Buy, Size: 0.000015, Price: 100})
 	assertValidationCode(t, err, "size_step_violation")
 
 	// significant_figures: 6sf price
-	err = tr.validate(&OrderSpec{Method: "gtc", Coin: "ETH", Side: Buy, Size: 0.1, Price: 123456})
+	err = tr.validate(&types.OrderSpec{Method: "gtc", Coin: "ETH", Side: types.Buy, Size: 0.1, Price: 123456})
 	assertValidationCode(t, err, "significant_figures")
 
 	// SkipValidate bypasses
-	if err := tr.validate(&OrderSpec{SkipValidate: true, Method: "gtc"}); err != nil {
+	if err := tr.validate(&types.OrderSpec{SkipValidate: true, Method: "gtc"}); err != nil {
 		t.Fatalf("SkipValidate should bypass: %v", err)
 	}
 }
 
 func TestValidate_TopLevel_HappyPath(t *testing.T) {
-	srv := newUserStateServer(t, UserState{})
-	info := stubInfo(t, srv.URL, map[string]int{"ETH": 4})
-	tr := &Trader{client: info.Transport(), info: info, accountAddr: "0xtest"}
+	srv := newUserStateServer(t, info.UserState{})
+	infoC := stubInfo(t, srv.URL, map[string]int{"ETH": 4})
+	tr := NewForTest(infoC.Transport(), infoC, nil, "0xtest")
 
 	// ETH has szDecimals=4 → MinSize 1e-4; size 0.01 is a multiple.
-	if err := tr.validate(&OrderSpec{Method: "gtc", Coin: "ETH", Side: Buy, Size: 0.01, Price: 1234.5}); err != nil {
+	if err := tr.validate(&types.OrderSpec{Method: "gtc", Coin: "ETH", Side: types.Buy, Size: 0.01, Price: 1234.5}); err != nil {
 		t.Fatalf("happy path should pass: %v", err)
 	}
 }
 
+func TestPositionFor(t *testing.T) {
+	state := &info.UserState{AssetPositions: []info.AssetPosition{
+		{Position: info.Position{Coin: "BTC", Szi: "0.5"}},
+		{Position: info.Position{Coin: "ETH", Szi: "-1"}},
+	}}
+	p, szi := positionFor(state, "ETH")
+	if p == nil || szi != -1 {
+		t.Errorf("ETH position = %+v / %v", p, szi)
+	}
+	p, szi = positionFor(state, "SOL")
+	if p != nil || szi != 0 {
+		t.Errorf("SOL absent = %+v / %v", p, szi)
+	}
+}
+
 func TestIsFirstAsset(t *testing.T) {
-	info := infopkg.NewForTest(nil, map[string]int{"BTC": 0, "ETH": 1}, nil, nil)
-	if !isFirstAsset(info, "BTC") {
+	infoC := info.NewForTest(nil, map[string]int{"BTC": 0, "ETH": 1}, nil, nil)
+	if !isFirstAsset(infoC, "BTC") {
 		t.Errorf("BTC should be the first asset")
 	}
-	if isFirstAsset(info, "ETH") {
+	if isFirstAsset(infoC, "ETH") {
 		t.Errorf("ETH is not the first asset")
 	}
 	if isFirstAsset(nil, "BTC") {

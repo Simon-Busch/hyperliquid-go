@@ -1,13 +1,24 @@
-package hyperliquid
+package trade
 
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/Simon-Busch/hyperliquid-go/info"
+	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
-// SubAccountGroup exposes sub-account management on Trader.
+// CreateSubAccountResponse is returned by the createSubAccount action.
+type CreateSubAccountResponse struct {
+	Status string           `json:"status"`
+	Data   *info.SubAccount `json:"data,omitempty"`
+	Error  string           `json:"error,omitempty"`
+}
+
+// SubAccountGroup exposes sub-account management on Client.
 type SubAccountGroup struct {
-	t *Trader
+	t *Client
 }
 
 // Create allocates a new sub-account under the current signer.
@@ -15,18 +26,18 @@ func (g *SubAccountGroup) Create(name string) (*CreateSubAccountResponse, error)
 	t := g.t
 	timestamp := time.Now().UnixMilli()
 
-	action := CreateSubAccountAction{
+	action := signing.CreateSubAccountAction{
 		Type: "createSubAccount",
 		Name: name,
 	}
 
-	sig, err := SignL1Action(
+	sig, err := signing.SignL1Action(
 		t.privateKey,
 		action,
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.BaseURL == MainnetAPIURL,
+		t.client.BaseURL == xtransport.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -46,12 +57,12 @@ func (g *SubAccountGroup) Create(name string) (*CreateSubAccountResponse, error)
 
 // DepositUSD funds a sub-account from the parent's USDC balance.
 func (g *SubAccountGroup) DepositUSD(subAddr string, amount float64) (*TransferResponse, error) {
-	return g.transfer(subAddr, true, FloatToUsdInt(amount))
+	return g.transfer(subAddr, true, signing.FloatToUsdInt(amount))
 }
 
 // WithdrawUSD pulls USDC from a sub-account back to the parent.
 func (g *SubAccountGroup) WithdrawUSD(subAddr string, amount float64) (*TransferResponse, error) {
-	return g.transfer(subAddr, false, FloatToUsdInt(amount))
+	return g.transfer(subAddr, false, signing.FloatToUsdInt(amount))
 }
 
 // transfer signs and submits a subAccountTransfer action.
@@ -59,20 +70,20 @@ func (g *SubAccountGroup) transfer(subAccountUser string, isDeposit bool, usd in
 	t := g.t
 	timestamp := time.Now().UnixMilli()
 
-	action := SubAccountTransferAction{
+	action := signing.SubAccountTransferAction{
 		Type:           "subAccountTransfer",
 		SubAccountUser: subAccountUser,
 		IsDeposit:      isDeposit,
 		Usd:            usd,
 	}
 
-	sig, err := SignL1Action(
+	sig, err := signing.SignL1Action(
 		t.privateKey,
 		action,
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.BaseURL == MainnetAPIURL,
+		t.client.BaseURL == xtransport.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -105,7 +116,7 @@ func (g *SubAccountGroup) spotTransfer(subAccountUser string, isDeposit bool, to
 	t := g.t
 	timestamp := time.Now().UnixMilli()
 
-	action := SubAccountSpotTransferAction{
+	action := signing.SubAccountSpotTransferAction{
 		Type:           "subAccountSpotTransfer",
 		SubAccountUser: subAccountUser,
 		IsDeposit:      isDeposit,
@@ -113,13 +124,13 @@ func (g *SubAccountGroup) spotTransfer(subAccountUser string, isDeposit bool, to
 		Amount:         amount,
 	}
 
-	sig, err := SignL1Action(
+	sig, err := signing.SignL1Action(
 		t.privateKey,
 		action,
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.BaseURL == MainnetAPIURL,
+		t.client.BaseURL == xtransport.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

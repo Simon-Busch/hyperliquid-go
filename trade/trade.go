@@ -1,7 +1,10 @@
-package hyperliquid
+package trade
 
 import (
 	"fmt"
+
+	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // place is the shared pipeline for every single-order placement verb. It
@@ -9,53 +12,53 @@ import (
 // (including any bracket legs), and dispatches the signed order action.
 // The returned Result flattens the most useful fields from the underlying
 // APIResponse.
-func (t *Trader) place(spec *OrderSpec) (Result, error) {
-	if err := t.validate(spec); err != nil {
-		return Result{}, err
+func (c *Client) place(spec *types.OrderSpec) (types.Result, error) {
+	if err := c.validate(spec); err != nil {
+		return types.Result{}, err
 	}
 
 	reqs, builder, err := specToRequests(spec)
 	if err != nil {
-		return Result{}, err
+		return types.Result{}, err
 	}
 
-	action, err := newCreateOrderActionWithGrouping(t, reqs, builder, bracketGrouping(spec))
+	action, err := newCreateOrderActionWithGrouping(c, reqs, builder, bracketGrouping(spec))
 	if err != nil {
-		return Result{}, err
+		return types.Result{}, err
 	}
-	var resp *APIResponse[OrderResponse]
-	if err := t.executeAction(action, &resp); err != nil {
-		return Result{}, err
+	var resp *xtransport.APIResponse[OrderResponse]
+	if err := c.executeAction(action, &resp); err != nil {
+		return types.Result{}, err
 	}
 	return resultFromResponse(resp), nil
 }
 
 // placeMany is the shared pipeline for PlaceMany. Each spec is validated
 // individually before any signing happens.
-func (t *Trader) placeMany(specs []OrderSpec) (BatchResult, error) {
+func (c *Client) placeMany(specs []types.OrderSpec) (types.BatchResult, error) {
 	all := make([]CreateOrderRequest, 0, len(specs))
-	var builder *BuilderInfo
+	var builder *types.BuilderInfo
 	for i := range specs {
 		s := &specs[i]
-		if err := t.validate(s); err != nil {
-			return BatchResult{}, err
+		if err := c.validate(s); err != nil {
+			return types.BatchResult{}, err
 		}
 		reqs, b, err := specToRequests(s)
 		if err != nil {
-			return BatchResult{}, err
+			return types.BatchResult{}, err
 		}
 		if b != nil {
 			builder = b
 		}
 		all = append(all, reqs...)
 	}
-	action, err := newCreateOrderActionWithGrouping(t, all, builder, GroupingNA)
+	action, err := newCreateOrderActionWithGrouping(c, all, builder, types.GroupingNA)
 	if err != nil {
-		return BatchResult{}, err
+		return types.BatchResult{}, err
 	}
-	var resp *APIResponse[OrderResponse]
-	if err := t.executeAction(action, &resp); err != nil {
-		return BatchResult{}, err
+	var resp *xtransport.APIResponse[OrderResponse]
+	if err := c.executeAction(action, &resp); err != nil {
+		return types.BatchResult{}, err
 	}
 	return batchResultFromResponse(resp), nil
 }
@@ -63,7 +66,7 @@ func (t *Trader) placeMany(specs []OrderSpec) (BatchResult, error) {
 // specToRequests converts a single OrderSpec to one or more
 // CreateOrderRequests (parent + optional bracket legs) and the optional
 // BuilderInfo for the action.
-func specToRequests(spec *OrderSpec) ([]CreateOrderRequest, *BuilderInfo, error) {
+func specToRequests(spec *types.OrderSpec) ([]CreateOrderRequest, *types.BuilderInfo, error) {
 	if spec.Coin == "" {
 		return nil, nil, fmt.Errorf("OrderSpec.Coin is required")
 	}
@@ -82,48 +85,48 @@ func specToRequests(spec *OrderSpec) ([]CreateOrderRequest, *BuilderInfo, error)
 
 	switch spec.Method {
 	case "trigger":
-		parent.OrderType = OrderType{
-			Trigger: &TriggerOrderType{
+		parent.OrderType = types.OrderType{
+			Trigger: &types.TriggerOrderType{
 				TriggerPx: spec.TriggerPx,
 				IsMarket:  spec.IsMarket,
 				Tpsl:      triggerTpsl(spec),
 			},
 		}
 	default:
-		parent.OrderType = OrderType{
-			Limit: &LimitOrderType{Tif: string(tifFromMethod(spec))},
+		parent.OrderType = types.OrderType{
+			Limit: &types.LimitOrderType{Tif: string(tifFromMethod(spec))},
 		}
 	}
 
 	out := []CreateOrderRequest{parent}
 	out = append(out, bracketOrders(spec)...)
 
-	var builder *BuilderInfo
+	var builder *types.BuilderInfo
 	if spec.BuilderAddr != "" {
-		builder = &BuilderInfo{Builder: spec.BuilderAddr, Fee: spec.BuilderFeeBps}
+		builder = &types.BuilderInfo{Builder: spec.BuilderAddr, Fee: spec.BuilderFeeBps}
 	}
 	return out, builder, nil
 }
 
 // tifFromMethod maps a placement method to its wire TIF.
-func tifFromMethod(spec *OrderSpec) TIF {
+func tifFromMethod(spec *types.OrderSpec) types.TIF {
 	switch spec.Method {
 	case "alo":
-		return tifALO
+		return types.TifAlo
 	case "ioc", "market":
-		return tifIOC
+		return types.TifIoc
 	case "gtc", "close", "modify":
-		return tifGTC
+		return types.TifGtc
 	default:
 		if spec.TIF != "" {
 			return spec.TIF
 		}
-		return tifGTC
+		return types.TifGtc
 	}
 }
 
 // triggerTpsl picks the TPSL discriminator for a PlaceTrigger spec.
-func triggerTpsl(spec *OrderSpec) string {
+func triggerTpsl(spec *types.OrderSpec) string {
 	if spec.Side.IsBuy() {
 		return "sl"
 	}
@@ -132,16 +135,16 @@ func triggerTpsl(spec *OrderSpec) string {
 
 // bracketGrouping returns the grouping value for a place() action: if the
 // spec has bracket legs, "normalTpsl"; otherwise "na".
-func bracketGrouping(spec *OrderSpec) Grouping {
+func bracketGrouping(spec *types.OrderSpec) types.Grouping {
 	if spec.TakeProfit > 0 || spec.StopLoss > 0 {
-		return GroupingNormalTpsl
+		return types.GroupingNormalTpsl
 	}
-	return GroupingNA
+	return types.GroupingNA
 }
 
 // resultFromResponse flattens an *APIResponse[OrderResponse] into a Result.
-func resultFromResponse(resp *APIResponse[OrderResponse]) Result {
-	r := Result{}
+func resultFromResponse(resp *xtransport.APIResponse[OrderResponse]) types.Result {
+	r := types.Result{}
 	if resp == nil {
 		return r
 	}
@@ -180,8 +183,8 @@ func resultFromResponse(resp *APIResponse[OrderResponse]) Result {
 
 // batchResultFromResponse flattens an *APIResponse[OrderResponse] into a
 // BatchResult, one Result per status.
-func batchResultFromResponse(resp *APIResponse[OrderResponse]) BatchResult {
-	br := BatchResult{}
+func batchResultFromResponse(resp *xtransport.APIResponse[OrderResponse]) types.BatchResult {
+	br := types.BatchResult{}
 	if resp == nil {
 		return br
 	}
@@ -190,7 +193,7 @@ func batchResultFromResponse(resp *APIResponse[OrderResponse]) BatchResult {
 		return br
 	}
 	for _, s := range resp.Data.Statuses {
-		var single Result
+		var single types.Result
 		switch s.Type() {
 		case "object":
 			var st OrderStatus

@@ -1,15 +1,31 @@
-package hyperliquid
+package trade
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
-// TransferGroup exposes transfer-related Trader actions in a sub-grouped
-// namespace. Reach it via t.Transfer (initialised lazily).
+// TransferResponse is the response shape returned by transfer-style
+// signed actions (usdSend, spotSend, vaultTransfer, etc.) and the
+// HIP-4 userOutcome action family. Hyperliquid encodes failure as
+// {"status":"err","response":"<message>"}; Response captures the raw
+// payload so callers can extract the reason without re-parsing the
+// wire bytes.
+type TransferResponse struct {
+	Status   string          `json:"status"`
+	TxHash   string          `json:"txHash,omitempty"`
+	Error    string          `json:"error,omitempty"`
+	Response json.RawMessage `json:"response,omitempty"`
+}
+
+// TransferGroup exposes transfer-related actions in a sub-grouped
+// namespace. Reach it via c.Transfer (initialised lazily).
 type TransferGroup struct {
-	t *Trader
+	t *Client
 }
 
 // SendUSD sends USDC on Hyperliquid to toAddr.
@@ -23,7 +39,7 @@ func (g *TransferGroup) SendUSD(toAddr string, amount float64) (*TransferRespons
 	}
 	var result TransferResponse
 	if err := g.t.executeUserSignedAction(
-		action, usdSendSignTypes,
+		action, signing.UsdSendSignTypes,
 		"HyperliquidTransaction:UsdSend", nonce, &result,
 	); err != nil {
 		return nil, err
@@ -43,7 +59,7 @@ func (g *TransferGroup) SendSpot(toAddr, token string, amount float64) (*Transfe
 	}
 	var result TransferResponse
 	if err := g.t.executeUserSignedAction(
-		action, spotTransferSignTypes,
+		action, signing.SpotTransferSignTypes,
 		"HyperliquidTransaction:SpotSend", nonce, &result,
 	); err != nil {
 		return nil, err
@@ -53,12 +69,12 @@ func (g *TransferGroup) SendSpot(toAddr, token string, amount float64) (*Transfe
 
 // DepositToVault deposits USDC into the given vault.
 func (g *TransferGroup) DepositToVault(vaultAddr string, amount float64) (*TransferResponse, error) {
-	return g.vaultTransfer(vaultAddr, true, FloatToUsdInt(amount))
+	return g.vaultTransfer(vaultAddr, true, signing.FloatToUsdInt(amount))
 }
 
 // WithdrawFromVault withdraws USDC from the given vault.
 func (g *TransferGroup) WithdrawFromVault(vaultAddr string, amount float64) (*TransferResponse, error) {
-	return g.vaultTransfer(vaultAddr, false, FloatToUsdInt(amount))
+	return g.vaultTransfer(vaultAddr, false, signing.FloatToUsdInt(amount))
 }
 
 // vaultTransfer signs and submits a vaultTransfer action for either a
@@ -67,20 +83,20 @@ func (g *TransferGroup) vaultTransfer(vaultAddress string, isDeposit bool, usd i
 	timestamp := time.Now().UnixMilli()
 	t := g.t
 
-	action := VaultUsdTransferAction{
+	action := signing.VaultUsdTransferAction{
 		Type:         "vaultTransfer",
 		VaultAddress: vaultAddress,
 		IsDeposit:    isDeposit,
 		Usd:          usd,
 	}
 
-	sig, err := SignL1Action(
+	sig, err := signing.SignL1Action(
 		t.privateKey,
 		action,
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.BaseURL == MainnetAPIURL,
+		t.client.BaseURL == xtransport.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -124,7 +140,7 @@ func (g *TransferGroup) usdClassTransfer(amount float64, toPerp bool) (*Transfer
 	}
 	var result TransferResponse
 	if err := t.executeUserSignedAction(
-		action, usdClassTransferSignTypes,
+		action, signing.UsdClassTransferSignTypes,
 		"HyperliquidTransaction:UsdClassTransfer", nonce, &result,
 	); err != nil {
 		return nil, err
@@ -171,7 +187,7 @@ func (g *TransferGroup) sendAsset(sourceDex, destinationDex, token string, amoun
 	}
 	var result TransferResponse
 	if err := t.executeUserSignedAction(
-		action, sendAssetSignTypes,
+		action, signing.SendAssetSignTypes,
 		"HyperliquidTransaction:SendAsset", nonce, &result,
 	); err != nil {
 		return nil, err

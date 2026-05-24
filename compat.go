@@ -9,6 +9,7 @@ import (
 	"github.com/Simon-Busch/hyperliquid-go/info"
 	"github.com/Simon-Busch/hyperliquid-go/internal/transport"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
@@ -100,6 +101,10 @@ var ClassifyAsset = types.ClassifyAsset
 type MixedValue = types.MixedValue
 type MixedArray = types.MixedArray
 
+// --- errors.go alias (moved to types/) ---
+
+type ValidationError = types.ValidationError
+
 // --- signing.go aliases ---
 
 type SignatureResult = signing.SignatureResult
@@ -109,19 +114,6 @@ var (
 	SignUserSignedAction = signing.SignUserSignedAction
 	FloatToUsdInt        = signing.FloatToUsdInt
 	GetTimestampMs       = signing.GetTimestampMs
-)
-
-// SignTypes aliased so trader_*.go callers compile through the root.
-var (
-	usdSendSignTypes               = signing.UsdSendSignTypes
-	spotTransferSignTypes          = signing.SpotTransferSignTypes
-	withdrawSignTypes              = signing.WithdrawSignTypes
-	usdClassTransferSignTypes      = signing.UsdClassTransferSignTypes
-	sendAssetSignTypes             = signing.SendAssetSignTypes
-	tokenDelegateSignTypes         = signing.TokenDelegateSignTypes
-	convertToMultiSigUserSignTypes = signing.ConvertToMultiSigUserSignTypes
-	approveAgentSignTypes          = signing.ApproveAgentSignTypes
-	approveBuilderFeeSignTypes     = signing.ApproveBuilderFeeSignTypes
 )
 
 // --- actions.go aliases ---
@@ -197,8 +189,8 @@ type InfoStakeGroup = info.StakeGroup
 var NewInfo = info.New
 
 // Response-type aliases — these move with their methods into info/ in the
-// Phase-4 commit but root callers (trader_*.go, *_test.go) still reach
-// them through these aliases.
+// Phase-4 commit but root callers (compat-shim coverage and external
+// downstream) still reach them through these aliases.
 type (
 	Meta                        = info.Meta
 	AssetInfo                   = info.AssetInfo
@@ -258,3 +250,80 @@ type (
 )
 
 var ParseOutcomeDescription = info.ParseOutcomeDescription
+
+// --- trade package aliases ---
+
+// Trader is the historical name for the signed-action client; it now lives
+// in the trade subpackage as trade.Client.
+type Trader = trade.Client
+
+// NewTrader mirrors the trade.New constructor. Retained for parity with
+// the pre-refactor public surface; root code uses trade.New directly.
+var NewTrader = trade.New
+
+// PlaceOpt is the option-function type consumed by placement verbs.
+type PlaceOpt = trade.PlaceOpt
+
+// Placement helper constructors (re-exported from trade/).
+var (
+	ALO     = trade.ALO
+	IOC     = trade.IOC
+	GTC     = trade.GTC
+	Market  = trade.Market
+	Trigger = trade.Trigger
+)
+
+// Option functions for placement (re-exported from trade/).
+var (
+	WithTakeProfit = trade.WithTakeProfit
+	WithStopLoss   = trade.WithStopLoss
+	WithBracket    = trade.WithBracket
+	WithReduceOnly = trade.WithReduceOnly
+	WithCloid      = trade.WithCloid
+	WithBuilder    = trade.WithBuilder
+	WithSlippage   = trade.WithSlippage
+	WithSize       = trade.WithSize
+	WithLimit      = trade.WithLimit
+	AsMarket       = trade.AsMarket
+	AsLimit        = trade.AsLimit
+	WithTPSize     = trade.WithTPSize
+	WithSLSize     = trade.WithSLSize
+	WithTPCloid    = trade.WithTPCloid
+	WithSLCloid    = trade.WithSLCloid
+	SkipValidation = trade.SkipValidation
+)
+
+// PriceToWire re-exports trade.PriceToWire so legacy tests keep compiling.
+var PriceToWire = trade.PriceToWire
+
+// formatPriceToTickSize re-exports trade.FormatPriceToTickSize for the
+// legacy asset_class_test at root.
+var formatPriceToTickSize = trade.FormatPriceToTickSize
+
+// Trade-package response/request type aliases.
+type (
+	CancelRequest              = trade.CancelRequest
+	CancelByCloidRequest       = trade.CancelByCloidRequest
+	BulkOrderResponse          = trade.BulkOrderResponse
+	CancelResponse             = trade.CancelResponse
+	BulkCancelResponse         = trade.BulkCancelResponse
+	ModifyResponse             = trade.ModifyResponse
+	TransferResponse           = trade.TransferResponse
+	ApprovalResponse           = trade.ApprovalResponse
+	AgentApprovalResponse      = trade.AgentApprovalResponse
+	CreateSubAccountResponse   = trade.CreateSubAccountResponse
+	SetReferrerResponse        = trade.SetReferrerResponse
+	ScheduleCancelResponse     = trade.ScheduleCancelResponse
+	MultiSigConversionResponse = trade.MultiSigConversionResponse
+	MultiSigResponse           = trade.MultiSigResponse
+	SpotDeployResponse         = trade.SpotDeployResponse
+	ValidatorResponse          = trade.ValidatorResponse
+	PerpDeployResponse         = trade.PerpDeployResponse
+	TxStatus                   = trade.TxStatus
+	Agent                      = trade.Agent
+	DefaultResponse            = trade.DefaultResponse
+	OrderResponse              = trade.OrderResponse
+	OrderStatus                = trade.OrderStatus
+	CreateOrderRequest         = trade.CreateOrderRequest
+	CancelOrderResponse        = trade.CancelOrderResponse
+)

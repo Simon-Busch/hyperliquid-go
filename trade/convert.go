@@ -1,16 +1,19 @@
-package hyperliquid
+package trade
 
 import (
 	"fmt"
 	"math"
 	"strings"
+
+	"github.com/Simon-Busch/hyperliquid-go/info"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
-// ConvertGroup is the spot-conversion subgroup on Trader. Conversions
+// ConvertGroup is the spot-conversion subgroup on Client. Conversions
 // are implemented as IOC trades on the relevant spot pair — there is
 // no dedicated venue endpoint for token-to-token swaps.
 type ConvertGroup struct {
-	t *Trader
+	t *Client
 }
 
 // USDCToUSDH converts spot USDC into USDH by IOC-buying the USDH/USDC
@@ -20,8 +23,8 @@ type ConvertGroup struct {
 // The default slippage is 5%. Fails with a typed error when the
 // USDH/USDC pair is missing from the spot universe, when the mid is
 // unavailable, or when the venue rejects the order.
-func (g *ConvertGroup) USDCToUSDH(usdcAmount float64) (Result, error) {
-	return g.t.convertSpot("USDH", "USDC", Buy, usdcAmount)
+func (g *ConvertGroup) USDCToUSDH(usdcAmount float64) (types.Result, error) {
+	return g.t.convertSpot("USDH", "USDC", types.Buy, usdcAmount)
 }
 
 // USDHToUSDC converts USDH back into spot USDC by IOC-selling the
@@ -30,8 +33,8 @@ func (g *ConvertGroup) USDCToUSDH(usdcAmount float64) (Result, error) {
 //
 // Pass usdhAmount in USDH units (not USDC) to make the intent explicit
 // at the call site.
-func (g *ConvertGroup) USDHToUSDC(usdhAmount float64) (Result, error) {
-	return g.t.convertSpotSize("USDH", "USDC", Sell, usdhAmount)
+func (g *ConvertGroup) USDHToUSDC(usdhAmount float64) (types.Result, error) {
+	return g.t.convertSpotSize("USDH", "USDC", types.Sell, usdhAmount)
 }
 
 // convertSpot finds the base/quote spot pair and submits an IOC market
@@ -40,45 +43,45 @@ func (g *ConvertGroup) USDHToUSDC(usdhAmount float64) (Result, error) {
 // `quote` from selling `base` on a Sell). Size is derived from the
 // current mid and snapped down to the pair's size step so the validator
 // does not reject for size_step_violation.
-func (t *Trader) convertSpot(base, quote string, side Side, quoteAmount float64) (Result, error) {
+func (c *Client) convertSpot(base, quote string, side types.Side, quoteAmount float64) (types.Result, error) {
 	if quoteAmount <= 0 {
-		return Result{}, fmt.Errorf("convertSpot: amount must be > 0, got %v", quoteAmount)
+		return types.Result{}, fmt.Errorf("convertSpot: amount must be > 0, got %v", quoteAmount)
 	}
-	pair, err := t.findSpotPair(base, quote)
+	pair, err := c.findSpotPair(base, quote)
 	if err != nil {
-		return Result{}, err
+		return types.Result{}, err
 	}
-	mid, err := t.info.Mid(pair)
+	mid, err := c.info.Mid(pair)
 	if err != nil {
-		return Result{}, fmt.Errorf("convertSpot: mid for %s: %w", pair, err)
+		return types.Result{}, fmt.Errorf("convertSpot: mid for %s: %w", pair, err)
 	}
 	if mid <= 0 {
-		return Result{}, fmt.Errorf("convertSpot: non-positive mid %v for %s", mid, pair)
+		return types.Result{}, fmt.Errorf("convertSpot: non-positive mid %v for %s", mid, pair)
 	}
-	size, err := snapSpotSize(t.info, pair, quoteAmount/mid)
+	size, err := snapSpotSize(c.info, pair, quoteAmount/mid)
 	if err != nil {
-		return Result{}, err
+		return types.Result{}, err
 	}
-	return t.PlaceMarket(pair, side, size, WithSlippage(0.05))
+	return c.PlaceMarket(pair, side, size, WithSlippage(0.05))
 }
 
 // convertSpotSize is the BASE-quantity twin of convertSpot. baseAmount is
 // already in base-token units (no mid lookup needed for size), which is
 // the natural shape when the caller knows the holding they want to
 // liquidate (USDH -> USDC, where they hold X USDH).
-func (t *Trader) convertSpotSize(base, quote string, side Side, baseAmount float64) (Result, error) {
+func (c *Client) convertSpotSize(base, quote string, side types.Side, baseAmount float64) (types.Result, error) {
 	if baseAmount <= 0 {
-		return Result{}, fmt.Errorf("convertSpot: amount must be > 0, got %v", baseAmount)
+		return types.Result{}, fmt.Errorf("convertSpot: amount must be > 0, got %v", baseAmount)
 	}
-	pair, err := t.findSpotPair(base, quote)
+	pair, err := c.findSpotPair(base, quote)
 	if err != nil {
-		return Result{}, err
+		return types.Result{}, err
 	}
-	size, err := snapSpotSize(t.info, pair, baseAmount)
+	size, err := snapSpotSize(c.info, pair, baseAmount)
 	if err != nil {
-		return Result{}, err
+		return types.Result{}, err
 	}
-	return t.PlaceMarket(pair, side, size, WithSlippage(0.05))
+	return c.PlaceMarket(pair, side, size, WithSlippage(0.05))
 }
 
 // snapSpotSize rounds size DOWN to the pair's MinSize step. Rounding
@@ -86,8 +89,8 @@ func (t *Trader) convertSpotSize(base, quote string, side Side, baseAmount float
 // spend or sell, and overshooting could drain a thin wallet. Returns
 // an error when the pair has unknown metadata or when the snapped size
 // is below one step.
-func snapSpotSize(info *Info, pair string, size float64) (float64, error) {
-	meta, err := info.Asset(pair)
+func snapSpotSize(infoC *info.Client, pair string, size float64) (float64, error) {
+	meta, err := infoC.Asset(pair)
 	if err != nil {
 		return 0, fmt.Errorf("snapSpotSize: asset meta for %s: %w", pair, err)
 	}
@@ -105,8 +108,8 @@ func snapSpotSize(info *Info, pair string, size float64) (float64, error) {
 // token is `base` and whose quote token is `quote`. Lookup goes via the
 // spot universe so it works for any token combination the venue
 // exposes; the test for USDH/USDC was the motivator.
-func (t *Trader) findSpotPair(base, quote string) (string, error) {
-	sm, err := t.info.SpotMeta()
+func (c *Client) findSpotPair(base, quote string) (string, error) {
+	sm, err := c.info.SpotMeta()
 	if err != nil {
 		return "", fmt.Errorf("findSpotPair: %w", err)
 	}
@@ -135,4 +138,3 @@ func (t *Trader) findSpotPair(base, quote string) (string, error) {
 	}
 	return "", fmt.Errorf("findSpotPair: no spot pair with base=%s quote=%s", base, quote)
 }
-
