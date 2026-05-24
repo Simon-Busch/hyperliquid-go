@@ -1,5 +1,9 @@
 package hyperliquid
 
+// NOTE: bracketOrders stays in the root package during Phase 1 because
+// it depends on CreateOrderRequest, which lives in actions.go. It moves
+// alongside CreateOrderRequest in Phase 3 (signing/) or Phase 5 (trade/).
+
 // bracketOrders builds the TP and SL trigger CreateOrderRequests that bracket
 // a parent OrderSpec. Returns an empty slice if no bracket fields are set.
 // The trigger legs are always reduce-only and IsMarket=true.
