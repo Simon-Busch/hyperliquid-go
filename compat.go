@@ -116,3 +116,47 @@ var (
 	approveAgentSignTypes          = signing.ApproveAgentSignTypes
 	approveBuilderFeeSignTypes     = signing.ApproveBuilderFeeSignTypes
 )
+
+// --- actions.go aliases ---
+
+type (
+	CancelOrderWire              = signing.CancelOrderWire
+	CancelAction                 = signing.CancelAction
+	CancelByCloidWire            = signing.CancelByCloidWire
+	CancelByCloidAction          = signing.CancelByCloidAction
+	UsdClassTransferAction       = signing.UsdClassTransferAction
+	SpotTransferAction           = signing.SpotTransferAction
+	UsdTransferAction            = signing.UsdTransferAction
+	SubAccountTransferAction     = signing.SubAccountTransferAction
+	VaultUsdTransferAction       = signing.VaultUsdTransferAction
+	UpdateLeverageAction         = signing.UpdateLeverageAction
+	UpdateIsolatedMarginAction   = signing.UpdateIsolatedMarginAction
+	OrderWire                    = signing.OrderWire
+	OrderAction                  = signing.OrderAction
+	ModifyAction                 = signing.ModifyAction
+	BatchModifyAction            = signing.BatchModifyAction
+	PerpDexClassTransferAction   = signing.PerpDexClassTransferAction
+	SubAccountSpotTransferAction = signing.SubAccountSpotTransferAction
+	ScheduleCancelAction         = signing.ScheduleCancelAction
+	SetReferrerAction            = signing.SetReferrerAction
+	CreateSubAccountAction       = signing.CreateSubAccountAction
+	UseBigBlocksAction           = signing.UseBigBlocksAction
+	TokenDelegateAction          = signing.TokenDelegateAction
+	WithdrawFromBridgeAction     = signing.WithdrawFromBridgeAction
+	ApproveAgentAction           = signing.ApproveAgentAction
+	ApproveBuilderFeeAction      = signing.ApproveBuilderFeeAction
+	ConvertToMultiSigUserAction  = signing.ConvertToMultiSigUserAction
+	MultiSigAction               = signing.MultiSigAction
+	TWAPOrderAction              = signing.TWAPOrderAction
+	TWAPOrderWire                = signing.TWAPOrderWire
+	TWAPCancelAction             = signing.TWAPCancelAction
+	ReserveRequestWeightAction   = signing.ReserveRequestWeightAction
+	SplitOutcomeWire             = signing.SplitOutcomeWire
+	MergeOutcomeWire             = signing.MergeOutcomeWire
+	MergeQuestionWire            = signing.MergeQuestionWire
+	NegateOutcomeWire            = signing.NegateOutcomeWire
+	SplitOutcomeAction           = signing.SplitOutcomeAction
+	MergeOutcomeAction           = signing.MergeOutcomeAction
+	MergeQuestionAction          = signing.MergeQuestionAction
+	NegateOutcomeAction          = signing.NegateOutcomeAction
+)

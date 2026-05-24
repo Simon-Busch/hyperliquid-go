@@ -1,4 +1,8 @@
-package hyperliquid
+package signing
+
+import (
+	"github.com/Simon-Busch/hyperliquid-go/types"
+)
 
 // Action structs with deterministic field ordering for consistent MessagePack serialization
 // The order of fields in these structs is critical for signature generation
@@ -69,7 +73,7 @@ type VaultUsdTransferAction struct {
 	Type         string `json:"type"         msgpack:"type"`
 	VaultAddress string `json:"vaultAddress" msgpack:"vaultAddress"`
 	IsDeposit    bool   `json:"isDeposit"    msgpack:"isDeposit"`
-	Usd          int    `json:"usd"          msgpack:"usd"`
+	Usd          int    `json:"usd"            msgpack:"usd"`
 }
 
 // UpdateLeverageAction represents leverage update
@@ -92,23 +96,23 @@ type UpdateIsolatedMarginAction struct {
 
 // OrderWire represents the wire format for orders with deterministic field ordering
 type OrderWire struct {
-	Asset      int           `json:"a"           msgpack:"a"`
-	IsBuy      bool          `json:"b"           msgpack:"b"`
-	LimitPx    string        `json:"p"           msgpack:"p"`
-	Size       string        `json:"s"           msgpack:"s"`
-	ReduceOnly bool          `json:"r"           msgpack:"r"`
-	OrderType  OrderTypeWire `json:"t"           msgpack:"t"`
-	Cloid      *string       `json:"c,omitempty" msgpack:"c,omitempty"`
+	Asset      int                 `json:"a"           msgpack:"a"`
+	IsBuy      bool                `json:"b"           msgpack:"b"`
+	LimitPx    string              `json:"p"           msgpack:"p"`
+	Size       string              `json:"s"           msgpack:"s"`
+	ReduceOnly bool                `json:"r"           msgpack:"r"`
+	OrderType  types.OrderTypeWire `json:"t"           msgpack:"t"`
+	Cloid      *string             `json:"c,omitempty" msgpack:"c,omitempty"`
 }
 
 // OrderAction represents the order action with deterministic field ordering
 // CRITICAL: Field order MUST match Python SDK insertion order for msgpack hash consistency
 type OrderAction struct {
-	Type     string       `json:"type"              msgpack:"type"`
-	Dex      string       `json:"dex,omitempty"     msgpack:"dex,omitempty"`
-	Orders   []OrderWire  `json:"orders"            msgpack:"orders"`
-	Grouping string       `json:"grouping"          msgpack:"grouping"`
-	Builder  *BuilderInfo `json:"builder,omitempty" msgpack:"builder,omitempty"`
+	Type     string             `json:"type"              msgpack:"type"`
+	Dex      string             `json:"dex,omitempty"     msgpack:"dex,omitempty"`
+	Orders   []OrderWire        `json:"orders"            msgpack:"orders"`
+	Grouping string             `json:"grouping"          msgpack:"grouping"`
+	Builder  *types.BuilderInfo `json:"builder,omitempty" msgpack:"builder,omitempty"`
 }
 
 // ModifyAction represents a single order modification
