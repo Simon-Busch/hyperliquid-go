@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
 	"github.com/Simon-Busch/hyperliquid-go/types"
 )
@@ -36,7 +35,7 @@ func (c *Client) Cancel(coin string, oid int64) (types.CancelResult, error) {
 }
 
 // bulkCancel signs and submits a cancel action for every request.
-func (c *Client) bulkCancel(requests []CancelOrderRequest) (*xtransport.APIResponse[CancelOrderResponse], error) {
+func (c *Client) bulkCancel(requests []CancelOrderRequest) (*types.APIResponse[CancelOrderResponse], error) {
 	cancels := make([]signing.CancelOrderWire, len(requests))
 	for i, req := range requests {
 		cancels[i] = signing.CancelOrderWire{
@@ -50,7 +49,7 @@ func (c *Client) bulkCancel(requests []CancelOrderRequest) (*xtransport.APIRespo
 		Cancels: cancels,
 	}
 
-	var res *xtransport.APIResponse[CancelOrderResponse]
+	var res *types.APIResponse[CancelOrderResponse]
 	if err := c.executeAction(action, &res); err != nil {
 		return nil, err
 	}
@@ -71,7 +70,7 @@ func (c *Client) CancelByCloid(coin, cloid string) (types.CancelResult, error) {
 		Type:    "cancelByCloid",
 		Cancels: cancels,
 	}
-	var res *xtransport.APIResponse[CancelOrderResponse]
+	var res *types.APIResponse[CancelOrderResponse]
 	if err := c.executeAction(action, &res); err != nil {
 		return types.CancelResult{}, err
 	}
@@ -83,7 +82,7 @@ func (c *Client) CancelByCloid(coin, cloid string) (types.CancelResult, error) {
 // no error; an object status with an "error" field becomes a Go error
 // carrying the venue's message verbatim, so callers can distinguish
 // idempotent re-cancels from genuine successes.
-func cancelResultOrError(resp *xtransport.APIResponse[CancelOrderResponse]) (types.CancelResult, error) {
+func cancelResultOrError(resp *types.APIResponse[CancelOrderResponse]) (types.CancelResult, error) {
 	if resp == nil {
 		return types.CancelResult{}, fmt.Errorf("cancel: empty response")
 	}

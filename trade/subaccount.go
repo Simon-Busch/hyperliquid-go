@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/Simon-Busch/hyperliquid-go/info"
-	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
@@ -37,7 +37,7 @@ func (g *SubAccountGroup) Create(name string) (*CreateSubAccountResponse, error)
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.BaseURL == xtransport.MainnetAPIURL,
+		t.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (g *SubAccountGroup) transfer(subAccountUser string, isDeposit bool, usd in
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.BaseURL == xtransport.MainnetAPIURL,
+		t.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (g *SubAccountGroup) spotTransfer(subAccountUser string, isDeposit bool, to
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.BaseURL == xtransport.MainnetAPIURL,
+		t.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

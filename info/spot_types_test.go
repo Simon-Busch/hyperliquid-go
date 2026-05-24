@@ -1,4 +1,4 @@
-package hyperliquid
+package info
 
 import (
 	"encoding/json"
@@ -66,12 +66,10 @@ func TestSpotTokenInfo_MarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test marshaling
 			jsonData, err := json.Marshal(tt.token)
 			require.NoError(t, err, "marshaling should not fail")
 			assert.JSONEq(t, tt.expected, string(jsonData), "marshaled JSON should match expected")
 
-			// Test round-trip: unmarshal the marshaled data
 			var unmarshaled SpotTokenInfo
 			err = json.Unmarshal(jsonData, &unmarshaled)
 			require.NoError(t, err, "unmarshaling should not fail")
@@ -223,12 +221,10 @@ func TestSpotMeta_MarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test marshaling
 			jsonData, err := json.Marshal(tt.meta)
 			require.NoError(t, err, "marshaling should not fail")
 			assert.JSONEq(t, tt.expected, string(jsonData), "marshaled JSON should match expected")
 
-			// Test round-trip
 			var unmarshaled SpotMeta
 			err = json.Unmarshal(jsonData, &unmarshaled)
 			require.NoError(t, err, "unmarshaling should not fail")
@@ -271,21 +267,14 @@ func TestSpotAssetCtx_MarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test marshaling
 			jsonData, err := json.Marshal(tt.ctx)
 			require.NoError(t, err, "marshaling should not fail")
 			assert.JSONEq(t, tt.expected, string(jsonData), "marshaled JSON should match expected")
 
-			// Test round-trip
 			var unmarshaled SpotAssetCtx
 			err = json.Unmarshal(jsonData, &unmarshaled)
 			require.NoError(t, err, "unmarshaling should not fail")
 			assert.Equal(t, tt.ctx, unmarshaled, "round-trip should preserve data")
 		})
 	}
-}
-
-// Helper function to create string pointers
-func stringPtr(s string) *string {
-	return &s
 }

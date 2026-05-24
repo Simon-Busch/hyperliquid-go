@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/Simon-Busch/hyperliquid-go/info"
-	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
 	"github.com/Simon-Busch/hyperliquid-go/types"
 )
@@ -89,14 +88,14 @@ func (c *Client) SetLeverage(coin string, leverage int, mode types.MarginMode) (
 // AdjustMargin adds or removes isolated-margin collateral on the position
 // in coin. A positive amount increases collateral; a negative amount
 // withdraws it. amount is in USDC (decimal).
-func (c *Client) AdjustMargin(coin string, amount float64) (*xtransport.APIResponse[DefaultResponse], error) {
+func (c *Client) AdjustMargin(coin string, amount float64) (*types.APIResponse[DefaultResponse], error) {
 	action := signing.UpdateIsolatedMarginAction{
 		Type:  "updateIsolatedMargin",
 		Asset: c.info.AssetID(coin),
 		IsBuy: true,
 		Ntli:  int64(math.Round(amount * 1e6)),
 	}
-	var result xtransport.APIResponse[DefaultResponse]
+	var result types.APIResponse[DefaultResponse]
 	if err := c.executeAction(action, &result); err != nil {
 		return nil, err
 	}
@@ -139,7 +138,7 @@ func (c *Client) ScheduleCancelAll(deadline *time.Time) (*ScheduleCancelResponse
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -172,7 +171,7 @@ func (c *Client) SetReferrer(code string) (*SetReferrerResponse, error) {
 		"",
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -205,7 +204,7 @@ func (c *Client) UseBigBlocks(enable bool) (*ApprovalResponse, error) {
 		"",
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

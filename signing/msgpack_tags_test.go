@@ -1,4 +1,4 @@
-package hyperliquid
+package signing
 
 import (
 	"bytes"

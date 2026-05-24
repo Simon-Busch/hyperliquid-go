@@ -6,7 +6,8 @@ import (
 	"math"
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // TestHIP4_PlaceCancelInteger places a far-from-mid ALO buy on the
@@ -43,7 +44,7 @@ func TestHIP4_PlaceCancelInteger(t *testing.T) {
 		}
 	})
 
-	res, err := c.Trade.PlaceALO(canonical, hl.Buy, size, px)
+	res, err := c.Trade.PlaceALO(canonical, types.Buy, size, px)
 	if err != nil {
 		t.Fatalf("PlaceALO(HIP-4 %s, size=%v, px=%v): %v", canonical, size, px, err)
 	}

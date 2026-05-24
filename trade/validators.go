@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
@@ -31,7 +31,7 @@ func (c *Client) CSignerUnjailSelf() (*ValidatorResponse, error) {
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func (c *Client) CSignerJailSelf() (*ValidatorResponse, error) {
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func (c *Client) CSignerInner(innerAction map[string]any) (*ValidatorResponse, e
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func (c *Client) CValidatorRegister(validatorProfile map[string]any) (*Validator
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (c *Client) CValidatorChangeProfile(newProfile map[string]any) (*ValidatorR
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -196,7 +196,7 @@ func (c *Client) CValidatorUnregister() (*ValidatorResponse, error) {
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

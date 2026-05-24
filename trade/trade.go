@@ -3,7 +3,6 @@ package trade
 import (
 	"fmt"
 
-	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
 	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
@@ -26,7 +25,7 @@ func (c *Client) place(spec *types.OrderSpec) (types.Result, error) {
 	if err != nil {
 		return types.Result{}, err
 	}
-	var resp *xtransport.APIResponse[OrderResponse]
+	var resp *types.APIResponse[OrderResponse]
 	if err := c.executeAction(action, &resp); err != nil {
 		return types.Result{}, err
 	}
@@ -56,7 +55,7 @@ func (c *Client) placeMany(specs []types.OrderSpec) (types.BatchResult, error) {
 	if err != nil {
 		return types.BatchResult{}, err
 	}
-	var resp *xtransport.APIResponse[OrderResponse]
+	var resp *types.APIResponse[OrderResponse]
 	if err := c.executeAction(action, &resp); err != nil {
 		return types.BatchResult{}, err
 	}
@@ -143,7 +142,7 @@ func bracketGrouping(spec *types.OrderSpec) types.Grouping {
 }
 
 // resultFromResponse flattens an *APIResponse[OrderResponse] into a Result.
-func resultFromResponse(resp *xtransport.APIResponse[OrderResponse]) types.Result {
+func resultFromResponse(resp *types.APIResponse[OrderResponse]) types.Result {
 	r := types.Result{}
 	if resp == nil {
 		return r
@@ -183,7 +182,7 @@ func resultFromResponse(resp *xtransport.APIResponse[OrderResponse]) types.Resul
 
 // batchResultFromResponse flattens an *APIResponse[OrderResponse] into a
 // BatchResult, one Result per status.
-func batchResultFromResponse(resp *xtransport.APIResponse[OrderResponse]) types.BatchResult {
+func batchResultFromResponse(resp *types.APIResponse[OrderResponse]) types.BatchResult {
 	br := types.BatchResult{}
 	if resp == nil {
 		return br

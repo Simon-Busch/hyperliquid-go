@@ -14,6 +14,7 @@ import (
 	"github.com/Simon-Busch/hyperliquid-go/internal/transport"
 	"github.com/Simon-Busch/hyperliquid-go/stream"
 	"github.com/Simon-Busch/hyperliquid-go/trade"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // Client is the top-level Hyperliquid client. It exposes three handles:
@@ -80,9 +81,9 @@ type clientConfig struct {
 	builderDex           string
 	meta                 *info.Meta
 	spotMeta             *info.SpotMeta
-	perpDexs             *MixedArray
+	perpDexs             *types.MixedArray
 	skipStream           bool
-	logger               Logger
+	logger               stream.Logger
 	maxReconnectAttempts int
 	reconnectWait        time.Duration
 	expiresAfter         *int64
@@ -90,7 +91,7 @@ type clientConfig struct {
 
 func defaultClientConfig() *clientConfig {
 	return &clientConfig{
-		baseURL: transport.MainnetAPIURL,
+		baseURL: types.MainnetAPIURL,
 		logger:  nil, // stream.Client falls back to its internal nop logger
 	}
 }

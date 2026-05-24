@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
@@ -77,7 +77,7 @@ func (g *MultiSigGroup) Execute(action map[string]any, signers []string, signatu
 		g.t.vault,
 		timestamp,
 		g.t.expiresAfter,
-		g.t.client.BaseURL == xtransport.MainnetAPIURL,
+		g.t.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

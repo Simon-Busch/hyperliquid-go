@@ -1,13 +1,17 @@
-package hyperliquid
+package trade
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+)
 
 func TestALOConstructor(t *testing.T) {
-	s := ALO("BTC", Buy, 0.5, 50000, WithCloid("0xabc"))
-	if s.Method != "alo" || s.TIF != tifALO {
+	s := ALO("BTC", types.Buy, 0.5, 50000, WithCloid("0xabc"))
+	if s.Method != "alo" || s.TIF != types.TifAlo {
 		t.Errorf("ALO: method/TIF = %s/%s", s.Method, s.TIF)
 	}
-	if s.Coin != "BTC" || s.Side != Buy || s.Size != 0.5 || s.Price != 50000 {
+	if s.Coin != "BTC" || s.Side != types.Buy || s.Size != 0.5 || s.Price != 50000 {
 		t.Errorf("ALO core fields = %+v", s)
 	}
 	if s.Cloid != "0xabc" {
@@ -16,25 +20,25 @@ func TestALOConstructor(t *testing.T) {
 }
 
 func TestIOCConstructor(t *testing.T) {
-	s := IOC("ETH", Sell, 1, 3000)
-	if s.Method != "ioc" || s.TIF != tifIOC {
+	s := IOC("ETH", types.Sell, 1, 3000)
+	if s.Method != "ioc" || s.TIF != types.TifIoc {
 		t.Errorf("IOC: method/TIF = %s/%s", s.Method, s.TIF)
 	}
-	if s.Side != Sell {
+	if s.Side != types.Sell {
 		t.Errorf("IOC side = %s", s.Side)
 	}
 }
 
 func TestGTCConstructor(t *testing.T) {
-	s := GTC("SOL", Buy, 2, 150)
-	if s.Method != "gtc" || s.TIF != tifGTC {
+	s := GTC("SOL", types.Buy, 2, 150)
+	if s.Method != "gtc" || s.TIF != types.TifGtc {
 		t.Errorf("GTC: method/TIF = %s/%s", s.Method, s.TIF)
 	}
 }
 
 func TestMarketConstructor(t *testing.T) {
-	s := Market("BTC", Buy, 0.1, WithSlippage(0.02))
-	if s.Method != "market" || s.TIF != tifIOC {
+	s := Market("BTC", types.Buy, 0.1, WithSlippage(0.02))
+	if s.Method != "market" || s.TIF != types.TifIoc {
 		t.Errorf("Market: method/TIF = %s/%s", s.Method, s.TIF)
 	}
 	if s.Price != 0 {
@@ -46,7 +50,7 @@ func TestMarketConstructor(t *testing.T) {
 }
 
 func TestTriggerConstructor(t *testing.T) {
-	s := Trigger("BTC", Sell, 0.5, 49000)
+	s := Trigger("BTC", types.Sell, 0.5, 49000)
 	if s.Method != "trigger" {
 		t.Errorf("Trigger method = %s", s.Method)
 	}
@@ -62,7 +66,7 @@ func TestTriggerConstructor(t *testing.T) {
 }
 
 func TestTriggerWithAsLimit(t *testing.T) {
-	s := Trigger("BTC", Sell, 0.5, 49000, AsLimit(48900))
+	s := Trigger("BTC", types.Sell, 0.5, 49000, AsLimit(48900))
 	if s.IsMarket {
 		t.Errorf("AsLimit must turn off IsMarket")
 	}
@@ -75,7 +79,7 @@ func TestTriggerWithAsLimit(t *testing.T) {
 }
 
 func TestConstructorsApplyBracketOpts(t *testing.T) {
-	s := GTC("BTC", Buy, 1, 100, WithBracket(110, 90), WithTPCloid("tp"), WithSLCloid("sl"))
+	s := GTC("BTC", types.Buy, 1, 100, WithBracket(110, 90), WithTPCloid("tp"), WithSLCloid("sl"))
 	if s.TakeProfit != 110 || s.StopLoss != 90 {
 		t.Errorf("bracket prices not applied: %+v", s)
 	}

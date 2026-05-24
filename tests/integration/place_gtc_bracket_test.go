@@ -5,7 +5,9 @@ package integration
 import (
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
 // TestPlaceGTC_WithBracket places a far-below-mid GTC entry with TP/SL
@@ -23,7 +25,7 @@ func TestPlaceGTC_WithBracket(t *testing.T) {
 	sl := snapPrice(m*0.4, c, coin)
 	size := testSizeForLimit(t, c, coin, entry)
 
-	res, err := c.Trade.PlaceGTC(coin, hl.Buy, size, entry, hl.WithBracket(tp, sl))
+	res, err := c.Trade.PlaceGTC(coin, types.Buy, size, entry, trade.WithBracket(tp, sl))
 	if err != nil {
 		t.Fatalf("PlaceGTC+bracket: %v", err)
 	}

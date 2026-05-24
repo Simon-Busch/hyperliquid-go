@@ -1,4 +1,4 @@
-package hyperliquid
+package signing
 
 import (
 	"bytes"
@@ -16,6 +16,7 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/Simon-Busch/hyperliquid-go/internal/eip712"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // Fixture-based signing tests that lock our pure-Go signing implementation
@@ -68,7 +69,7 @@ type fxFile struct {
 
 func loadFixtures(t *testing.T) *fxFile {
 	t.Helper()
-	raw, err := os.ReadFile("testfixtures/signing_fixtures.json")
+	raw, err := os.ReadFile("../testfixtures/signing_fixtures.json")
 	require.NoError(t, err)
 	var f fxFile
 	require.NoError(t, json.Unmarshal(raw, &f))
@@ -119,7 +120,7 @@ func assertSig(t *testing.T, got SignatureResult, want fxSig, label string) {
 // each fixture's expected msgpack bytes. Keeping this in code (not JSON) keeps
 // the test legible and uses the actual Go types we ship.
 func l1Cases() map[string]any {
-	builder := &BuilderInfo{
+	builder := &types.BuilderInfo{
 		Builder: "0x1234567890abcdef1234567890abcdef12345678",
 		Fee:     50,
 	}
@@ -129,7 +130,7 @@ func l1Cases() map[string]any {
 		LimitPx:    "100.0",
 		Size:       "1.0",
 		ReduceOnly: false,
-		OrderType:  OrderTypeWire{Limit: &LimitOrderTypeWire{Tif: "Gtc"}},
+		OrderType:  types.OrderTypeWire{Limit: &types.LimitOrderTypeWire{Tif: "Gtc"}},
 	}}
 	return map[string]any{
 		"plain_order_testnet": OrderAction{

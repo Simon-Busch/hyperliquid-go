@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+
+	"github.com/Simon-Busch/hyperliquid-go/stream"
 	hl "github.com/Simon-Busch/hyperliquid-go"
 )
 
@@ -31,11 +33,11 @@ func TestStream_Reconnect(t *testing.T) {
 	// First session: connect, subscribe to two filters, then close.
 	c1 := newStreamingClient(t)
 	var first atomic.Int32
-	sub1a, err := c1.Stream.Subscribe(hl.Trades(coin), func(hl.WSMessage) { first.Add(1) })
+	sub1a, err := c1.Stream.Subscribe(stream.Trades(coin), func(stream.WSMessage) { first.Add(1) })
 	if err != nil {
 		t.Fatalf("first Subscribe(Trades): %v", err)
 	}
-	sub1b, err := c1.Stream.Subscribe(hl.AllMids(), func(hl.WSMessage) { first.Add(1) })
+	sub1b, err := c1.Stream.Subscribe(stream.AllMids(), func(stream.WSMessage) { first.Add(1) })
 	if err != nil {
 		t.Fatalf("first Subscribe(AllMids): %v", err)
 	}
@@ -65,12 +67,12 @@ func TestStream_Reconnect(t *testing.T) {
 	t.Cleanup(func() { _ = c2.Stream.Close() })
 
 	var second atomic.Int32
-	sub2a, err := c2.Stream.Subscribe(hl.Trades(coin), func(hl.WSMessage) { second.Add(1) })
+	sub2a, err := c2.Stream.Subscribe(stream.Trades(coin), func(stream.WSMessage) { second.Add(1) })
 	if err != nil {
 		t.Fatalf("second Subscribe(Trades): %v", err)
 	}
 	t.Cleanup(func() { _ = sub2a.Close() })
-	sub2b, err := c2.Stream.Subscribe(hl.AllMids(), func(hl.WSMessage) { second.Add(1) })
+	sub2b, err := c2.Stream.Subscribe(stream.AllMids(), func(stream.WSMessage) { second.Add(1) })
 	if err != nil {
 		t.Fatalf("second Subscribe(AllMids): %v", err)
 	}

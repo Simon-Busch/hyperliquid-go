@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/stream"
 )
 
 // TestHIP3_AllMidsOn subscribes to the dex-pinned all-mids feed via
-// hl.AllMidsOn. Loose contract — receiving zero messages within the
+// stream.AllMidsOn. Loose contract — receiving zero messages within the
 // window is acceptable when the dex is quiet; the test only proves the
 // subscribe path succeeds.
 func TestHIP3_AllMidsOn(t *testing.T) {
@@ -23,7 +24,7 @@ func TestHIP3_AllMidsOn(t *testing.T) {
 	c := newStreamingClient(t)
 
 	var count atomic.Int32
-	sub, err := c.Stream.Subscribe(hl.AllMidsOn(dex), func(hl.WSMessage) { count.Add(1) })
+	sub, err := c.Stream.Subscribe(stream.AllMidsOn(dex), func(stream.WSMessage) { count.Add(1) })
 	if err != nil {
 		t.Fatalf("Subscribe(AllMidsOn %q): %v", dex, err)
 	}

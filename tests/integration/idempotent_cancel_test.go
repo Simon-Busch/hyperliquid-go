@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
 // TestCancel_IdempotentOnDeadOrder places a resting ALO, cancels it,
@@ -25,7 +27,7 @@ func TestCancel_IdempotentOnDeadOrder(t *testing.T) {
 	size := testSizeForLimit(t, c, coin, px)
 
 	cloid := newCloid(t)
-	res, err := c.Trade.PlaceALO(coin, hl.Buy, size, px, hl.WithCloid(cloid))
+	res, err := c.Trade.PlaceALO(coin, types.Buy, size, px, trade.WithCloid(cloid))
 	if err != nil {
 		t.Fatalf("PlaceALO: %v", err)
 	}
@@ -67,13 +69,13 @@ func TestCancel_IdempotentOnDeadOrder(t *testing.T) {
 	}
 
 	// errors.As against APIError when chained (best-effort, not required).
-	var apiErr hl.APIError
+	var apiErr types.APIError
 	if errors.As(err, &apiErr) {
 		t.Logf("APIError detail: code=%d msg=%s", apiErr.Code, apiErr.Message)
 	}
 
 	// Symmetry: ModifyByCloid on the dead order must also fail cleanly.
-	if _, merr := c.Trade.ModifyByCloid(cloid, hl.WithSize(size*2), hl.WithLimit(px)); merr == nil {
+	if _, merr := c.Trade.ModifyByCloid(cloid, trade.WithSize(size*2), trade.WithLimit(px)); merr == nil {
 		t.Logf("ModifyByCloid against a cancelled order returned no error (venue may accept and replace)")
 	} else {
 		t.Logf("ModifyByCloid against a cancelled order errored cleanly: %v", merr)

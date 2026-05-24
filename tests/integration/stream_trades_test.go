@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/stream"
 )
 
 // TestStream_TradesReceived subscribes to the trades feed for the test
@@ -21,7 +22,7 @@ func TestStream_TradesReceived(t *testing.T) {
 
 	var count atomic.Int32
 	got := make(chan struct{}, 1)
-	sub, err := c.Stream.Subscribe(hl.Trades(coin), func(m hl.WSMessage) {
+	sub, err := c.Stream.Subscribe(stream.Trades(coin), func(m stream.WSMessage) {
 		count.Add(1)
 		select {
 		case got <- struct{}{}:

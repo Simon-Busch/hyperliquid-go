@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // TestPlaceIOC_Market places an aggressive IOC buy and confirms the fill
@@ -20,7 +21,7 @@ func TestPlaceIOC_Market(t *testing.T) {
 	m := mid(t, c, coin)
 	px := snapPrice(m*1.01, c, coin) // 1% above mid → should fill IOC
 
-	res, err := c.Trade.PlaceIOC(coin, hl.Buy, size, px)
+	res, err := c.Trade.PlaceIOC(coin, types.Buy, size, px)
 	if err != nil {
 		t.Fatalf("PlaceIOC: %v", err)
 	}

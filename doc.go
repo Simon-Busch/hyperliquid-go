@@ -45,10 +45,8 @@
 // [github.com/Simon-Busch/hyperliquid-go/trade.ValidatorResponse]) for
 // the account-management verbs. Validation failures return
 // *[github.com/Simon-Busch/hyperliquid-go/types.ValidationError];
-// server-side failures return
-// [github.com/Simon-Busch/hyperliquid-go/internal/transport.APIError]
-// (also reachable via the root [APIError] alias for as long as the
-// transitional compat shim exists).
+// server-side HTTP failures return
+// *[github.com/Simon-Busch/hyperliquid-go/types.APIError].
 //
 // The facade in this package is the recommended entry point for typical
 // use; advanced callers can import any subpackage directly.

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 	hl "github.com/Simon-Busch/hyperliquid-go"
 )
 
@@ -55,9 +57,9 @@ func TestApproveAgent_AndPlace(t *testing.T) {
 
 	// Agent approval needs a moment to propagate on L1 — retry a few
 	// times with backoff before giving up.
-	var res hl.Result
+	var res types.Result
 	for attempt := 0; attempt < 6; attempt++ {
-		res, err = agentClient.Trade.PlaceALO(coin, hl.Buy, size, px)
+		res, err = agentClient.Trade.PlaceALO(coin, types.Buy, size, px)
 		if err == nil && res.OID != 0 && res.Error == "" {
 			break
 		}

@@ -5,7 +5,8 @@ package integration
 import (
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // TestCancelAll places two resting limit orders on the test coin, calls
@@ -21,12 +22,12 @@ func TestCancelAll(t *testing.T) {
 	px2 := snapPrice(m*0.55, c, coin)
 	size := testSizeForLimit(t, c, coin, px1)
 
-	r1, err := c.Trade.PlaceALO(coin, hl.Buy, size, px1)
+	r1, err := c.Trade.PlaceALO(coin, types.Buy, size, px1)
 	if err != nil {
 		t.Fatalf("PlaceALO 1: %v", err)
 	}
 	t.Cleanup(func() { cancelIfResting(t, c, coin, r1.OID) })
-	r2, err := c.Trade.PlaceALO(coin, hl.Buy, size, px2)
+	r2, err := c.Trade.PlaceALO(coin, types.Buy, size, px2)
 	if err != nil {
 		t.Fatalf("PlaceALO 2: %v", err)
 	}

@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 	hl "github.com/Simon-Busch/hyperliquid-go"
 )
 
@@ -103,7 +106,7 @@ func runHIP4Leg(t *testing.T, c *hl.Client, label, canonical string, midPx float
 	t.Logf("step %s.buy: %v contracts at ~%.6f (~$%.2f notional)",
 		label, size, midPx, size*midPx)
 
-	buy, err := c.Trade.PlaceMarket(canonical, hl.Buy, size, hl.WithSlippage(0.05))
+	buy, err := c.Trade.PlaceMarket(canonical, types.Buy, size, trade.WithSlippage(0.05))
 	if err != nil {
 		t.Fatalf("PlaceMarket buy %s: %v", label, err)
 	}
@@ -121,7 +124,7 @@ func runHIP4Leg(t *testing.T, c *hl.Client, label, canonical string, midPx float
 		if flattened {
 			return
 		}
-		if _, err := c.Trade.PlaceMarket(canonical, hl.Sell, filled, hl.WithSlippage(0.10)); err != nil {
+		if _, err := c.Trade.PlaceMarket(canonical, types.Sell, filled, trade.WithSlippage(0.10)); err != nil {
 			t.Logf("cleanup sell %s %v: %v (best-effort)", label, filled, err)
 		}
 	})
@@ -130,7 +133,7 @@ func runHIP4Leg(t *testing.T, c *hl.Client, label, canonical string, midPx float
 	time.Sleep(10 * time.Second)
 
 	t.Logf("step %s.sell: closing %v contracts at market", label, filled)
-	sell, err := c.Trade.PlaceMarket(canonical, hl.Sell, filled, hl.WithSlippage(0.10))
+	sell, err := c.Trade.PlaceMarket(canonical, types.Sell, filled, trade.WithSlippage(0.10))
 	if err != nil {
 		t.Fatalf("PlaceMarket sell %s: %v", label, err)
 	}

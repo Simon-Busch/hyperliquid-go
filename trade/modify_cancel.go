@@ -3,7 +3,6 @@ package trade
 import (
 	"fmt"
 
-	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
 	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
@@ -76,7 +75,7 @@ func (c *Client) doModify(spec *types.OrderSpec) (types.Result, error) {
 	if err != nil {
 		return types.Result{}, fmt.Errorf("failed to create modify action: %w", err)
 	}
-	resp := xtransport.APIResponse[OrderResponse]{}
+	resp := types.APIResponse[OrderResponse]{}
 	if err := c.executeAction(action, &resp); err != nil {
 		return types.Result{}, fmt.Errorf("failed to modify order: %w", err)
 	}
@@ -153,7 +152,7 @@ func (c *Client) CancelAll(coins ...string) (types.BatchCancelResult, error) {
 
 // cancelBatchFromResponse maps a bulk-cancel APIResponse into a
 // BatchCancelResult, one entry per status returned by the server.
-func cancelBatchFromResponse(resp *xtransport.APIResponse[CancelOrderResponse]) types.BatchCancelResult {
+func cancelBatchFromResponse(resp *types.APIResponse[CancelOrderResponse]) types.BatchCancelResult {
 	br := types.BatchCancelResult{}
 	if resp == nil {
 		return br

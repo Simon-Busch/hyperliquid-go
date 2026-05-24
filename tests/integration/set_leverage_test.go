@@ -5,7 +5,8 @@ package integration
 import (
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // TestSetLeverage exercises both margin modes by toggling the test coin
@@ -18,7 +19,7 @@ func TestSetLeverage(t *testing.T) {
 	coin := testCoin(t)
 
 	// Cross 5x
-	state, err := c.Trade.SetLeverage(coin, 5, hl.Cross)
+	state, err := c.Trade.SetLeverage(coin, 5, types.Cross)
 	if err != nil {
 		t.Fatalf("SetLeverage Cross 5x: %v", err)
 	}
@@ -27,7 +28,7 @@ func TestSetLeverage(t *testing.T) {
 	}
 
 	// Isolated 3x
-	state, err = c.Trade.SetLeverage(coin, 3, hl.Isolated)
+	state, err = c.Trade.SetLeverage(coin, 3, types.Isolated)
 	if err != nil {
 		t.Fatalf("SetLeverage Isolated 3x: %v", err)
 	}

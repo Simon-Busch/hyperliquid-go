@@ -1,4 +1,4 @@
-package hyperliquid
+package types
 
 import "testing"
 

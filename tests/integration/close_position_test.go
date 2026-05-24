@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // TestClosePosition_AutoDirection opens a small long with PlaceMarket
@@ -20,7 +21,7 @@ func TestClosePosition_AutoDirection(t *testing.T) {
 	coin := testCoin(t)
 	size := testSize(t, c, coin)
 
-	if _, err := c.Trade.PlaceMarket(coin, hl.Buy, size); err != nil {
+	if _, err := c.Trade.PlaceMarket(coin, types.Buy, size); err != nil {
 		t.Fatalf("PlaceMarket buy: %v", err)
 	}
 	t.Cleanup(func() { _, _ = c.Trade.ClosePosition(coin) })

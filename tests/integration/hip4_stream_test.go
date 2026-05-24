@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/stream"
 )
 
-// TestHIP4_TradesSubscription subscribes to hl.Trades on the canonical
+// TestHIP4_TradesSubscription subscribes to stream.Trades on the canonical
 // "#<enc>" name of a live outcome. Loose contract: subscription
 // succeeds, message count logged. Zero messages within the window is
 // acceptable for thin outcomes; the test passes either way.
@@ -26,7 +27,7 @@ func TestHIP4_TradesSubscription(t *testing.T) {
 	sc := newStreamingClient(t)
 
 	var count atomic.Int32
-	sub, err := sc.Stream.Subscribe(hl.Trades(canonical), func(hl.WSMessage) { count.Add(1) })
+	sub, err := sc.Stream.Subscribe(stream.Trades(canonical), func(stream.WSMessage) { count.Add(1) })
 	if err != nil {
 		t.Fatalf("Subscribe(Trades %q): %v", canonical, err)
 	}

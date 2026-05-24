@@ -19,7 +19,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 const (
@@ -121,7 +121,7 @@ func (c *Client) warnf(format string, args ...any) {
 // cannot be parsed as a URL.
 func New(baseURL string) (*Client, error) {
 	if baseURL == "" {
-		baseURL = transport.MainnetAPIURL
+		baseURL = types.MainnetAPIURL
 	}
 
 	parsedURL, err := url.Parse(baseURL)

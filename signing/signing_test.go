@@ -1,4 +1,4 @@
-package hyperliquid
+package signing
 
 import (
 	"encoding/hex"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Simon-Busch/hyperliquid-go/internal/eip712"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 func TestSignL1Action(t *testing.T) {
@@ -279,8 +280,8 @@ func TestDebugActionHash(t *testing.T) {
 			LimitPx:    "100.5",
 			Size:       "1.0",
 			ReduceOnly: false,
-			OrderType: OrderTypeWire{
-				Limit: &LimitOrderTypeWire{
+			OrderType: types.OrderTypeWire{
+				Limit: &types.LimitOrderTypeWire{
 					Tif: "Gtc",
 				},
 			},

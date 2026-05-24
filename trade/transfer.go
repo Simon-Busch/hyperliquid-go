@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
@@ -96,7 +96,7 @@ func (g *TransferGroup) vaultTransfer(vaultAddress string, isDeposit bool, usd i
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.BaseURL == xtransport.MainnetAPIURL,
+		t.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

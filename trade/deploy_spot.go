@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
@@ -44,7 +44,7 @@ func (c *Client) SpotDeployRegisterToken(
 		"", // No vault address for spot deploy
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (c *Client) SpotDeployUserGenesis(balances map[string]float64) (*SpotDeploy
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func (c *Client) SpotDeployEnableFreezePrivilege() (*SpotDeployResponse, error) 
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func (c *Client) SpotDeployFreezeUser(userAddress string) (*SpotDeployResponse, 
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -174,7 +174,7 @@ func (c *Client) SpotDeployRevokeFreezePrivilege() (*SpotDeployResponse, error) 
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -208,7 +208,7 @@ func (c *Client) SpotDeployGenesis(deployer string, dexName string) (*SpotDeploy
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -245,7 +245,7 @@ func (c *Client) SpotDeployRegisterSpot(
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -282,7 +282,7 @@ func (c *Client) SpotDeployRegisterHyperliquidity(
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -317,7 +317,7 @@ func (c *Client) SpotDeploySetDeployerTradingFeeShare(
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

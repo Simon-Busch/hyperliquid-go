@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
 // TestValidation_LongShortHardErrors opens a tiny long, then attempts a
@@ -23,7 +25,7 @@ func TestValidation_LongShortHardErrors(t *testing.T) {
 	coin := testCoin(t)
 	size := testSize(t, c, coin)
 
-	if _, err := c.Trade.PlaceMarket(coin, hl.Buy, size); err != nil {
+	if _, err := c.Trade.PlaceMarket(coin, types.Buy, size); err != nil {
 		t.Fatalf("PlaceMarket buy: %v", err)
 	}
 	t.Cleanup(func() { _, _ = c.Trade.ClosePosition(coin) })
@@ -35,11 +37,11 @@ func TestValidation_LongShortHardErrors(t *testing.T) {
 	// Reduce-only Buy on a long must be rejected by validate().
 	m := mid(t, c, coin)
 	px := snapPrice(m*1.01, c, coin)
-	_, err := c.Trade.PlaceIOC(coin, hl.Buy, size, px, hl.WithReduceOnly())
+	_, err := c.Trade.PlaceIOC(coin, types.Buy, size, px, trade.WithReduceOnly())
 	if err == nil {
 		t.Fatalf("expected ValidationError wrong_side_for_reduce, got nil")
 	}
-	var ve *hl.ValidationError
+	var ve *types.ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("expected *ValidationError, got %T: %v", err, err)
 	}

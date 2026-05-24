@@ -18,6 +18,7 @@ import (
 
 	"github.com/Simon-Busch/hyperliquid-go/info"
 	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
@@ -178,7 +179,7 @@ func (c *Client) executeAction(action any, result any) error {
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return err
@@ -255,7 +256,7 @@ func (c *Client) executeUserSignedAction(
 ) error {
 	sig, err := signing.SignUserSignedAction(
 		c.privateKey, action, payloadTypes, primaryType,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return err

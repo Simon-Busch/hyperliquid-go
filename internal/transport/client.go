@@ -8,32 +8,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 const (
-	// MainnetAPIURL is the production Hyperliquid REST endpoint.
-	MainnetAPIURL = "https://api.hyperliquid.xyz"
-	// TestnetAPIURL is the testnet Hyperliquid REST endpoint.
-	TestnetAPIURL = "https://api.hyperliquid-testnet.xyz"
-	// LocalAPIURL is a local development endpoint.
-	LocalAPIURL = "http://localhost:3001"
-
 	// httpErrorStatusCode is the minimum status code considered an error.
 	httpErrorStatusCode = 400
 )
-
-// APIError is returned for server-side error responses from /info and
-// /exchange.
-type APIError struct {
-	Code    int    `json:"code"`
-	Message string `json:"msg"`
-	Data    any    `json:"data,omitempty"`
-}
-
-// Error renders the API error as a string.
-func (e APIError) Error() string {
-	return fmt.Sprintf("API error %d: %s", e.Code, e.Message)
-}
 
 // Client is the low-level HTTP wrapper used by the info and exchange
 // surfaces. Construct via New.
@@ -45,10 +27,10 @@ type Client struct {
 }
 
 // New builds a Client targeting baseURL with the default transport when
-// httpClient is nil. Empty baseURL defaults to MainnetAPIURL.
+// httpClient is nil. Empty baseURL defaults to types.MainnetAPIURL.
 func New(baseURL string, httpClient *http.Client) *Client {
 	if baseURL == "" {
-		baseURL = MainnetAPIURL
+		baseURL = types.MainnetAPIURL
 	}
 	if httpClient == nil {
 		httpClient = &http.Client{Transport: Default()}
@@ -93,7 +75,7 @@ func (c *Client) Post(path string, payload any) ([]byte, error) {
 	}
 
 	if resp.StatusCode >= httpErrorStatusCode {
-		return nil, &APIError{
+		return nil, &types.APIError{
 			Code:    resp.StatusCode,
 			Message: string(body),
 		}

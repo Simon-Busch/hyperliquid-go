@@ -1,4 +1,4 @@
-package hyperliquid
+package info
 
 import (
 	"encoding/json"
@@ -7,6 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// stringPtr is a small helper for building tests with nullable string fields.
+func stringPtr(s string) *string {
+	return &s
+}
 
 func TestL2Book_MarshalJSON(t *testing.T) {
 	tests := []struct {
@@ -44,12 +49,10 @@ func TestL2Book_MarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test marshaling
 			jsonData, err := json.Marshal(tt.book)
 			require.NoError(t, err, "marshaling should not fail")
 			assert.JSONEq(t, tt.expected, string(jsonData), "marshaled JSON should match expected")
 
-			// Test round-trip
 			var unmarshaled L2Book
 			err = json.Unmarshal(jsonData, &unmarshaled)
 			require.NoError(t, err, "unmarshaling should not fail")
@@ -95,12 +98,10 @@ func TestLevel_MarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test marshaling
 			jsonData, err := json.Marshal(tt.level)
 			require.NoError(t, err, "marshaling should not fail")
 			assert.JSONEq(t, tt.expected, string(jsonData), "marshaled JSON should match expected")
 
-			// Test round-trip
 			var unmarshaled Level
 			err = json.Unmarshal(jsonData, &unmarshaled)
 			require.NoError(t, err, "unmarshaling should not fail")
@@ -149,12 +150,10 @@ func TestPosition_MarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test marshaling
 			jsonData, err := json.Marshal(tt.pos)
 			require.NoError(t, err, "marshaling should not fail")
 			assert.JSONEq(t, tt.expected, string(jsonData), "marshaled JSON should match expected")
 
-			// Test round-trip
 			var unmarshaled Position
 			err = json.Unmarshal(jsonData, &unmarshaled)
 			require.NoError(t, err, "unmarshaling should not fail")
@@ -199,12 +198,10 @@ func TestLeverage_MarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test marshaling
 			jsonData, err := json.Marshal(tt.leverage)
 			require.NoError(t, err, "marshaling should not fail")
 			assert.JSONEq(t, tt.expected, string(jsonData), "marshaled JSON should match expected")
 
-			// Test round-trip
 			var unmarshaled Leverage
 			err = json.Unmarshal(jsonData, &unmarshaled)
 			require.NoError(t, err, "unmarshaling should not fail")
@@ -278,12 +275,10 @@ func TestUserState_MarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test marshaling
 			jsonData, err := json.Marshal(tt.state)
 			require.NoError(t, err, "marshaling should not fail")
 			assert.JSONEq(t, tt.expected, string(jsonData), "marshaled JSON should match expected")
 
-			// Test round-trip
 			var unmarshaled UserState
 			err = json.Unmarshal(jsonData, &unmarshaled)
 			require.NoError(t, err, "unmarshaling should not fail")
@@ -326,12 +321,10 @@ func TestOpenOrder_MarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test marshaling
 			jsonData, err := json.Marshal(tt.order)
 			require.NoError(t, err, "marshaling should not fail")
 			assert.JSONEq(t, tt.expected, string(jsonData), "marshaled JSON should match expected")
 
-			// Test round-trip
 			var unmarshaled OpenOrder
 			err = json.Unmarshal(jsonData, &unmarshaled)
 			require.NoError(t, err, "unmarshaling should not fail")
@@ -341,7 +334,6 @@ func TestOpenOrder_MarshalJSON(t *testing.T) {
 }
 
 func TestLevel_UnmarshalJSON_StringToFloat(t *testing.T) {
-	// Test that px and sz fields can be unmarshaled from string values
 	jsonData := `{"n":1,"px":"50000.123","sz":"1.456789"}`
 
 	var level Level

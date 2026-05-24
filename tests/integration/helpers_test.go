@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+
+	"github.com/Simon-Busch/hyperliquid-go/info"
 	hl "github.com/Simon-Busch/hyperliquid-go"
 )
 
@@ -196,7 +198,7 @@ func skipIfNoSpotBalance(t *testing.T, client *hl.Client) {
 // the timeout elapses. Returns the position or nil. Used by scenarios
 // that need to act on a freshly-opened position when testnet/mainnet
 // state propagation lags behind a market order ack.
-func awaitPosition(t *testing.T, client *hl.Client, coin string, timeout time.Duration) *hl.Position {
+func awaitPosition(t *testing.T, client *hl.Client, coin string, timeout time.Duration) *info.Position {
 	t.Helper()
 	cfg, _ := loadConfig()
 	deadline := time.Now().Add(timeout)

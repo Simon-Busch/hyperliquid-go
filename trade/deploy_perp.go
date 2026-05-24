@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/Simon-Busch/hyperliquid-go/info"
-	xtransport "github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
@@ -43,7 +43,7 @@ func (c *Client) PerpDeployRegisterAsset(
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func (c *Client) PerpDeploySetOracle(
 		c.vault,
 		timestamp,
 		c.expiresAfter,
-		c.client.BaseURL == xtransport.MainnetAPIURL,
+		c.client.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
