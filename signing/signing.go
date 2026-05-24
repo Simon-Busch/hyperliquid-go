@@ -1,4 +1,4 @@
-package hyperliquid
+package signing
 
 import (
 	"crypto/ecdsa"
@@ -121,32 +121,32 @@ func SignL1Action(
 // (hyperliquid/utils/signing.py). The order of fields must match Python.
 
 var (
-	usdSendSignTypes = []apitypes.Type{
+	UsdSendSignTypes = []apitypes.Type{
 		{Name: "hyperliquidChain", Type: "string"},
 		{Name: "destination", Type: "string"},
 		{Name: "amount", Type: "string"},
 		{Name: "time", Type: "uint64"},
 	}
-	spotTransferSignTypes = []apitypes.Type{
+	SpotTransferSignTypes = []apitypes.Type{
 		{Name: "hyperliquidChain", Type: "string"},
 		{Name: "destination", Type: "string"},
 		{Name: "token", Type: "string"},
 		{Name: "amount", Type: "string"},
 		{Name: "time", Type: "uint64"},
 	}
-	withdrawSignTypes = []apitypes.Type{
+	WithdrawSignTypes = []apitypes.Type{
 		{Name: "hyperliquidChain", Type: "string"},
 		{Name: "destination", Type: "string"},
 		{Name: "amount", Type: "string"},
 		{Name: "time", Type: "uint64"},
 	}
-	usdClassTransferSignTypes = []apitypes.Type{
+	UsdClassTransferSignTypes = []apitypes.Type{
 		{Name: "hyperliquidChain", Type: "string"},
 		{Name: "amount", Type: "string"},
 		{Name: "toPerp", Type: "bool"},
 		{Name: "nonce", Type: "uint64"},
 	}
-	sendAssetSignTypes = []apitypes.Type{
+	SendAssetSignTypes = []apitypes.Type{
 		{Name: "hyperliquidChain", Type: "string"},
 		{Name: "destination", Type: "string"},
 		{Name: "sourceDex", Type: "string"},
@@ -156,25 +156,25 @@ var (
 		{Name: "fromSubAccount", Type: "string"},
 		{Name: "nonce", Type: "uint64"},
 	}
-	tokenDelegateSignTypes = []apitypes.Type{
+	TokenDelegateSignTypes = []apitypes.Type{
 		{Name: "hyperliquidChain", Type: "string"},
 		{Name: "validator", Type: "address"},
 		{Name: "wei", Type: "uint64"},
 		{Name: "isUndelegate", Type: "bool"},
 		{Name: "nonce", Type: "uint64"},
 	}
-	convertToMultiSigUserSignTypes = []apitypes.Type{
+	ConvertToMultiSigUserSignTypes = []apitypes.Type{
 		{Name: "hyperliquidChain", Type: "string"},
 		{Name: "signers", Type: "string"},
 		{Name: "nonce", Type: "uint64"},
 	}
-	approveAgentSignTypes = []apitypes.Type{
+	ApproveAgentSignTypes = []apitypes.Type{
 		{Name: "hyperliquidChain", Type: "string"},
 		{Name: "agentAddress", Type: "address"},
 		{Name: "agentName", Type: "string"},
 		{Name: "nonce", Type: "uint64"},
 	}
-	approveBuilderFeeSignTypes = []apitypes.Type{
+	ApproveBuilderFeeSignTypes = []apitypes.Type{
 		{Name: "hyperliquidChain", Type: "string"},
 		{Name: "maxFeeRate", Type: "string"},
 		{Name: "builder", Type: "address"},

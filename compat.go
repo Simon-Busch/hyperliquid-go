@@ -5,7 +5,10 @@ package hyperliquid
 // This file grows phase by phase and is deleted whole in the final
 // cleanup phase. Do NOT add new symbols here outside that refactor.
 
-import "github.com/Simon-Busch/hyperliquid-go/types"
+import (
+	"github.com/Simon-Busch/hyperliquid-go/signing"
+	"github.com/Simon-Busch/hyperliquid-go/types"
+)
 
 // --- side.go aliases ---
 
@@ -89,3 +92,27 @@ const (
 )
 
 var ClassifyAsset = types.ClassifyAsset
+
+// --- signing.go aliases ---
+
+type SignatureResult = signing.SignatureResult
+
+var (
+	SignL1Action         = signing.SignL1Action
+	SignUserSignedAction = signing.SignUserSignedAction
+	FloatToUsdInt        = signing.FloatToUsdInt
+	GetTimestampMs       = signing.GetTimestampMs
+)
+
+// SignTypes aliased so trader_*.go callers compile through the root.
+var (
+	usdSendSignTypes               = signing.UsdSendSignTypes
+	spotTransferSignTypes          = signing.SpotTransferSignTypes
+	withdrawSignTypes              = signing.WithdrawSignTypes
+	usdClassTransferSignTypes      = signing.UsdClassTransferSignTypes
+	sendAssetSignTypes             = signing.SendAssetSignTypes
+	tokenDelegateSignTypes         = signing.TokenDelegateSignTypes
+	convertToMultiSigUserSignTypes = signing.ConvertToMultiSigUserSignTypes
+	approveAgentSignTypes          = signing.ApproveAgentSignTypes
+	approveBuilderFeeSignTypes     = signing.ApproveBuilderFeeSignTypes
+)
