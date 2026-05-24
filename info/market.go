@@ -1,4 +1,4 @@
-package hyperliquid
+package info
 
 import (
 	"encoding/json"
@@ -7,16 +7,44 @@ import (
 	"strings"
 )
 
+// L2Book is the L2 order book snapshot returned by /info {"type":"l2Book"}.
+type L2Book struct {
+	Coin   string    `json:"coin"`
+	Levels [][]Level `json:"levels"`
+	Time   int64     `json:"time"`
+}
+
+// Level is one price level inside an L2Book.
+type Level struct {
+	N  int     `json:"n"`
+	Px float64 `json:"px,string"`
+	Sz float64 `json:"sz,string"`
+}
+
+// Candle is a single OHLC bar.
+type Candle struct {
+	Timestamp int64  `json:"T"`
+	Close     string `json:"c"`
+	High      string `json:"h"`
+	Interval  string `json:"i"`
+	Low       string `json:"l"`
+	Number    int    `json:"n"`
+	Open      string `json:"o"`
+	Symbol    string `json:"s"`
+	Time      int64  `json:"t"`
+	Volume    string `json:"v"`
+}
+
 // Mid returns the current mid price for coin as a float64. Coin names
 // containing a "<dex>:" prefix (HIP-3 builder-deployed perps) cause the
 // lookup to pin to that dex automatically, since the default-dex mid
 // table does not include builder-DEX coins.
-func (i *Info) Mid(coin string) (float64, error) {
+func (c *Client) Mid(coin string) (float64, error) {
 	var dex []string
 	if idx := strings.Index(coin, ":"); idx > 0 {
 		dex = []string{coin[:idx]}
 	}
-	mids, err := i.AllMids(dex...)
+	mids, err := c.AllMids(dex...)
 	if err != nil {
 		return 0, err
 	}
@@ -30,7 +58,7 @@ func (i *Info) Mid(coin string) (float64, error) {
 // AllMids retrieves mids for all coins. If dex is provided and non-empty,
 // the snapshot is pinned to that HIP-3 dex. Spot mids are only included
 // with the first perp dex.
-func (i *Info) AllMids(dex ...string) (map[string]string, error) {
+func (c *Client) AllMids(dex ...string) (map[string]string, error) {
 	payload := map[string]any{
 		"type": "allMids",
 	}
@@ -38,7 +66,7 @@ func (i *Info) AllMids(dex ...string) (map[string]string, error) {
 		payload["dex"] = dex[0]
 	}
 
-	resp, err := i.client.post("/info", payload)
+	resp, err := c.client.Post("/info", payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch all mids: %w", err)
 	}
@@ -51,15 +79,15 @@ func (i *Info) AllMids(dex ...string) (map[string]string, error) {
 }
 
 // AllMidsOn returns the AllMids snapshot pinned to a specific HIP-3 dex.
-func (i *Info) AllMidsOn(dex string) (map[string]string, error) {
-	return i.AllMids(dex)
+func (c *Client) AllMidsOn(dex string) (map[string]string, error) {
+	return c.AllMids(dex)
 }
 
 // Book returns the current L2 order book for coin.
-func (i *Info) Book(coin string) (*L2Book, error) {
-	resp, err := i.client.post("/info", map[string]any{
+func (c *Client) Book(coin string) (*L2Book, error) {
+	resp, err := c.client.Post("/info", map[string]any{
 		"type": "l2Book",
-		"coin": i.nameToCoin[coin],
+		"coin": c.nameToCoin[coin],
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch L2 snapshot: %w", err)
@@ -74,15 +102,15 @@ func (i *Info) Book(coin string) (*L2Book, error) {
 
 // Candles returns historical candles for coin at interval between start
 // and end (Unix millis).
-func (i *Info) Candles(coin, interval string, start, end int64) ([]Candle, error) {
+func (c *Client) Candles(coin, interval string, start, end int64) ([]Candle, error) {
 	req := map[string]any{
-		"coin":      i.nameToCoin[coin],
+		"coin":      c.nameToCoin[coin],
 		"interval":  interval,
 		"startTime": start,
 		"endTime":   end,
 	}
 
-	resp, err := i.client.post("/info", map[string]any{
+	resp, err := c.client.Post("/info", map[string]any{
 		"type": "candleSnapshot",
 		"req":  req,
 	})
@@ -99,8 +127,8 @@ func (i *Info) Candles(coin, interval string, start, end int64) ([]Candle, error
 
 // MetaAndAssetCtxs fetches perp metadata together with the per-asset
 // context snapshot in a single request.
-func (i *Info) MetaAndAssetCtxs() (*MetaAndAssetCtxsResponse, error) {
-	resp, err := i.client.post("/info", map[string]any{
+func (c *Client) MetaAndAssetCtxs() (*MetaAndAssetCtxsResponse, error) {
+	resp, err := c.client.Post("/info", map[string]any{
 		"type": "metaAndAssetCtxs",
 	})
 	if err != nil {
@@ -143,8 +171,8 @@ func (i *Info) MetaAndAssetCtxs() (*MetaAndAssetCtxsResponse, error) {
 
 // SpotMetaAndAssetCtxs fetches spot metadata together with the per-asset
 // context snapshot.
-func (i *Info) SpotMetaAndAssetCtxs() (map[string]any, error) {
-	resp, err := i.client.post("/info", map[string]any{
+func (c *Client) SpotMetaAndAssetCtxs() (map[string]any, error) {
+	resp, err := c.client.Post("/info", map[string]any{
 		"type": "spotMetaAndAssetCtxs",
 	})
 	if err != nil {

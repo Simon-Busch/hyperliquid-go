@@ -26,7 +26,7 @@ func (g *SubAccountGroup) Create(name string) (*CreateSubAccountResponse, error)
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func (g *SubAccountGroup) transfer(subAccountUser string, isDeposit bool, usd in
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -119,7 +119,7 @@ func (g *SubAccountGroup) spotTransfer(subAccountUser string, isDeposit bool, to
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

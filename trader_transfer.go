@@ -80,7 +80,7 @@ func (g *TransferGroup) vaultTransfer(vaultAddress string, isDeposit bool, usd i
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

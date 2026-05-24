@@ -24,7 +24,7 @@ func (t *Trader) PerpDeployRegisterAsset(
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (t *Trader) PerpDeploySetOracle(
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

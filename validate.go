@@ -216,7 +216,7 @@ func isFirstAsset(info *Info, coin string) bool {
 	if info == nil {
 		return false
 	}
-	for c, id := range info.coinToAsset {
+	for c, id := range info.CoinToAssetMap() {
 		if id == 0 && c == coin {
 			return true
 		}

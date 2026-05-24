@@ -3,14 +3,17 @@ package hyperliquid
 import (
 	"math"
 	"testing"
+
+	infopkg "github.com/Simon-Busch/hyperliquid-go/info"
 )
 
 func TestAssetAndAssetID(t *testing.T) {
-	info := &Info{
-		coinToAsset:    map[string]int{"BTC": 0, "ETH": 1, "PURR/USDC": 10000},
-		nameToCoin:     map[string]string{"BTC": "BTC", "ETH": "ETH", "PURR/USDC": "PURR/USDC"},
-		assetToDecimal: map[int]int{0: 5, 1: 4, 10000: 2},
-	}
+	info := infopkg.NewForTest(
+		nil,
+		map[string]int{"BTC": 0, "ETH": 1, "PURR/USDC": 10000},
+		map[string]string{"BTC": "BTC", "ETH": "ETH", "PURR/USDC": "PURR/USDC"},
+		map[int]int{0: 5, 1: 4, 10000: 2},
+	)
 
 	if got := info.AssetID("ETH"); got != 1 {
 		t.Errorf("AssetID(ETH) = %d, want 1", got)

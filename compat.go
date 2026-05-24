@@ -6,6 +6,8 @@ package hyperliquid
 // cleanup phase. Do NOT add new symbols here outside that refactor.
 
 import (
+	"github.com/Simon-Busch/hyperliquid-go/info"
+	"github.com/Simon-Busch/hyperliquid-go/internal/transport"
 	"github.com/Simon-Busch/hyperliquid-go/signing"
 	"github.com/Simon-Busch/hyperliquid-go/types"
 )
@@ -75,9 +77,9 @@ type OrderSpec = types.OrderSpec
 
 // --- result.go aliases ---
 
-type Result            = types.Result
-type BatchResult       = types.BatchResult
-type CancelResult      = types.CancelResult
+type Result = types.Result
+type BatchResult = types.BatchResult
+type CancelResult = types.CancelResult
 type BatchCancelResult = types.BatchCancelResult
 
 // --- asset_class.go aliases ---
@@ -92,6 +94,11 @@ const (
 )
 
 var ClassifyAsset = types.ClassifyAsset
+
+// --- api.go mixed-array aliases ---
+
+type MixedValue = types.MixedValue
+type MixedArray = types.MixedArray
 
 // --- signing.go aliases ---
 
@@ -160,3 +167,94 @@ type (
 	MergeQuestionAction          = signing.MergeQuestionAction
 	NegateOutcomeAction          = signing.NegateOutcomeAction
 )
+
+// --- transport / URL aliases (moved from http_api.go to internal/transport) ---
+
+const (
+	MainnetAPIURL = transport.MainnetAPIURL
+	TestnetAPIURL = transport.TestnetAPIURL
+	LocalAPIURL   = transport.LocalAPIURL
+)
+
+// APIError is the wire-error envelope returned by /info and /exchange.
+// Aliased through transport so callers (including external code reaching
+// in via hl.APIError) keep working after the move.
+type APIError = transport.APIError
+
+// HTTPAPI is the low-level HTTP client wrapper. It used to live at the
+// root as the unexported httpAPI; the rename + move to internal/transport
+// happened atomically with the info/ extraction.
+type HTTPAPI = transport.Client
+
+// NewHTTPAPI mirrors the legacy newHTTPAPI constructor.
+var NewHTTPAPI = transport.New
+
+// --- info package aliases ---
+
+type Info = info.Client
+type InfoStakeGroup = info.StakeGroup
+
+var NewInfo = info.New
+
+// Response-type aliases — these move with their methods into info/ in the
+// Phase-4 commit but root callers (trader_*.go, *_test.go) still reach
+// them through these aliases.
+type (
+	Meta                        = info.Meta
+	AssetInfo                   = info.AssetInfo
+	MarginTable                 = info.MarginTable
+	MarginTier                  = info.MarginTier
+	SpotMeta                    = info.SpotMeta
+	SpotAssetInfo               = info.SpotAssetInfo
+	SpotTokenInfo               = info.SpotTokenInfo
+	EvmContract                 = info.EvmContract
+	OutcomeMeta                 = info.OutcomeMeta
+	OutcomeInfo                 = info.OutcomeInfo
+	OutcomeSideSpec             = info.OutcomeSideSpec
+	Question                    = info.Question
+	SpotAssetCtx                = info.SpotAssetCtx
+	AssetCtx                    = info.AssetCtx
+	MetaAndAssetCtxsResponse    = info.MetaAndAssetCtxsResponse
+	MetaAndAssetCtxsRawResponse = info.MetaAndAssetCtxsRawResponse
+	PerpDex                     = info.PerpDex
+	PerpDexLimits               = info.PerpDexLimits
+	PerpDexStatus               = info.PerpDexStatus
+	PerpDexSchemaInput          = info.PerpDexSchemaInput
+	PerpDeployAuctionStatus     = info.PerpDeployAuctionStatus
+	L2Book                      = info.L2Book
+	Level                       = info.Level
+	Candle                      = info.Candle
+	AssetPosition               = info.AssetPosition
+	Position                    = info.Position
+	Leverage                    = info.Leverage
+	UserState                   = info.UserState
+	MarginSummary               = info.MarginSummary
+	UserFees                    = info.UserFees
+	UserVolume                  = info.UserVolume
+	FeeSchedule                 = info.FeeSchedule
+	Tiers                       = info.Tiers
+	MMTier                      = info.MMTier
+	VIPTier                     = info.VIPTier
+	OpenOrder                   = info.OpenOrder
+	FrontendOpenOrder           = info.FrontendOpenOrder
+	Fill                        = info.Fill
+	ReferralState               = info.ReferralState
+	ReferredBy                  = info.ReferredBy
+	ReferrerState               = info.ReferrerState
+	ReferrerData                = info.ReferrerData
+	ReferralMember              = info.ReferralMember
+	FundingHistory              = info.FundingHistory
+	UserFundingHistory          = info.UserFundingHistory
+	StakingSummary              = info.StakingSummary
+	StakingDelegation           = info.StakingDelegation
+	StakingReward               = info.StakingReward
+	SubAccount                  = info.SubAccount
+	MultiSigSigner              = info.MultiSigSigner
+	SpotBalance                 = info.SpotBalance
+	SpotClearinghouseState      = info.SpotClearinghouseState
+	AssetMeta                   = info.AssetMeta
+	OrderStatusResponse         = info.OrderStatusResponse
+	Bucket                      = info.Bucket
+)
+
+var ParseOutcomeDescription = info.ParseOutcomeDescription

@@ -102,7 +102,7 @@ func (t *Trader) ScheduleCancelAll(deadline *time.Time) (*ScheduleCancelResponse
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func (t *Trader) SetReferrer(code string) (*SetReferrerResponse, error) {
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ func (t *Trader) UseBigBlocks(enable bool) (*ApprovalResponse, error) {
 		"",
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

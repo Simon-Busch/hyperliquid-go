@@ -33,7 +33,7 @@ func New(opts ...Option) (*Client, error) {
 		o(cfg)
 	}
 
-	api := newHTTPAPI(cfg.baseURL, cfg.httpClient)
+	api := NewHTTPAPI(cfg.baseURL, cfg.httpClient)
 
 	info := NewInfo(cfg.baseURL, true, cfg.meta, cfg.spotMeta, cfg.perpDexs, cfg.builderDex)
 

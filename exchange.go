@@ -16,7 +16,7 @@ import (
 // Trader is the signed-action surface. Construct it indirectly via New;
 // direct construction is not part of the public API.
 type Trader struct {
-	client       *httpAPI
+	client       *HTTPAPI
 	privateKey   *ecdsa.PrivateKey
 	vault        string
 	accountAddr  string
@@ -126,7 +126,7 @@ func (t *Trader) executeAction(action any, result any) error {
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return err
@@ -189,7 +189,7 @@ func (t *Trader) postAction(
 	} else if t.vault != "" {
 		payload["vaultAddress"] = t.vault
 	}
-	return t.client.post("/exchange", payload)
+	return t.client.Post("/exchange", payload)
 }
 
 // executeUserSignedAction signs a user-signed action with the proper
@@ -203,7 +203,7 @@ func (t *Trader) executeUserSignedAction(
 ) error {
 	sig, err := SignUserSignedAction(
 		t.privateKey, action, payloadTypes, primaryType,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return err
@@ -228,5 +228,5 @@ func (t *Trader) GetInfo() *Info {
 // WarmUp pre-establishes the HTTP/2 connection so the first order doesn't pay
 // the cold-start penalty (TCP + TLS + ALPN). Call once after creating the Trader.
 func (t *Trader) WarmUp() error {
-	return t.client.warmUp()
+	return t.client.WarmUp()
 }

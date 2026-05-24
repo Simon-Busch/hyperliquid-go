@@ -21,7 +21,7 @@ func (t *Trader) CSignerUnjailSelf() (*ValidatorResponse, error) {
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (t *Trader) CSignerJailSelf() (*ValidatorResponse, error) {
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (t *Trader) CSignerInner(innerAction map[string]any) (*ValidatorResponse, e
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func (t *Trader) CValidatorRegister(validatorProfile map[string]any) (*Validator
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -154,7 +154,7 @@ func (t *Trader) CValidatorChangeProfile(newProfile map[string]any) (*ValidatorR
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -186,7 +186,7 @@ func (t *Trader) CValidatorUnregister() (*ValidatorResponse, error) {
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

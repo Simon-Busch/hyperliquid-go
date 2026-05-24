@@ -34,7 +34,7 @@ func (t *Trader) SpotDeployRegisterToken(
 		"", // No vault address for spot deploy
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (t *Trader) SpotDeployUserGenesis(balances map[string]float64) (*SpotDeploy
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (t *Trader) SpotDeployEnableFreezePrivilege() (*SpotDeployResponse, error) 
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (t *Trader) SpotDeployFreezeUser(userAddress string) (*SpotDeployResponse, 
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (t *Trader) SpotDeployRevokeFreezePrivilege() (*SpotDeployResponse, error) 
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -198,7 +198,7 @@ func (t *Trader) SpotDeployGenesis(deployer string, dexName string) (*SpotDeploy
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -235,7 +235,7 @@ func (t *Trader) SpotDeployRegisterSpot(
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -272,7 +272,7 @@ func (t *Trader) SpotDeployRegisterHyperliquidity(
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err
@@ -307,7 +307,7 @@ func (t *Trader) SpotDeploySetDeployerTradingFeeShare(
 		t.vault,
 		timestamp,
 		t.expiresAfter,
-		t.client.baseURL == MainnetAPIURL,
+		t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

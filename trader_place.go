@@ -49,7 +49,7 @@ func (t *Trader) SlippagePrice(
 	}
 
 	asset := t.info.AssetID(name)
-	szDecimals := t.info.assetToDecimal[asset]
+	szDecimals := t.info.SzDecimals(asset)
 	class := ClassifyAsset(asset)
 
 	price = formatPriceToTickSize(price, szDecimals, class)

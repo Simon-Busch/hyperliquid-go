@@ -2,19 +2,6 @@ package hyperliquid
 
 import "fmt"
 
-// APIError is returned for server-side error responses from /info and
-// /exchange.
-type APIError struct {
-	Code    int    `json:"code"`
-	Message string `json:"msg"`
-	Data    any    `json:"data,omitempty"`
-}
-
-// Error renders the API error as a string.
-func (e APIError) Error() string {
-	return fmt.Sprintf("API error %d: %s", e.Code, e.Message)
-}
-
 // ValidationError is returned by validate() when a placement spec fails a
 // pre-flight check. Callers can branch on Code via errors.As.
 type ValidationError struct {

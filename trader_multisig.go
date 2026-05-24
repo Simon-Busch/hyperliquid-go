@@ -59,7 +59,7 @@ func (g *MultiSigGroup) Execute(action map[string]any, signers []string, signatu
 		g.t.vault,
 		timestamp,
 		g.t.expiresAfter,
-		g.t.client.baseURL == MainnetAPIURL,
+		g.t.client.BaseURL == MainnetAPIURL,
 	)
 	if err != nil {
 		return nil, err

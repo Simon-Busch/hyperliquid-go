@@ -2,6 +2,8 @@ package hyperliquid
 
 import (
 	"testing"
+
+	infopkg "github.com/Simon-Busch/hyperliquid-go/info"
 )
 
 func TestClassifyAsset(t *testing.T) {
@@ -100,12 +102,14 @@ func TestIsSpotLike(t *testing.T) {
 // szDecimals=0 is empirically confirmed: the exchange rejected size=16.4
 // with "Order has invalid size" but accepted size=16.
 func TestPriceToWireOutcomeDecimals(t *testing.T) {
+	const outcomeAssetBase = 100000000
 	outcomeAsset := outcomeAssetBase + 40 // outcome 4, YES (the live mainnet market)
-	info := &Info{
-		coinToAsset:    map[string]int{"#40": outcomeAsset},
-		nameToCoin:     map[string]string{"#40": "#40"},
-		assetToDecimal: map[int]int{outcomeAsset: 0},
-	}
+	info := infopkg.NewForTest(
+		nil,
+		map[string]int{"#40": outcomeAsset},
+		map[string]string{"#40": "#40"},
+		map[int]int{outcomeAsset: 0},
+	)
 
 	cases := []struct {
 		price float64
@@ -186,9 +190,7 @@ func TestFormatPriceToTickSize(t *testing.T) {
 // wire output, not enum lookup.
 func TestPriceToWireHIP3BugFix(t *testing.T) {
 	hip3Asset := 110005 // dex 1, idx 5; previously misclassified as spot
-	info := &Info{
-		assetToDecimal: map[int]int{hip3Asset: 2},
-	}
+	info := infopkg.NewForTest(nil, nil, nil, map[int]int{hip3Asset: 2})
 	// 0.123456: with old (buggy) spot rules, allowed=6 → "0.12346"
 	//           with new builder-perp rules, allowed=4 → "0.1235" (5 sf cap)
 	got, err := PriceToWire(0.123456, hip3Asset, info, AssetClassBuilderPerp)
@@ -208,9 +210,7 @@ func TestPriceToWireHIP3BugFix(t *testing.T) {
 func TestPriceToWireBackwardsCompatPerpSpot(t *testing.T) {
 	// Perp BTC: szDecimals=5 → maxDecimals(perp)=6 → allowed=1
 	perpAsset := 0
-	info := &Info{
-		assetToDecimal: map[int]int{perpAsset: 5},
-	}
+	info := infopkg.NewForTest(nil, nil, nil, map[int]int{perpAsset: 5})
 	got, err := PriceToWire(50000.123, perpAsset, info, AssetClassPerp)
 	if err != nil {
 		t.Fatalf("perp PriceToWire error: %v", err)
@@ -222,9 +222,7 @@ func TestPriceToWireBackwardsCompatPerpSpot(t *testing.T) {
 
 	// Spot: szDecimals=2 → maxDecimals(spot)=8 → allowed=6
 	spotAsset := 10000
-	info2 := &Info{
-		assetToDecimal: map[int]int{spotAsset: 2},
-	}
+	info2 := infopkg.NewForTest(nil, nil, nil, map[int]int{spotAsset: 2})
 	got, err = PriceToWire(0.12345678, spotAsset, info2, AssetClassSpot)
 	if err != nil {
 		t.Fatalf("spot PriceToWire error: %v", err)

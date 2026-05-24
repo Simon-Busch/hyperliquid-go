@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	infopkg "github.com/Simon-Busch/hyperliquid-go/info"
 )
 
 // stubInfo builds a minimal *Info with the supplied (coin, sz-decimals)
@@ -14,22 +16,19 @@ import (
 // guarded by isFirstAsset).
 func stubInfo(t *testing.T, baseURL string, coins map[string]int) *Info {
 	t.Helper()
-	info := &Info{
-		client:         newHTTPAPI(baseURL, nil),
-		coinToAsset:    make(map[string]int),
-		nameToCoin:     make(map[string]string),
-		assetToDecimal: make(map[int]int),
-	}
+	coinToAsset := make(map[string]int)
+	nameToCoin := make(map[string]string)
+	assetToDecimal := make(map[int]int)
 	// Stable id assignment so callers can rely on the first listed coin
 	// being asset 0.
 	id := 0
 	for c, sz := range coins {
-		info.coinToAsset[c] = id
-		info.nameToCoin[c] = c
-		info.assetToDecimal[id] = sz
+		coinToAsset[c] = id
+		nameToCoin[c] = c
+		assetToDecimal[id] = sz
 		id++
 	}
-	return info
+	return infopkg.NewForTest(NewHTTPAPI(baseURL, nil), coinToAsset, nameToCoin, assetToDecimal)
 }
 
 // stubTraderWithState returns a Trader prewired with a pre-populated
@@ -39,7 +38,7 @@ func stubInfo(t *testing.T, baseURL string, coins map[string]int) *Info {
 // returns the same user state, so the cache stays in sync.
 func stubTraderWithState(t *testing.T, info *Info, state *UserState) *Trader {
 	t.Helper()
-	tr := &Trader{client: info.client, info: info}
+	tr := &Trader{client: info.Transport(), info: info}
 	if state != nil {
 		tr.userState = state
 	}
@@ -264,7 +263,7 @@ func TestValidate_TopLevel_CoinAndSize(t *testing.T) {
 	// httptest server returns a non-empty UserState so RefreshState succeeds.
 	srv := newUserStateServer(t, UserState{})
 	info := stubInfo(t, srv.URL, map[string]int{"BTC": 5, "ETH": 4})
-	tr := &Trader{client: info.client, info: info, accountAddr: "0xtest"}
+	tr := &Trader{client: info.Transport(), info: info, accountAddr: "0xtest"}
 
 	// coin_required
 	err := tr.validate(&OrderSpec{Method: "gtc", Size: 1, Price: 100})
@@ -299,7 +298,7 @@ func TestValidate_TopLevel_CoinAndSize(t *testing.T) {
 func TestValidate_TopLevel_HappyPath(t *testing.T) {
 	srv := newUserStateServer(t, UserState{})
 	info := stubInfo(t, srv.URL, map[string]int{"ETH": 4})
-	tr := &Trader{client: info.client, info: info, accountAddr: "0xtest"}
+	tr := &Trader{client: info.Transport(), info: info, accountAddr: "0xtest"}
 
 	// ETH has szDecimals=4 → MinSize 1e-4; size 0.01 is a multiple.
 	if err := tr.validate(&OrderSpec{Method: "gtc", Coin: "ETH", Side: Buy, Size: 0.01, Price: 1234.5}); err != nil {
@@ -308,9 +307,7 @@ func TestValidate_TopLevel_HappyPath(t *testing.T) {
 }
 
 func TestIsFirstAsset(t *testing.T) {
-	info := &Info{
-		coinToAsset: map[string]int{"BTC": 0, "ETH": 1},
-	}
+	info := infopkg.NewForTest(nil, map[string]int{"BTC": 0, "ETH": 1}, nil, nil)
 	if !isFirstAsset(info, "BTC") {
 		t.Errorf("BTC should be the first asset")
 	}

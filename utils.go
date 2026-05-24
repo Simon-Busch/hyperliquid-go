@@ -39,7 +39,7 @@ func sizeToWire(x float64) (string, error) {
 // sizeToWireWithAsset converts x to a wire-compatible string using the
 // asset-specific size-decimals precision.
 func sizeToWireWithAsset(x float64, asset int, info *Info) (string, error) {
-	szDecimals, exists := info.assetToDecimal[asset]
+	szDecimals, exists := info.AssetToDecimalMap()[asset]
 	if !exists {
 		return wire.SizeToWire(x)
 	}
@@ -50,7 +50,7 @@ func sizeToWireWithAsset(x float64, asset int, info *Info) (string, error) {
 // asset and asset class, applying Hyperliquid's five-significant-figure cap
 // and the MaxPriceDecimals(class) - szDecimals decimal-place limit.
 func PriceToWire(x float64, asset int, info *Info, class AssetClass) (string, error) {
-	szDecimals, exists := info.assetToDecimal[asset]
+	szDecimals, exists := info.AssetToDecimalMap()[asset]
 	if !exists {
 		return wire.FloatToWire(x)
 	}

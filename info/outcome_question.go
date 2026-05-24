@@ -1,8 +1,4 @@
-package hyperliquid
-
-// NOTE: outcome_question.go stays in the root package during Phase 1
-// because its helpers receive Question / OutcomeMeta, which are
-// info-owned response shapes. It moves into info/ in Phase 4.
+package info
 
 import (
 	"fmt"

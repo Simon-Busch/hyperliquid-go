@@ -1,9 +1,94 @@
-package hyperliquid
+package info
 
 import (
 	"encoding/json"
 	"fmt"
 )
+
+// OpenOrder is the slim open-orders row returned by /info
+// {"type":"openOrders"}.
+type OpenOrder struct {
+	Coin      string  `json:"coin"`
+	LimitPx   float64 `json:"limitPx,string"`
+	Oid       int64   `json:"oid"`
+	Side      string  `json:"side"`
+	Size      float64 `json:"sz,string"`
+	Timestamp int64   `json:"timestamp"`
+}
+
+// FrontendOpenOrder represents the detailed order information returned by frontendOpenOrders
+type FrontendOpenOrder struct {
+	Coin             string  `json:"coin"`
+	IsPositionTpsl   bool    `json:"isPositionTpsl"`
+	IsTrigger        bool    `json:"isTrigger"`
+	LimitPx          float64 `json:"limitPx,string"`
+	Oid              int64   `json:"oid"`
+	OrderType        string  `json:"orderType"`
+	OrigSz           float64 `json:"origSz,string"`
+	ReduceOnly       bool    `json:"reduceOnly"`
+	Side             string  `json:"side"`
+	Size             float64 `json:"sz,string"`
+	Timestamp        int64   `json:"timestamp"`
+	TriggerCondition string  `json:"triggerCondition"`
+	TriggerPx        float64 `json:"triggerPx,string"`
+}
+
+// Fill is a single trade execution row in the userFills feed.
+type Fill struct {
+	ClosedPnl     string `json:"closedPnl"`
+	Coin          string `json:"coin"`
+	Crossed       bool   `json:"crossed"`
+	Dir           string `json:"dir"`
+	Hash          string `json:"hash"`
+	Oid           int64  `json:"oid"`
+	Price         string `json:"px"`
+	Side          string `json:"side"`
+	StartPosition string `json:"startPosition"`
+	Size          string `json:"sz"`
+	Time          int64  `json:"time"`
+	Fee           string `json:"fee"`
+	FeeToken      string `json:"feeToken"`
+}
+
+// ReferralState is the per-user referral snapshot returned by /info
+// {"type":"referral"}.
+type ReferralState struct {
+	ReferredBy       *ReferredBy    `json:"referredBy,omitempty"`
+	CumVlm           string         `json:"cumVlm"`
+	UnclaimedRewards string         `json:"unclaimedRewards"`
+	ClaimedRewards   string         `json:"claimedRewards"`
+	BuilderRewards   string         `json:"builderRewards"`
+	ReferrerState    *ReferrerState `json:"referrerState,omitempty"`
+	RewardHistory    []interface{}  `json:"rewardHistory"`
+}
+
+// ReferredBy describes the referrer of an account.
+type ReferredBy struct {
+	Referrer string `json:"referrer"`
+	Code     string `json:"code"`
+}
+
+// ReferrerState is the per-referrer portion of ReferralState.
+type ReferrerState struct {
+	Stage string        `json:"stage"`
+	Data  *ReferrerData `json:"data,omitempty"`
+}
+
+// ReferrerData groups the referrer code with the list of referred
+// accounts.
+type ReferrerData struct {
+	Code           string           `json:"code"`
+	ReferralStates []ReferralMember `json:"referralStates"`
+}
+
+// ReferralMember is one referred-account row inside ReferrerData.
+type ReferralMember struct {
+	CumVlm                       string `json:"cumVlm"`
+	CumRewardedFeesSinceReferred string `json:"cumRewardedFeesSinceReferred"`
+	CumFeesRewardedToReferrer    string `json:"cumFeesRewardedToReferrer"`
+	TimeJoined                   int64  `json:"timeJoined"`
+	User                         string `json:"user"`
+}
 
 // OrderStatusResponse represents the actual response from the orderStatus endpoint
 type OrderStatusResponse struct {
@@ -35,7 +120,7 @@ type OrderStatusResponse struct {
 // OpenOrders retrieves the user's open orders. If dex is provided and
 // non-empty, the query is pinned to that HIP-3 dex. Spot open orders are
 // only returned with the first perp dex.
-func (i *Info) OpenOrders(address string, dex ...string) ([]OpenOrder, error) {
+func (c *Client) OpenOrders(address string, dex ...string) ([]OpenOrder, error) {
 	payload := map[string]any{
 		"type": "openOrders",
 		"user": address,
@@ -44,7 +129,7 @@ func (i *Info) OpenOrders(address string, dex ...string) ([]OpenOrder, error) {
 		payload["dex"] = dex[0]
 	}
 
-	resp, err := i.client.post("/info", payload)
+	resp, err := c.client.Post("/info", payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch open orders: %w", err)
 	}
@@ -59,7 +144,7 @@ func (i *Info) OpenOrders(address string, dex ...string) ([]OpenOrder, error) {
 // FrontendOpenOrders retrieves the user's open orders with frontend info.
 // If dex is provided and non-empty, the query is pinned to that HIP-3
 // dex. Spot open orders are only returned with the first perp dex.
-func (i *Info) FrontendOpenOrders(address string, dex ...string) ([]FrontendOpenOrder, error) {
+func (c *Client) FrontendOpenOrders(address string, dex ...string) ([]FrontendOpenOrder, error) {
 	payload := map[string]any{
 		"type": "frontendOpenOrders",
 		"user": address,
@@ -68,7 +153,7 @@ func (i *Info) FrontendOpenOrders(address string, dex ...string) ([]FrontendOpen
 		payload["dex"] = dex[0]
 	}
 
-	resp, err := i.client.post("/info", payload)
+	resp, err := c.client.Post("/info", payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch frontend open orders: %w", err)
 	}
@@ -81,8 +166,8 @@ func (i *Info) FrontendOpenOrders(address string, dex ...string) ([]FrontendOpen
 }
 
 // Fills retrieves the trailing fill history for addr.
-func (i *Info) Fills(addr string) ([]Fill, error) {
-	resp, err := i.client.post("/info", map[string]any{
+func (c *Client) Fills(addr string) ([]Fill, error) {
+	resp, err := c.client.Post("/info", map[string]any{
 		"type": "userFills",
 		"user": addr,
 	})
@@ -98,8 +183,8 @@ func (i *Info) Fills(addr string) ([]Fill, error) {
 }
 
 // FillsBetween retrieves the fill history for addr in [start, end].
-func (i *Info) FillsBetween(addr string, start int64, end *int64) ([]Fill, error) {
-	resp, err := i.postTimeRangeRequest("userFillsByTime", addr, start, end, nil)
+func (c *Client) FillsBetween(addr string, start int64, end *int64) ([]Fill, error) {
+	resp, err := c.postTimeRangeRequest("userFillsByTime", addr, start, end, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +197,8 @@ func (i *Info) FillsBetween(addr string, start int64, end *int64) ([]Fill, error
 }
 
 // Order returns the order status for the supplied (addr, oid) pair.
-func (i *Info) Order(addr string, oid int64) (*OrderStatusResponse, error) {
-	resp, err := i.client.post("/info", map[string]any{
+func (c *Client) Order(addr string, oid int64) (*OrderStatusResponse, error) {
+	resp, err := c.client.Post("/info", map[string]any{
 		"type": "orderStatus",
 		"user": addr,
 		"oid":  oid,
@@ -132,8 +217,8 @@ func (i *Info) Order(addr string, oid int64) (*OrderStatusResponse, error) {
 
 // Fill finds the fill matching (addr, oid) by scanning the user's fill
 // history; there is no direct endpoint for this query.
-func (i *Info) Fill(addr string, oid int64) (*Fill, error) {
-	fills, err := i.Fills(addr)
+func (c *Client) Fill(addr string, oid int64) (*Fill, error) {
+	fills, err := c.Fills(addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch user fills: %w", err)
 	}
@@ -149,8 +234,8 @@ func (i *Info) Fill(addr string, oid int64) (*Fill, error) {
 
 // OrderByCloid returns the order status for the supplied (addr, cloid)
 // pair.
-func (i *Info) OrderByCloid(addr, cloid string) (*OpenOrder, error) {
-	resp, err := i.client.post("/info", map[string]any{
+func (c *Client) OrderByCloid(addr, cloid string) (*OpenOrder, error) {
+	resp, err := c.client.Post("/info", map[string]any{
 		"type": "orderStatus",
 		"user": addr,
 		"oid":  cloid,
@@ -167,8 +252,8 @@ func (i *Info) OrderByCloid(addr, cloid string) (*OpenOrder, error) {
 }
 
 // Referral returns the referral state for addr.
-func (i *Info) Referral(addr string) (*ReferralState, error) {
-	resp, err := i.client.post("/info", map[string]any{
+func (c *Client) Referral(addr string) (*ReferralState, error) {
+	resp, err := c.client.Post("/info", map[string]any{
 		"type": "referral",
 		"user": addr,
 	})
@@ -184,8 +269,8 @@ func (i *Info) Referral(addr string) (*ReferralState, error) {
 }
 
 // SubAccounts returns the sub-account list for addr.
-func (i *Info) SubAccounts(addr string) ([]SubAccount, error) {
-	resp, err := i.client.post("/info", map[string]any{
+func (c *Client) SubAccounts(addr string) ([]SubAccount, error) {
+	resp, err := c.client.Post("/info", map[string]any{
 		"type": "subAccounts",
 		"user": addr,
 	})
@@ -201,8 +286,8 @@ func (i *Info) SubAccounts(addr string) ([]SubAccount, error) {
 }
 
 // MultiSigSigners returns the signer list for multiSigAddr.
-func (i *Info) MultiSigSigners(multiSigAddr string) ([]MultiSigSigner, error) {
-	resp, err := i.client.post("/info", map[string]any{
+func (c *Client) MultiSigSigners(multiSigAddr string) ([]MultiSigSigner, error) {
+	resp, err := c.client.Post("/info", map[string]any{
 		"type": "userToMultiSigSigners",
 		"user": multiSigAddr,
 	})
