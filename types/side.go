@@ -1,4 +1,4 @@
-package hyperliquid
+package types
 
 // Side represents the direction of an order.
 type Side string

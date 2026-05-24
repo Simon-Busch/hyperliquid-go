@@ -4,3 +4,37 @@ package hyperliquid
 // the refactor described in docs/superpowers/specs/2026-05-24-package-reorganization-design.md.
 // This file grows phase by phase and is deleted whole in the final
 // cleanup phase. Do NOT add new symbols here outside that refactor.
+
+import "github.com/Simon-Busch/hyperliquid-go/types"
+
+// --- side.go aliases ---
+
+type Side = types.Side
+
+const (
+	Buy     = types.Buy
+	Sell    = types.Sell
+	SideBid = types.SideBid
+	SideAsk = types.SideAsk
+)
+
+type TIF = types.TIF
+
+type MarginMode = types.MarginMode
+
+const (
+	Cross    = types.Cross
+	Isolated = types.Isolated
+)
+
+// --- side.go unexported re-declarations (transitional) ---
+//
+// The lowercase TIF wire constants stay unexported inside types/, so the
+// root package re-declares them here against the aliased TIF type. They
+// disappear with this whole file in the final cleanup phase.
+
+const (
+	tifALO TIF = "Alo"
+	tifIOC TIF = "Ioc"
+	tifGTC TIF = "Gtc"
+)
