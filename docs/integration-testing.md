@@ -58,7 +58,7 @@ The integration files in `tests/integration/` cover, at minimum, these scenarios
 5. **SetLeverage round-trip** — switch leverage Cross ↔ Isolated, verify the new state.
 6. **USD transfer to self** — call `Trade.Transfer.SendUSD` to the same wallet, verify the ledger entry.
 7. **Approve agent + place from agent** — call `ApproveAgent`, build a new client with the agent key + `WithAccount(owner)`, place an order, cancel it.
-8. **Stream trades, 5 s** — `Subscribe(hl.Trades(coin), ...)`, count messages over 5 s, assert > 0.
+8. **Stream trades, 5 s** — `Subscribe(stream.Trades(coin), ...)`, count messages over 5 s, assert > 0.
 9. **Stream PostInfo** — call `PostInfo`, compare the payload with the REST `Info.Book` snapshot.
 10. **Stream PostAction** — place an order and cancel it entirely over the WS.
 11. **ClosePosition end-to-end** — open a tiny position, call `ClosePosition`, verify no position remains.
@@ -96,7 +96,7 @@ Each test skips wholesale when `Info.OutcomeMeta` is empty or fails.
 
 - **`429 Too Many Requests`** — the test suite does not throttle. Re-run with `-parallel 1` or insert your own delays in custom scenarios.
 - **`insufficient balance`** — top the test wallet up on testnet via the [Hyperliquid testnet faucet](https://app.hyperliquid-testnet.xyz/).
-- **`validation: refresh user state: ...`** — the SDK could not fetch `UserState` for your address. Confirm `HL_ACCOUNT_ADDRESS` matches the wallet that traded last, or pass `hl.SkipValidation()` if you're intentionally trading from a fresh address.
+- **`validation: refresh user state: ...`** — the SDK could not fetch `info.UserState` for your address. Confirm `HL_ACCOUNT_ADDRESS` matches the wallet that traded last, or pass `trade.SkipValidation()` if you're intentionally trading from a fresh address.
 - **`signature mismatch`** — the chain you're targeting (`HL_BASE_URL`) does not match what `WithMainnet()` / `WithTestnet()` selected. If you set `WithBaseURL` directly, `isMainnet` is inferred from the URL — keep it consistent.
 - **Test occasionally cancels itself with "context deadline exceeded"** — the Stream's initial dial uses the test's `context.Context`. Widen the timeout or split the test into smaller per-call contexts.
 

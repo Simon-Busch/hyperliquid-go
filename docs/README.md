@@ -19,6 +19,21 @@ Cross-cutting:
 
 The full design spec lives at [docs/spec/api-cleanup.md](./spec/api-cleanup.md) — it is the contract the refactor was written against, not user-facing documentation.
 
+## Subpackages
+
+The SDK is split into focused subpackages. The root `hyperliquid` package is a thin facade — it re-exports `New`, `Client`, the option functions, and `ErrMissingPrivateKey`, and wires the three handles to subpackage clients. Each subpackage is importable on its own:
+
+| Import path                                        | Contents                                                                                              |
+|----------------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| `github.com/Simon-Busch/hyperliquid-go`            | Facade: `New`, `Client`, `With*` options, `ErrMissingPrivateKey`.                                     |
+| `.../info`                                         | Read-only client (`info.New`, `info.Client`) plus every response type (`UserState`, `Fill`, `Meta`, …). |
+| `.../trade`                                        | Signed-action client (`trade.New`, `trade.Client`), `PlaceOpt`, the `ALO/IOC/GTC/Market/Trigger` constructors, every `With*` placement option, every response type. |
+| `.../stream`                                       | Websocket client (`stream.New`, `stream.Client`), every subscription constructor (`Trades`, `Book`, …), `WSMessage`, `Subscription`, `Logger`. |
+| `.../signing`                                      | EIP-712 helpers (`SignL1Action`, `SignUserSignedAction`, `FloatToUsdInt`, `GetTimestampMs`), `SignatureResult`, all wire action structs. |
+| `.../types`                                        | Shared domain types: `Side` (`Buy`/`Sell`), `MarginMode`, `TIF`, `OrderSpec`, `Result`, `BatchResult`, `CancelResult`, `BatchCancelResult`, `ValidationError`, `AssetClass`, `MixedArray`, … |
+
+Most users only ever import the root package. The subpackage names appear in the rest of these docs (`types.Side`, `trade.WithBracket`, `stream.Trades`, …) so that the snippets stay valid after the transitional root-package compat aliases are removed.
+
 ## Index
 
 ### Client and configuration
@@ -37,7 +52,7 @@ The full design spec lives at [docs/spec/api-cleanup.md](./spec/api-cleanup.md) 
 - [`Trader.PlaceMarket`](./trading.md#placemarket)
 - [`Trader.PlaceTrigger`](./trading.md#placetrigger)
 - [`Trader.PlaceMany`](./trading.md#placemany)
-- [`hl.ALO`, `hl.IOC`, `hl.GTC`, `hl.Market`, `hl.Trigger`](./trading.md#orderspec-constructors)
+- [`trade.ALO`, `trade.IOC`, `trade.GTC`, `trade.Market`, `trade.Trigger`](./trading.md#orderspec-constructors)
 
 ### Trading — placement options
 
@@ -138,11 +153,11 @@ The full design spec lives at [docs/spec/api-cleanup.md](./spec/api-cleanup.md) 
 
 - [`Stream.Connect`, `Stream.Close`](./stream.md#lifecycle)
 - [`Stream.Subscribe`, `Subscription.Close`](./stream.md#subscribe)
-- [`hl.Trades`, `hl.Book`, `hl.BBO`, `hl.Candles`](./stream.md#market-subscriptions)
-- [`hl.AllMids`, `hl.AllMidsOn`, `hl.ActiveAssetCtx`, `hl.ActiveAssetData`](./stream.md#market-subscriptions)
-- [`hl.UserEvents`, `hl.UserFills`, `hl.OrderUpdates`](./stream.md#user-subscriptions)
-- [`hl.UserFundings`, `hl.UserLedger`, `hl.WebData`, `hl.Notifications`](./stream.md#user-subscriptions)
-- [`hl.UserTwapFills`, `hl.UserTwapHistory`](./stream.md#user-subscriptions)
+- [`stream.Trades`, `stream.Book`, `stream.BBO`, `stream.Candles`](./stream.md#market-subscriptions)
+- [`stream.AllMids`, `stream.AllMidsOn`, `stream.ActiveAssetCtx`, `stream.ActiveAssetData`](./stream.md#market-subscriptions)
+- [`stream.UserEvents`, `stream.UserFills`, `stream.OrderUpdates`](./stream.md#user-subscriptions)
+- [`stream.UserFundings`, `stream.UserLedger`, `stream.WebData`, `stream.Notifications`](./stream.md#user-subscriptions)
+- [`stream.UserTwapFills`, `stream.UserTwapHistory`](./stream.md#user-subscriptions)
 - [`Stream.PostInfo`, `Stream.PostAction`, `Stream.Post`](./stream.md#post-over-ws)
 
 ### Signing

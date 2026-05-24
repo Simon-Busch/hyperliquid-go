@@ -2,28 +2,30 @@
 
 The SDK distinguishes three kinds of failure:
 
-1. **Pre-flight validation failures** — `*ValidationError`, returned by `validate()` before any signing happens. Every placement, modify, cancel and close call funnels through one shared validator; this is your first line of defence against malformed orders.
-2. **Server-side API failures** — `APIError`, returned by the HTTP layer when `/info` or `/exchange` rejects a request.
-3. **Sentinel errors** — exported `error` values for static comparison via `errors.Is`.
+1. **Pre-flight validation failures** — `*types.ValidationError`, returned by `validate()` before any signing happens. Every placement, modify, cancel and close call funnels through one shared validator; this is your first line of defence against malformed orders.
+2. **Server-side API failures** — `transport.APIError` (aliased at the root as `hyperliquid.APIError` for now), returned by the HTTP layer when `/info` or `/exchange` rejects a request.
+3. **Sentinel errors** — exported `error` values for static comparison via `errors.Is`, such as `hyperliquid.ErrMissingPrivateKey`.
 
-## `ValidationError` {#validationerror}
+## `types.ValidationError` {#validationerror}
 
 ```go
-type ValidationError struct {
+type types.ValidationError struct {
     Field   string // "Size", "Price", "Coin", "ReduceOnly", "Bracket", ...
     Code    string // stable machine code; see table below
     Message string // human-readable
     Got     any    // optional: the value that was rejected
     Want    any    // optional: what would have been accepted
 }
-func (e *ValidationError) Error() string
+func (e *types.ValidationError) Error() string
 ```
 
-Returned as a `*ValidationError`; use `errors.As`:
+Returned as a `*types.ValidationError`; use `errors.As`:
 
 ```go
-var ve *hl.ValidationError
-if _, err := c.Trade.PlaceALO("ETH", hl.Buy, 0.001, 1500); err != nil {
+import "github.com/Simon-Busch/hyperliquid-go/types"
+
+var ve *types.ValidationError
+if _, err := c.Trade.PlaceALO("ETH", types.Buy, 0.001, 1500); err != nil {
     if errors.As(err, &ve) {
         switch ve.Code {
         case "size_below_min":
@@ -61,17 +63,17 @@ if _, err := c.Trade.PlaceALO("ETH", hl.Buy, 0.001, 1500); err != nil {
 
 ### State refresh failures
 
-Validation also refreshes the cached `UserState` before the position-aware rules run. If `RefreshState` fails the placement returns a wrapped error of the form
+Validation also refreshes the cached `info.UserState` before the position-aware rules run. If `RefreshState` fails the placement returns a wrapped error of the form
 
 ```
-validate: refresh user state: <underlying error> (use hl.SkipValidation() to bypass)
+validate: refresh user state: <underlying error> (use trade.SkipValidation() to bypass)
 ```
 
-This is not a `ValidationError.Code` — it's a `fmt.Errorf` wrap. Use `errors.As` to detect `*ValidationError`; fall through to message-string inspection for refresh failures, or pass `hl.SkipValidation()` per-call if you accept the trade-off.
+This is not a `types.ValidationError.Code` — it's a `fmt.Errorf` wrap. Use `errors.As` to detect `*types.ValidationError`; fall through to message-string inspection for refresh failures, or pass `trade.SkipValidation()` per-call if you accept the trade-off.
 
 ## `APIError` {#apierror}
 
-Returned when the server rejects a request.
+Returned when the server rejects a request. The type lives in `internal/transport` and is re-exported at the root as `hyperliquid.APIError`:
 
 ```go
 type APIError struct {
@@ -85,20 +87,22 @@ func (e APIError) Error() string
 Use `errors.As` to match it:
 
 ```go
+import hl "github.com/Simon-Busch/hyperliquid-go"
+
 var apiErr hl.APIError
 if errors.As(err, &apiErr) {
     fmt.Printf("api error %d: %s\n", apiErr.Code, apiErr.Message)
 }
 ```
 
-Some endpoints surface their errors inside the `Result.Error` string instead of the returned `error` — always inspect both when placing orders.
+Some endpoints surface their errors inside the `types.Result.Error` string instead of the returned `error` — always inspect both when placing orders.
 
-## `ErrMissingPrivateKey` {#errmissingprivatekey}
+## `hyperliquid.ErrMissingPrivateKey` {#errmissingprivatekey}
 
-Sentinel returned when a `Trader` method is invoked on a `Client` constructed without `WithPrivateKey`.
+Sentinel returned when a `trade.Client` method is invoked on a `Client` constructed without `WithPrivateKey`. Lives in the root `hyperliquid` package.
 
 ```go
-var ErrMissingPrivateKey = errors.New("hyperliquid: trader requires WithPrivateKey")
+var hyperliquid.ErrMissingPrivateKey = errors.New("hyperliquid: trader requires WithPrivateKey")
 ```
 
 Match via `errors.Is`:

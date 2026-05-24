@@ -14,6 +14,16 @@ The package is imported as `hyperliquid` and conventionally aliased to `hl`:
 import hl "github.com/Simon-Busch/hyperliquid-go"
 ```
 
+`hl` is the entry-point facade. Domain types, placement options, and stream subscription constructors live in dedicated subpackages — most snippets in this guide also import one or more of them:
+
+```go
+import (
+    "github.com/Simon-Busch/hyperliquid-go/trade"   // PlaceOpt, WithBracket, ALO, GTC, ...
+    "github.com/Simon-Busch/hyperliquid-go/stream"  // Trades, Book, WSMessage, ...
+    "github.com/Simon-Busch/hyperliquid-go/types"   // Side (Buy/Sell), OrderSpec, Result, ...
+)
+```
+
 ## 2. Configure credentials
 
 Create a `.env` file in your project root (the SDK does not load it for you, but the integration suite uses [godotenv](https://github.com/joho/godotenv)):
@@ -67,12 +77,12 @@ Place an Add-Liquidity-Only limit buy 1% below mid so it rests on the book:
 
 ```go
 px := math.Round(mid*0.99*100) / 100 // round to tick
-res, err := c.Trade.PlaceALO("ETH", hl.Buy, 0.01, px)
+res, err := c.Trade.PlaceALO("ETH", types.Buy, 0.01, px)
 if err != nil { log.Fatal(err) }
 fmt.Printf("placed oid=%d status=%s\n", res.OID, res.Status)
 ```
 
-`PlaceALO` returns a `Result` with the resting order id, a stable status string, and an `Error` field populated when the server rejected the leg. Before signing, the call runs `validate()` against the cached `UserState` and the asset metadata. Failures surface as `*ValidationError` (see [errors.md](./errors.md)).
+`PlaceALO` returns a `types.Result` with the resting order id, a stable status string, and an `Error` field populated when the server rejected the leg. Before signing, the call runs `validate()` against the cached `UserState` and the asset metadata. Failures surface as `*types.ValidationError` (see [errors.md](./errors.md)).
 
 ## 6. List open orders
 
@@ -104,7 +114,7 @@ fmt.Printf("cancelled %d orders\n", len(batch.Results))
 
 ## 8. Place a GTC with a bracket
 
-`WithBracket(tp, sl)` attaches reduce-only trigger legs that fire when the parent fills. They are submitted as one signed action with `grouping = "normalTpsl"`:
+`trade.WithBracket(tp, sl)` attaches reduce-only trigger legs that fire when the parent fills. They are submitted as one signed action with `grouping = "normalTpsl"`:
 
 ```go
 entry := math.Round(mid*0.995*100) / 100
@@ -112,8 +122,8 @@ tp    := math.Round(mid*1.02*100)  / 100
 sl    := math.Round(mid*0.98*100)  / 100
 
 res, err := c.Trade.PlaceGTC(
-    "ETH", hl.Buy, 0.01, entry,
-    hl.WithBracket(tp, sl),
+    "ETH", types.Buy, 0.01, entry,
+    trade.WithBracket(tp, sl),
 )
 if err != nil { log.Fatal(err) }
 ```
@@ -122,7 +132,7 @@ Cancelling the parent cancels the TP/SL legs as well.
 
 ## 9. Close a position
 
-`ClosePosition` reads the cached `UserState`, infers direction (long → sell, short → buy), and submits a reduce-only IOC. Pass `WithLimit(px)` to close at a specific price; pass `WithSize(x)` for a partial close.
+`ClosePosition` reads the cached `UserState`, infers direction (long → sell, short → buy), and submits a reduce-only IOC. Pass `trade.WithLimit(px)` to close at a specific price; pass `trade.WithSize(x)` for a partial close.
 
 ```go
 res, err := c.Trade.ClosePosition("ETH")
@@ -130,7 +140,7 @@ if err != nil { log.Fatal(err) }
 fmt.Println("close avg px:", res.AvgPx)
 ```
 
-If the cached state shows no position in `coin`, the call returns a `*ValidationError` with `Code == "no_position"`.
+If the cached state shows no position in `coin`, the call returns a `*types.ValidationError` with `Code == "no_position"`.
 
 ## 10. Subscribe to live trades
 
@@ -143,7 +153,7 @@ defer cancel()
 if err := c.Stream.Connect(ctx); err != nil { log.Fatal(err) }
 defer c.Stream.Close()
 
-sub, err := c.Stream.Subscribe(hl.Trades("ETH"), func(m hl.WSMessage) {
+sub, err := c.Stream.Subscribe(stream.Trades("ETH"), func(m stream.WSMessage) {
     fmt.Printf("trade: %s\n", string(m.Data))
 })
 if err != nil { log.Fatal(err) }
@@ -152,14 +162,14 @@ defer sub.Close()
 time.Sleep(5 * time.Second)
 ```
 
-`Subscribe` returns a `*Subscription`; call `sub.Close()` to deregister. The Stream maintains its own reconnect loop; on disconnect it resubscribes everything you had registered.
+`Subscribe` returns a `*stream.Subscription`; call `sub.Close()` to deregister. The Stream maintains its own reconnect loop; on disconnect it resubscribes everything you had registered.
 
 ## 11. Multi-leg batch (one signature)
 
 ```go
 res, err := c.Trade.PlaceMany(
-    hl.GTC("ETH", hl.Buy,  0.01, entry),
-    hl.GTC("BTC", hl.Sell, 0.0005, 70_000),
+    trade.GTC("ETH", types.Buy,  0.01, entry),
+    trade.GTC("BTC", types.Sell, 0.0005, 70_000),
 )
 if err != nil { log.Fatal(err) }
 for i, r := range res.Results {
@@ -167,7 +177,21 @@ for i, r := range res.Results {
 }
 ```
 
-The constructors (`hl.ALO`, `hl.IOC`, `hl.GTC`, `hl.Market`, `hl.Trigger`) accept exactly the same `PlaceOpt` set as the corresponding `Trader.Place*` methods. `PlaceMany` validates each spec individually before sending a single batched action.
+The constructors (`trade.ALO`, `trade.IOC`, `trade.GTC`, `trade.Market`, `trade.Trigger`) accept exactly the same `trade.PlaceOpt` set as the corresponding `c.Trade.Place*` methods. `PlaceMany` validates each spec individually before sending a single batched action.
+
+## 12. Power user: import a subpackage directly
+
+The facade is the recommended entry point, but every handle is also reachable on its own. A read-only client that never signs anything can import only `info`:
+
+```go
+import "github.com/Simon-Busch/hyperliquid-go/info"
+
+// info.New(baseURL, skipWS, meta, spotMeta, perpDexs, perpDexName)
+i := info.New("https://api.hyperliquid-testnet.xyz", true, nil, nil, nil, "")
+state, err := i.UserState("0xabc...")
+```
+
+The same pattern works for `trade.New(trade.Config{...})` and `stream.New(baseURL)`. See each subpackage's godoc for the exact constructor signature.
 
 ## Next steps
 
