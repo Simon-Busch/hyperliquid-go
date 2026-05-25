@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
 // TestAdjustMargin_IsolatedMode opens a tiny isolated-leverage position
@@ -22,7 +24,7 @@ func TestAdjustMargin_IsolatedMode(t *testing.T) {
 	coin := testCoin(t)
 
 	// Isolated 3x so AdjustMargin has something to mutate.
-	if _, err := c.Trade.SetLeverage(coin, 3, hl.Isolated); err != nil {
+	if _, err := c.Trade.SetLeverage(coin, 3, types.Isolated); err != nil {
 		if strings.Contains(err.Error(), "Cannot change leverage with open position") {
 			t.Skipf("cannot switch to isolated mode while a position is open: %v", err)
 		}
@@ -30,7 +32,7 @@ func TestAdjustMargin_IsolatedMode(t *testing.T) {
 	}
 
 	size := testSize(t, c, coin)
-	res, err := c.Trade.PlaceMarket(coin, hl.Buy, size, hl.WithSlippage(0.05))
+	res, err := c.Trade.PlaceMarket(coin, types.Buy, size, trade.WithSlippage(0.05))
 	if err != nil {
 		t.Fatalf("PlaceMarket: %v", err)
 	}

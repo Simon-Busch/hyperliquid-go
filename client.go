@@ -9,6 +9,12 @@ import (
 	"errors"
 	"net/http"
 	"time"
+
+	"github.com/Simon-Busch/hyperliquid-go/info"
+	"github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/stream"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // Client is the top-level Hyperliquid client. It exposes three handles:
@@ -19,9 +25,9 @@ import (
 //
 // Construct it with New and a list of options.
 type Client struct {
-	Info   *Info
-	Trade  *Trader
-	Stream *Stream
+	Info   *info.Client
+	Trade  *trade.Client
+	Stream *stream.Client
 }
 
 // New builds a Client configured by the supplied options. At minimum either
@@ -33,36 +39,33 @@ func New(opts ...Option) (*Client, error) {
 		o(cfg)
 	}
 
-	api := newHTTPAPI(cfg.baseURL, cfg.httpClient)
+	api := transport.New(cfg.baseURL, cfg.httpClient)
 
-	info := NewInfo(cfg.baseURL, true, cfg.meta, cfg.spotMeta, cfg.perpDexs, cfg.builderDex)
+	infoC := info.New(cfg.baseURL, true, cfg.meta, cfg.spotMeta, cfg.perpDexs, cfg.builderDex)
 
-	c := &Client{Info: info}
+	c := &Client{Info: infoC}
 
 	if cfg.privateKey != nil {
-		c.Trade = &Trader{
-			client:       api,
-			privateKey:   cfg.privateKey,
-			vault:        cfg.vault,
-			accountAddr:  cfg.account,
-			dex:          cfg.builderDex,
-			info:         info,
-			expiresAfter: cfg.expiresAfter,
-		}
-		c.Trade.attachSubgroups()
+		c.Trade = trade.New(trade.Config{
+			Client:       api,
+			PrivateKey:   cfg.privateKey,
+			Vault:        cfg.vault,
+			AccountAddr:  cfg.account,
+			Dex:          cfg.builderDex,
+			Info:         infoC,
+			ExpiresAfter: cfg.expiresAfter,
+		})
 	}
 
 	if !cfg.skipStream {
-		stream, err := NewStream(cfg.baseURL)
+		s, err := stream.New(cfg.baseURL)
 		if err != nil {
 			return nil, err
 		}
-		stream.SetLogger(cfg.logger)
-		stream.maxReconnectAttempts = cfg.maxReconnectAttempts
-		if cfg.reconnectWait > 0 {
-			stream.reconnectWait = cfg.reconnectWait
-		}
-		c.Stream = stream
+		s.SetLogger(cfg.logger)
+		s.SetMaxReconnectAttempts(cfg.maxReconnectAttempts)
+		s.SetReconnectWait(cfg.reconnectWait)
+		c.Stream = s
 	}
 
 	return c, nil
@@ -76,11 +79,11 @@ type clientConfig struct {
 	account              string
 	vault                string
 	builderDex           string
-	meta                 *Meta
-	spotMeta             *SpotMeta
-	perpDexs             *MixedArray
+	meta                 *info.Meta
+	spotMeta             *info.SpotMeta
+	perpDexs             *types.MixedArray
 	skipStream           bool
-	logger               Logger
+	logger               stream.Logger
 	maxReconnectAttempts int
 	reconnectWait        time.Duration
 	expiresAfter         *int64
@@ -88,8 +91,8 @@ type clientConfig struct {
 
 func defaultClientConfig() *clientConfig {
 	return &clientConfig{
-		baseURL: MainnetAPIURL,
-		logger:  nopLogger{},
+		baseURL: types.MainnetAPIURL,
+		logger:  nil, // stream.Client falls back to its internal nop logger
 	}
 }
 

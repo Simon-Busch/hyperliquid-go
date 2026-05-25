@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+
+	"github.com/Simon-Busch/hyperliquid-go/info"
 	hl "github.com/Simon-Busch/hyperliquid-go"
 )
 
@@ -192,11 +194,46 @@ func skipIfNoSpotBalance(t *testing.T, client *hl.Client) {
 	t.Skipf("account %s has no spot balance", c.AccountAddr)
 }
 
+// skipIfSpotTokenBelow skips when the account's available (Total - Hold)
+// balance of token is below min. HIP-4 outcome scenarios pay in USDH and
+// the venue rejects orders when free balance is insufficient — so a non-
+// zero total isn't enough; the live amount has to actually cover the
+// order's notional. Pass min=0 to require only that some balance exists.
+func skipIfSpotTokenBelow(t *testing.T, client *hl.Client, token string, min float64) {
+	t.Helper()
+	c, _ := loadConfig()
+	spot, err := client.Info.SpotBalances(c.AccountAddr)
+	if err != nil {
+		t.Skipf("SpotBalances failed: %v", err)
+	}
+	for _, b := range spot.Balances {
+		if !strings.EqualFold(b.Coin, token) {
+			continue
+		}
+		total, terr := strconv.ParseFloat(b.Total, 64)
+		hold, herr := strconv.ParseFloat(b.Hold, 64)
+		if terr != nil {
+			continue
+		}
+		if herr != nil {
+			hold = 0
+		}
+		avail := total - hold
+		if avail >= min {
+			return
+		}
+		t.Skipf("account %s has %s available=%.6f (total=%.6f hold=%.6f), need >= %.6f",
+			c.AccountAddr, token, avail, total, hold, min)
+	}
+	t.Skipf("account %s holds no %s; fund the testnet account to run this scenario",
+		c.AccountAddr, token)
+}
+
 // awaitPosition polls Info.Position until coin has a non-zero size or
 // the timeout elapses. Returns the position or nil. Used by scenarios
 // that need to act on a freshly-opened position when testnet/mainnet
 // state propagation lags behind a market order ack.
-func awaitPosition(t *testing.T, client *hl.Client, coin string, timeout time.Duration) *hl.Position {
+func awaitPosition(t *testing.T, client *hl.Client, coin string, timeout time.Duration) *info.Position {
 	t.Helper()
 	cfg, _ := loadConfig()
 	deadline := time.Now().Add(timeout)

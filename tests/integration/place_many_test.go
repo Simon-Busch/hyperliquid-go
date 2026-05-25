@@ -5,10 +5,12 @@ package integration
 import (
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
-// TestPlaceMany_Batch builds two far-from-mid ALO specs via hl.ALO and
+// TestPlaceMany_Batch builds two far-from-mid ALO specs via trade.ALO and
 // submits them as a single signed batch through Trade.PlaceMany. The
 // test asserts both legs come back with OIDs and both rest in
 // OpenOrders. Cleanup cancels every order on the test coin.
@@ -32,8 +34,8 @@ func TestPlaceMany_Batch(t *testing.T) {
 	})
 
 	batch, err := c.Trade.PlaceMany(
-		hl.ALO(coin, hl.Buy, size1, px1),
-		hl.ALO(coin, hl.Buy, size2, px2),
+		trade.ALO(coin, types.Buy, size1, px1),
+		trade.ALO(coin, types.Buy, size2, px2),
 	)
 	if err != nil {
 		t.Fatalf("PlaceMany: %v", err)

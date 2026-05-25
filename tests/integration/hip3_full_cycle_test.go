@@ -9,6 +9,10 @@ import (
 	"testing"
 	"time"
 
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/info"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 	hl "github.com/Simon-Busch/hyperliquid-go"
 )
 
@@ -122,7 +126,7 @@ func TestHIP3_ShortFullCycle(t *testing.T) {
 		coin, size, midPx, size*midPx)
 
 	// Step 2: short = Sell at market.
-	short, err := c.Trade.PlaceMarket(coin, hl.Sell, size, hl.WithSlippage(0.05))
+	short, err := c.Trade.PlaceMarket(coin, types.Sell, size, trade.WithSlippage(0.05))
 	if err != nil {
 		t.Fatalf("PlaceMarket Sell %s: %v", coin, err)
 	}
@@ -199,7 +203,7 @@ func TestHIP3_ShortFullCycle(t *testing.T) {
 // coin shows a non-zero position or the timeout elapses. The HIP-3
 // equivalent of awaitPosition — the default perp helper does not pass
 // the dex parameter, so it would not see HIP-3 positions.
-func awaitPositionOnDex(t *testing.T, c *hl.Client, addr, coin, dex string, timeout time.Duration) *hl.Position {
+func awaitPositionOnDex(t *testing.T, c *hl.Client, addr, coin, dex string, timeout time.Duration) *info.Position {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {

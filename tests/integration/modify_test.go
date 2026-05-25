@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
 // TestModify_PriceAndSize places a resting GTC and changes its size via
@@ -43,7 +45,7 @@ func TestModify_PriceAndSize(t *testing.T) {
 
 	t.Logf("bestBid=%.4f entry=%.4f size=%.6f newSize=%.6f", bestBid, entry, size, newSize)
 
-	res, err := c.Trade.PlaceALO(coin, hl.Buy, size, entry)
+	res, err := c.Trade.PlaceALO(coin, types.Buy, size, entry)
 	if err != nil {
 		t.Fatalf("PlaceALO: %v", err)
 	}
@@ -53,7 +55,7 @@ func TestModify_PriceAndSize(t *testing.T) {
 	}
 	t.Logf("placed oid=%d at entry=%.4f", res.OID, entry)
 
-	mod, err := c.Trade.Modify(res.OID, hl.WithLimit(entry), hl.WithSize(newSize))
+	mod, err := c.Trade.Modify(res.OID, trade.WithLimit(entry), trade.WithSize(newSize))
 	if err != nil {
 		// Hyperliquid's modify action gates on the oracle/index reference
 		// price, which on testnet routinely diverges from book quotes by

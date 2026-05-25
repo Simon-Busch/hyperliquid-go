@@ -6,7 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // TestHIP4_FractionalSizeRejected feeds size=0.5 (fractional) to an
@@ -24,11 +25,11 @@ func TestHIP4_FractionalSizeRejected(t *testing.T) {
 		t.Skipf("snapped price <= 0 for %s", canonical)
 	}
 
-	_, err := c.Trade.PlaceALO(canonical, hl.Buy, 0.5, px)
+	_, err := c.Trade.PlaceALO(canonical, types.Buy, 0.5, px)
 	if err == nil {
 		t.Fatalf("PlaceALO with size=0.5 on HIP-4 outcome was accepted; expected ValidationError")
 	}
-	var verr *hl.ValidationError
+	var verr *types.ValidationError
 	if !errors.As(err, &verr) {
 		t.Fatalf("PlaceALO error not a ValidationError: %v", err)
 	}

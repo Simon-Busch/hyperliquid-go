@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 	hl "github.com/Simon-Busch/hyperliquid-go"
 )
 
@@ -70,7 +73,7 @@ func TestHIP4_YesFlow(t *testing.T) {
 
 	cfg, _ := loadConfig()
 
-	res, err := c.Trade.PlaceMarket(canonical, hl.Buy, size, hl.WithSlippage(0.05))
+	res, err := c.Trade.PlaceMarket(canonical, types.Buy, size, trade.WithSlippage(0.05))
 	if err != nil {
 		t.Fatalf("PlaceMarket buy: %v", err)
 	}
@@ -90,7 +93,7 @@ func TestHIP4_YesFlow(t *testing.T) {
 		if closed {
 			return
 		}
-		if _, err := c.Trade.PlaceMarket(canonical, hl.Sell, filledSize, hl.WithSlippage(0.10)); err != nil {
+		if _, err := c.Trade.PlaceMarket(canonical, types.Sell, filledSize, trade.WithSlippage(0.10)); err != nil {
 			t.Logf("cleanup sell %v contracts: %v (best-effort)", filledSize, err)
 		}
 	})
@@ -107,7 +110,7 @@ func TestHIP4_YesFlow(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// Close by selling the exact filled size at market.
-	closeRes, err := c.Trade.PlaceMarket(canonical, hl.Sell, filledSize, hl.WithSlippage(0.10))
+	closeRes, err := c.Trade.PlaceMarket(canonical, types.Sell, filledSize, trade.WithSlippage(0.10))
 	if err != nil {
 		t.Fatalf("PlaceMarket sell (close): %v", err)
 	}

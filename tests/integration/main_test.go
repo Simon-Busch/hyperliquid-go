@@ -27,7 +27,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/joho/godotenv"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // integrationConfig is the typed view of the .env variables used by the
@@ -92,7 +93,7 @@ func loadConfig() (*integrationConfig, error) {
 
 		baseURL := strings.TrimSpace(os.Getenv("HL_BASE_URL"))
 		if baseURL == "" {
-			baseURL = hl.TestnetAPIURL
+			baseURL = types.TestnetAPIURL
 		}
 
 		coin := strings.TrimSpace(os.Getenv("HL_TEST_COIN"))

@@ -5,7 +5,8 @@ package integration
 import (
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // TestPlaceALO_QueryAndCancel places a far-from-mid post-only limit order,
@@ -20,7 +21,7 @@ func TestPlaceALO_QueryAndCancel(t *testing.T) {
 	px := snapPrice(m*0.5, c, coin) // 50% below mid → no risk of crossing
 	size := testSizeForLimit(t, c, coin, px)
 
-	res, err := c.Trade.PlaceALO(coin, hl.Buy, size, px)
+	res, err := c.Trade.PlaceALO(coin, types.Buy, size, px)
 	if err != nil {
 		t.Fatalf("PlaceALO: %v", err)
 	}

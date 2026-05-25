@@ -5,7 +5,8 @@ package integration
 import (
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // TestHIP4_AssetLookupBothNames verifies Info.AssetID and Info.Asset
@@ -32,8 +33,8 @@ func TestHIP4_AssetLookupBothNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Info.Asset(%q): %v", canonical, err)
 	}
-	if meta.Class != hl.AssetClassOutcome {
-		t.Fatalf("Asset(%q).Class = %d, want AssetClassOutcome (%d)", canonical, meta.Class, hl.AssetClassOutcome)
+	if meta.Class != types.AssetClassOutcome {
+		t.Fatalf("Asset(%q).Class = %d, want AssetClassOutcome (%d)", canonical, meta.Class, types.AssetClassOutcome)
 	}
 	if meta.SzDecimals != 0 {
 		t.Fatalf("HIP-4 SzDecimals = %d, want 0 (integer contracts)", meta.SzDecimals)

@@ -6,7 +6,10 @@ import (
 	"testing"
 	"time"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
+	"github.com/Simon-Busch/hyperliquid-go/signing"
 )
 
 // TestStream_PostAction places a far-from-mid ALO over the WS PostAction
@@ -22,16 +25,16 @@ func TestStream_PostAction(t *testing.T) {
 	px := snapPrice(m*0.5, c, coin)
 	size := testSizeForLimit(t, c, coin, px)
 
-	req := hl.CreateOrderRequest{
+	req := trade.CreateOrderRequest{
 		Coin:       coin,
 		IsBuy:      true,
 		Price:      px,
 		Size:       size,
 		ReduceOnly: false,
-		OrderType:  hl.OrderType{Limit: &hl.LimitOrderType{Tif: "Alo"}},
+		OrderType:  types.OrderType{Limit: &types.LimitOrderType{Tif: "Alo"}},
 	}
 	action, err := c.Trade.NewCreateOrderActionWithGrouping(
-		[]hl.CreateOrderRequest{req}, nil, hl.GroupingNA,
+		[]trade.CreateOrderRequest{req}, nil, types.GroupingNA,
 	)
 	if err != nil {
 		t.Fatalf("NewCreateOrderActionWithGrouping: %v", err)
@@ -39,13 +42,13 @@ func TestStream_PostAction(t *testing.T) {
 
 	cfg, _ := loadConfig()
 	nonce := time.Now().UnixMilli()
-	sig, err := hl.SignL1Action(
+	sig, err := signing.SignL1Action(
 		cfg.privateKey,
 		action,
 		"", // no vault
 		nonce,
 		nil,
-		cfg.BaseURL == hl.MainnetAPIURL,
+		cfg.BaseURL == types.MainnetAPIURL,
 	)
 	if err != nil {
 		t.Fatalf("SignL1Action: %v", err)

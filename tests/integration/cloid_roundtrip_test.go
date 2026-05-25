@@ -7,7 +7,9 @@ import (
 	"encoding/hex"
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
 // newCloid returns a fresh 16-byte (32 hex chars) client order id with
@@ -36,7 +38,7 @@ func TestPlace_WithCloid_Roundtrip(t *testing.T) {
 	cloid := newCloid(t)
 	t.Cleanup(func() { cleanupCloid(t, c, coin, cloid) })
 
-	res, err := c.Trade.PlaceALO(coin, hl.Buy, size, px, hl.WithCloid(cloid))
+	res, err := c.Trade.PlaceALO(coin, types.Buy, size, px, trade.WithCloid(cloid))
 	if err != nil {
 		t.Fatalf("PlaceALO WithCloid: %v", err)
 	}

@@ -1,10 +1,12 @@
 # Trading reference (`c.Trade`)
 
-`c.Trade` is the signed-action surface. Every method on `*Trader` (and on its sub-groups `Transfer`, `SubAccount`, `Stake`, `MultiSig`) builds an action map, EIP-712-signs it with the private key supplied to `hyperliquid.New`, and POSTs it to `/exchange`.
+`c.Trade` is the signed-action surface. Every method on `*trade.Client` (and on its sub-groups `Transfer`, `SubAccount`, `Stake`, `MultiSig`) builds an action map, EIP-712-signs it with the private key supplied to `hyperliquid.New`, and POSTs it to `/exchange`.
 
-Placement methods run a single shared `validate()` pipeline before signing. Failures surface as `*ValidationError`; server-side rejects surface as `APIError` wrapped in the returned `error`. See [errors.md](./errors.md).
+Placement methods run a single shared `validate()` pipeline before signing. Failures surface as `*types.ValidationError`; server-side rejects surface as `transport.APIError` wrapped in the returned `error`. See [errors.md](./errors.md).
 
-`c.Trade` is `nil` if the `Client` was built without `WithPrivateKey`. The sentinel [`ErrMissingPrivateKey`](./errors.md#errmissingprivatekey) describes that case.
+`c.Trade` is `nil` if the `Client` was built without `WithPrivateKey`. The sentinel [`hyperliquid.ErrMissingPrivateKey`](./errors.md#errmissingprivatekey) describes that case.
+
+The handle's concrete type is `*trade.Client` from the [`trade`](https://pkg.go.dev/github.com/Simon-Busch/hyperliquid-go/trade) subpackage. `PlaceOpt`, the placement option functions (`WithBracket`, `WithLimit`, …), the `OrderSpec` constructors (`ALO`, `IOC`, `GTC`, `Market`, `Trigger`), and every response struct (`TransferResponse`, `ApprovalResponse`, …) all live in `trade`. Domain primitives (`types.Side`, `types.OrderSpec`, `types.Result`, …) live in `types`.
 
 ## Contents
 
@@ -72,7 +74,7 @@ Required parameters are positional; optional parameters flow through the `PlaceO
 Place an Add-Liquidity-Only limit order. ALO orders that would cross are rejected by the exchange.
 
 ```go
-func (t *Trader) PlaceALO(coin string, side Side, size, px float64, opts ...PlaceOpt) (Result, error)
+func (t *trade.Client) PlaceALO(coin string, side types.Side, size, px float64, opts ...trade.PlaceOpt) (types.Result, error)
 ```
 
 **Validation**: `coin_required`, `unknown_coin`, `size_below_min`, `size_step_violation`, `price_non_positive`, `significant_figures`, `wrong_side_for_reduce`, plus bracket rules when `WithBracket`/`WithTakeProfit`/`WithStopLoss` are used.
@@ -80,17 +82,17 @@ func (t *Trader) PlaceALO(coin string, side Side, size, px float64, opts ...Plac
 **Example**
 
 ```go
-res, err := c.Trade.PlaceALO("ETH", hl.Buy, 0.01, 1500, hl.WithCloid("0x..."))
+res, err := c.Trade.PlaceALO("ETH", types.Buy, 0.01, 1500, trade.WithCloid("0x..."))
 ```
 
-**Related**: [`hl.ALO`](#orderspec-constructors), [`PlaceGTC`](#placegtc), [placement options](#placement-options).
+**Related**: [`trade.ALO`](#orderspec-constructors), [`PlaceGTC`](#placegtc), [placement options](#placement-options).
 
 ### `PlaceIOC` {#placeioc}
 
 Place an Immediate-Or-Cancel limit order. Anything that does not fill at submission is cancelled.
 
 ```go
-func (t *Trader) PlaceIOC(coin string, side Side, size, px float64, opts ...PlaceOpt) (Result, error)
+func (t *trade.Client) PlaceIOC(coin string, side types.Side, size, px float64, opts ...trade.PlaceOpt) (types.Result, error)
 ```
 
 **Validation**: same as `PlaceALO`.
@@ -98,7 +100,7 @@ func (t *Trader) PlaceIOC(coin string, side Side, size, px float64, opts ...Plac
 **Example**
 
 ```go
-res, err := c.Trade.PlaceIOC("BTC", hl.Sell, 0.001, 70000)
+res, err := c.Trade.PlaceIOC("BTC", types.Sell, 0.001, 70000)
 ```
 
 ### `PlaceGTC` {#placegtc}
@@ -106,7 +108,7 @@ res, err := c.Trade.PlaceIOC("BTC", hl.Sell, 0.001, 70000)
 Place a Good-Til-Cancelled limit order.
 
 ```go
-func (t *Trader) PlaceGTC(coin string, side Side, size, px float64, opts ...PlaceOpt) (Result, error)
+func (t *trade.Client) PlaceGTC(coin string, side types.Side, size, px float64, opts ...trade.PlaceOpt) (types.Result, error)
 ```
 
 **Validation**: same as `PlaceALO`. Additional bracket rules when `WithBracket`/`WithTakeProfit`/`WithStopLoss` are used: `tp_wrong_side_buy`, `tp_wrong_side_sell`, `sl_wrong_side_buy`, `sl_wrong_side_sell`, `bracket_size_exceeds_entry`.
@@ -115,8 +117,8 @@ func (t *Trader) PlaceGTC(coin string, side Side, size, px float64, opts ...Plac
 
 ```go
 res, err := c.Trade.PlaceGTC(
-    "ETH", hl.Buy, 0.01, 1500,
-    hl.WithBracket(1600, 1450),
+    "ETH", types.Buy, 0.01, 1500,
+    trade.WithBracket(1600, 1450),
 )
 ```
 
@@ -125,7 +127,7 @@ res, err := c.Trade.PlaceGTC(
 Submit a market-style order. Internally an IOC at the current mid plus or minus `slippage` (default 5%).
 
 ```go
-func (t *Trader) PlaceMarket(coin string, side Side, size float64, opts ...PlaceOpt) (Result, error)
+func (t *trade.Client) PlaceMarket(coin string, side types.Side, size float64, opts ...trade.PlaceOpt) (types.Result, error)
 ```
 
 **Validation**: `coin_required`, `unknown_coin`, `size_below_min`, `size_step_violation`, plus `unsupported_option` if `WithSlippage` is passed to any other method.
@@ -133,7 +135,7 @@ func (t *Trader) PlaceMarket(coin string, side Side, size float64, opts ...Place
 **Example**
 
 ```go
-res, err := c.Trade.PlaceMarket("ETH", hl.Buy, 0.01, hl.WithSlippage(0.02))
+res, err := c.Trade.PlaceMarket("ETH", types.Buy, 0.01, trade.WithSlippage(0.02))
 ```
 
 ### `PlaceTrigger` {#placetrigger}
@@ -141,7 +143,7 @@ res, err := c.Trade.PlaceMarket("ETH", hl.Buy, 0.01, hl.WithSlippage(0.02))
 Place a stop-market (default) or stop-limit trigger order. Use [`AsMarket`](#placement-options) / [`AsLimit`](#placement-options) to switch.
 
 ```go
-func (t *Trader) PlaceTrigger(coin string, side Side, size, triggerPx float64, opts ...PlaceOpt) (Result, error)
+func (t *trade.Client) PlaceTrigger(coin string, side Side, size, triggerPx float64, opts ...PlaceOpt) (Result, error)
 ```
 
 The TP/SL discriminator is inferred from `side`: `Buy → "sl"`, `Sell → "tp"`. The trigger price is stored both as `TriggerPx` and as the parent's `Price` so the wire serialization stays consistent.
@@ -149,13 +151,13 @@ The TP/SL discriminator is inferred from `side`: `Buy → "sl"`, `Sell → "tp"`
 **Example — stop-loss at 1450**
 
 ```go
-res, err := c.Trade.PlaceTrigger("ETH", hl.Sell, 0.01, 1450, hl.WithReduceOnly())
+res, err := c.Trade.PlaceTrigger("ETH", types.Sell, 0.01, 1450, trade.WithReduceOnly())
 ```
 
 **Example — stop-limit (rest at limit after trigger)**
 
 ```go
-res, err := c.Trade.PlaceTrigger("ETH", hl.Sell, 0.01, 1450, hl.AsLimit(1448), hl.WithReduceOnly())
+res, err := c.Trade.PlaceTrigger("ETH", types.Sell, 0.01, 1450, trade.AsLimit(1448), trade.WithReduceOnly())
 ```
 
 ### `PlaceMany` {#placemany}
@@ -163,7 +165,7 @@ res, err := c.Trade.PlaceTrigger("ETH", hl.Sell, 0.01, 1450, hl.AsLimit(1448), h
 Place multiple legs with one signature.
 
 ```go
-func (t *Trader) PlaceMany(orders ...OrderSpec) (BatchResult, error)
+func (t *trade.Client) PlaceMany(orders ...types.OrderSpec) (types.BatchResult, error)
 ```
 
 Each spec is validated individually before any signing happens. The result contains one `Result` per leg, in the same order as the inputs.
@@ -172,8 +174,8 @@ Each spec is validated individually before any signing happens. The result conta
 
 ```go
 res, err := c.Trade.PlaceMany(
-    hl.GTC("ETH", hl.Buy,  0.01, 1500),
-    hl.IOC("BTC", hl.Sell, 0.001, 70_000),
+    trade.GTC("ETH", types.Buy,  0.01, 1500),
+    trade.IOC("BTC", types.Sell, 0.001, 70_000),
 )
 ```
 
@@ -182,18 +184,18 @@ res, err := c.Trade.PlaceMany(
 Top-level (package-level) helpers that return an `OrderSpec` for `PlaceMany`. Same option set as the corresponding `Trader.Place*` methods.
 
 ```go
-func ALO(coin string, side Side, size, px float64, opts ...PlaceOpt) OrderSpec
-func IOC(coin string, side Side, size, px float64, opts ...PlaceOpt) OrderSpec
-func GTC(coin string, side Side, size, px float64, opts ...PlaceOpt) OrderSpec
-func Market(coin string, side Side, size float64, opts ...PlaceOpt) OrderSpec
-func Trigger(coin string, side Side, size, triggerPx float64, opts ...PlaceOpt) OrderSpec
+func trade.ALO(coin string, side types.Side, size, px float64, opts ...trade.PlaceOpt) types.OrderSpec
+func trade.IOC(coin string, side types.Side, size, px float64, opts ...trade.PlaceOpt) types.OrderSpec
+func trade.GTC(coin string, side types.Side, size, px float64, opts ...trade.PlaceOpt) types.OrderSpec
+func trade.Market(coin string, side types.Side, size float64, opts ...trade.PlaceOpt) types.OrderSpec
+func trade.Trigger(coin string, side types.Side, size, triggerPx float64, opts ...trade.PlaceOpt) types.OrderSpec
 ```
 
 ---
 
 ## Placement options {#placement-options}
 
-All options have the type `PlaceOpt = func(*OrderSpec)`. They never report errors directly; misuse surfaces as a `*ValidationError` with `Code == "unsupported_option"` at `place()` time.
+All options have the type `trade.PlaceOpt = func(*types.OrderSpec)`. They never report errors directly; misuse surfaces as a `*types.ValidationError` with `Code == "unsupported_option"` at `place()` time.
 
 | Option                | Effect                                                      | Valid on                        |
 |-----------------------|-------------------------------------------------------------|---------------------------------|
@@ -225,7 +227,7 @@ All options have the type `PlaceOpt = func(*OrderSpec)`. They never report error
 Change the price (or size, or both) of a resting order identified by `oid`.
 
 ```go
-func (t *Trader) Modify(oid int64, opts ...PlaceOpt) (Result, error)
+func (t *trade.Client) Modify(oid int64, opts ...trade.PlaceOpt) (types.Result, error)
 ```
 
 Either `WithLimit(newPx)` or `WithSize(newSz)` (or both) must be supplied. Otherwise the validator returns `Code == "modify_no_change"`.
@@ -235,7 +237,7 @@ Either `WithLimit(newPx)` or `WithSize(newSz)` (or both) must be supplied. Other
 **Example**
 
 ```go
-res, err := c.Trade.Modify(oid, hl.WithLimit(1502.5))
+res, err := c.Trade.Modify(oid, trade.WithLimit(1502.5))
 ```
 
 ### `ModifyByCloid` {#modifybycloid}
@@ -243,7 +245,7 @@ res, err := c.Trade.Modify(oid, hl.WithLimit(1502.5))
 Identical to `Modify` but addresses the order by its `Cloid`.
 
 ```go
-func (t *Trader) ModifyByCloid(cloid string, opts ...PlaceOpt) (Result, error)
+func (t *trade.Client) ModifyByCloid(cloid string, opts ...trade.PlaceOpt) (types.Result, error)
 ```
 
 ### `Cancel` {#cancel}
@@ -251,7 +253,7 @@ func (t *Trader) ModifyByCloid(cloid string, opts ...PlaceOpt) (Result, error)
 Cancel a single open order by `oid`.
 
 ```go
-func (t *Trader) Cancel(coin string, oid int64) (CancelResult, error)
+func (t *trade.Client) Cancel(coin string, oid int64) (types.CancelResult, error)
 ```
 
 ### `CancelByCloid` {#cancelbycloid}
@@ -259,7 +261,7 @@ func (t *Trader) Cancel(coin string, oid int64) (CancelResult, error)
 Cancel a single open order by its client order id.
 
 ```go
-func (t *Trader) CancelByCloid(coin, cloid string) (CancelResult, error)
+func (t *trade.Client) CancelByCloid(coin, cloid string) (types.CancelResult, error)
 ```
 
 ### `CancelAll` {#cancelall}
@@ -267,7 +269,7 @@ func (t *Trader) CancelByCloid(coin, cloid string) (CancelResult, error)
 Cancel every open order across the supplied coins. With no coins supplied it cancels everything across every asset.
 
 ```go
-func (t *Trader) CancelAll(coins ...string) (BatchCancelResult, error)
+func (t *trade.Client) CancelAll(coins ...string) (types.BatchCancelResult, error)
 ```
 
 **Example**
@@ -286,7 +288,7 @@ _, err  = c.Trade.CancelAll("ETH")   // ETH only
 Flatten the caller's open position on `coin`. Direction is inferred from the cached `UserState`; long positions exit with a sell, shorts with a buy. By default the close is an IOC at mid plus or minus `slippage` (default 5%). Pass `WithLimit(px)` for a limit close or `WithSize(x)` for a partial close.
 
 ```go
-func (t *Trader) ClosePosition(coin string, opts ...PlaceOpt) (Result, error)
+func (t *trade.Client) ClosePosition(coin string, opts ...trade.PlaceOpt) (types.Result, error)
 ```
 
 **Validation**: `no_position` (no open position on `coin`), `close_size_exceeds_position` (when `WithSize` exceeds the absolute position size).
@@ -302,13 +304,13 @@ res, err := c.Trade.ClosePosition("ETH")
 Update the leverage on `coin`. `mode` picks `Cross` (shared collateral) or `Isolated` (per-position).
 
 ```go
-func (t *Trader) SetLeverage(coin string, leverage int, mode MarginMode) (*UserState, error)
+func (t *trade.Client) SetLeverage(coin string, leverage int, mode types.MarginMode) (*info.UserState, error)
 ```
 
 **Example**
 
 ```go
-state, err := c.Trade.SetLeverage("ETH", 5, hl.Cross)
+state, err := c.Trade.SetLeverage("ETH", 5, types.Cross)
 ```
 
 ### `AdjustMargin` {#adjustmargin}
@@ -316,15 +318,20 @@ state, err := c.Trade.SetLeverage("ETH", 5, hl.Cross)
 Add or remove isolated-margin collateral on the position in `coin`. Positive amount adds; negative withdraws. `amount` is in decimal USDC.
 
 ```go
-func (t *Trader) AdjustMargin(coin string, amount float64) (*APIResponse[DefaultResponse], error)
+// Return type is the generic *transport.APIResponse[trade.DefaultResponse]
+// envelope (transport is internal); the *DefaultResponse inside reports
+// success/failure status verbatim.
+func (t *trade.Client) AdjustMargin(coin string, amount float64) (*trade.DefaultResponse, error)
 ```
+
+(The actual signature returns a transport envelope around `trade.DefaultResponse`; treat the envelope as opaque and inspect the inner response.)
 
 ### `ScheduleCancelAll` {#schedulecancelall}
 
 Schedule cancellation of all open orders at a deadline. `nil` clears any scheduled cancel.
 
 ```go
-func (t *Trader) ScheduleCancelAll(deadline *time.Time) (*ScheduleCancelResponse, error)
+func (t *trade.Client) ScheduleCancelAll(deadline *time.Time) (*trade.ScheduleCancelResponse, error)
 ```
 
 ### `RefreshState` {#refreshstate}
@@ -332,7 +339,7 @@ func (t *Trader) ScheduleCancelAll(deadline *time.Time) (*ScheduleCancelResponse
 Refresh the cached `UserState` snapshot used by position-aware validation. The placement pipeline refreshes implicitly on every call unless `SkipValidation()` is in effect; calling `RefreshState` directly is useful if you want a recent state for your own logic.
 
 ```go
-func (t *Trader) RefreshState(ctx context.Context) error
+func (t *trade.Client) RefreshState(ctx context.Context) error
 ```
 
 **Related**: [`ValidationError` codes](./errors.md#validationerror).
@@ -348,7 +355,7 @@ All transfer actions are reachable via `c.Trade.Transfer`. They return `*Transfe
 Send USDC to another address.
 
 ```go
-func (g *TransferGroup) SendUSD(toAddr string, amount float64) (*TransferResponse, error)
+func (g *trade.TransferGroup) SendUSD(toAddr string, amount float64) (*trade.TransferResponse, error)
 ```
 
 ### `Transfer.SendSpot` {#transfer-sendspot}
@@ -356,7 +363,7 @@ func (g *TransferGroup) SendUSD(toAddr string, amount float64) (*TransferRespons
 Send a spot token to another address.
 
 ```go
-func (g *TransferGroup) SendSpot(toAddr, token string, amount float64) (*TransferResponse, error)
+func (g *trade.TransferGroup) SendSpot(toAddr, token string, amount float64) (*trade.TransferResponse, error)
 ```
 
 ### `Transfer.DepositToVault` {#transfer-deposittovault}
@@ -364,7 +371,7 @@ func (g *TransferGroup) SendSpot(toAddr, token string, amount float64) (*Transfe
 Deposit USDC into a vault.
 
 ```go
-func (g *TransferGroup) DepositToVault(vaultAddr string, amount float64) (*TransferResponse, error)
+func (g *trade.TransferGroup) DepositToVault(vaultAddr string, amount float64) (*trade.TransferResponse, error)
 ```
 
 ### `Transfer.WithdrawFromVault` {#transfer-withdrawfromvault}
@@ -372,7 +379,7 @@ func (g *TransferGroup) DepositToVault(vaultAddr string, amount float64) (*Trans
 Withdraw USDC from a vault.
 
 ```go
-func (g *TransferGroup) WithdrawFromVault(vaultAddr string, amount float64) (*TransferResponse, error)
+func (g *trade.TransferGroup) WithdrawFromVault(vaultAddr string, amount float64) (*trade.TransferResponse, error)
 ```
 
 ### `Transfer.PerpToSpot` {#transfer-perptospot}
@@ -380,7 +387,7 @@ func (g *TransferGroup) WithdrawFromVault(vaultAddr string, amount float64) (*Tr
 Move USDC from the perps wallet to the spot wallet.
 
 ```go
-func (g *TransferGroup) PerpToSpot(amount float64) (*TransferResponse, error)
+func (g *trade.TransferGroup) PerpToSpot(amount float64) (*trade.TransferResponse, error)
 ```
 
 ### `Transfer.SpotToPerp` {#transfer-spottoperp}
@@ -388,7 +395,7 @@ func (g *TransferGroup) PerpToSpot(amount float64) (*TransferResponse, error)
 Move USDC from the spot wallet to the perps wallet.
 
 ```go
-func (g *TransferGroup) SpotToPerp(amount float64) (*TransferResponse, error)
+func (g *trade.TransferGroup) SpotToPerp(amount float64) (*trade.TransferResponse, error)
 ```
 
 ### `Transfer.MoveToDex` {#transfer-movetodex}
@@ -396,7 +403,7 @@ func (g *TransferGroup) SpotToPerp(amount float64) (*TransferResponse, error)
 Move balance from the default perp dex into a HIP-3 builder-deployed dex.
 
 ```go
-func (g *TransferGroup) MoveToDex(dex, token string, amount float64) (*TransferResponse, error)
+func (g *trade.TransferGroup) MoveToDex(dex, token string, amount float64) (*trade.TransferResponse, error)
 ```
 
 ### `Transfer.MoveFromDex` {#transfer-movefromdex}
@@ -404,7 +411,7 @@ func (g *TransferGroup) MoveToDex(dex, token string, amount float64) (*TransferR
 Move balance back from a HIP-3 builder-deployed dex to the default perp dex.
 
 ```go
-func (g *TransferGroup) MoveFromDex(dex, token string, amount float64) (*TransferResponse, error)
+func (g *trade.TransferGroup) MoveFromDex(dex, token string, amount float64) (*trade.TransferResponse, error)
 ```
 
 ---
@@ -416,8 +423,9 @@ func (g *TransferGroup) MoveFromDex(dex, token string, amount float64) (*Transfe
 Withdraw USDC off the Hyperliquid L1 bridge to an external destination.
 
 ```go
-func (t *Trader) Withdraw(amount float64, destination string) (*TransferResponse, error)
+func (t *trade.Client) Withdraw(amount float64, destination string) (*trade.TransferResponse, error)
 ```
+
 
 **Example**
 
@@ -434,31 +442,31 @@ Accessible via `c.Trade.SubAccount`.
 ### `SubAccount.Create` {#subaccount-create}
 
 ```go
-func (g *SubAccountGroup) Create(name string) (*CreateSubAccountResponse, error)
+func (g *trade.SubAccountGroup) Create(name string) (*trade.CreateSubAccountResponse, error)
 ```
 
 ### `SubAccount.DepositUSD` {#subaccount-depositusd}
 
 ```go
-func (g *SubAccountGroup) DepositUSD(subAddr string, amount float64) (*TransferResponse, error)
+func (g *trade.SubAccountGroup) DepositUSD(subAddr string, amount float64) (*trade.TransferResponse, error)
 ```
 
 ### `SubAccount.WithdrawUSD` {#subaccount-withdrawusd}
 
 ```go
-func (g *SubAccountGroup) WithdrawUSD(subAddr string, amount float64) (*TransferResponse, error)
+func (g *trade.SubAccountGroup) WithdrawUSD(subAddr string, amount float64) (*trade.TransferResponse, error)
 ```
 
 ### `SubAccount.DepositSpot` {#subaccount-depositspot}
 
 ```go
-func (g *SubAccountGroup) DepositSpot(subAddr, token string, amount float64) (*TransferResponse, error)
+func (g *trade.SubAccountGroup) DepositSpot(subAddr, token string, amount float64) (*trade.TransferResponse, error)
 ```
 
 ### `SubAccount.WithdrawSpot` {#subaccount-withdrawspot}
 
 ```go
-func (g *SubAccountGroup) WithdrawSpot(subAddr, token string, amount float64) (*TransferResponse, error)
+func (g *trade.SubAccountGroup) WithdrawSpot(subAddr, token string, amount float64) (*trade.TransferResponse, error)
 ```
 
 ---
@@ -470,13 +478,13 @@ Accessible via `c.Trade.Stake`. The `wei` argument is the staked amount in HYPE 
 ### `Stake.Delegate` {#stake-delegate}
 
 ```go
-func (g *StakeGroup) Delegate(validator string, wei int) (*TransferResponse, error)
+func (g *trade.StakeGroup) Delegate(validator string, wei int) (*trade.TransferResponse, error)
 ```
 
 ### `Stake.Undelegate` {#stake-undelegate}
 
 ```go
-func (g *StakeGroup) Undelegate(validator string, wei int) (*TransferResponse, error)
+func (g *trade.StakeGroup) Undelegate(validator string, wei int) (*trade.TransferResponse, error)
 ```
 
 ---
@@ -490,7 +498,7 @@ Accessible via `c.Trade.MultiSig`.
 Convert the caller's account to a multi-sig wallet with the given authorized signers and approval threshold.
 
 ```go
-func (g *MultiSigGroup) Convert(authorized []string, threshold int) (*MultiSigConversionResponse, error)
+func (g *trade.MultiSigGroup) Convert(authorized []string, threshold int) (*trade.MultiSigConversionResponse, error)
 ```
 
 ### `MultiSig.Execute` {#multisig-execute}
@@ -498,7 +506,7 @@ func (g *MultiSigGroup) Convert(authorized []string, threshold int) (*MultiSigCo
 Execute a previously assembled action with a set of signatures.
 
 ```go
-func (g *MultiSigGroup) Execute(action map[string]any, signers []string, signatures []string) (*MultiSigResponse, error)
+func (g *trade.MultiSigGroup) Execute(action map[string]any, signers []string, signatures []string) (*trade.MultiSigResponse, error)
 ```
 
 ---
@@ -510,7 +518,7 @@ func (g *MultiSigGroup) Execute(action map[string]any, signers []string, signatu
 Provision a fresh agent key authorized for trading on behalf of the caller's account. The returned `Agent` carries the agent address and freshly generated private key — keep the key secret.
 
 ```go
-func (t *Trader) ApproveAgent(name string) (Agent, error)
+func (t *trade.Client) ApproveAgent(name string) (trade.Agent, error)
 ```
 
 **Example**
@@ -525,7 +533,7 @@ agent, err := c.Trade.ApproveAgent("my-bot")
 Approve a HIP-1 builder to charge a max fee rate (string-encoded, e.g. `"0.001%"`) on the caller's orders.
 
 ```go
-func (t *Trader) ApproveBuilderFee(builder string, maxFeeRate string) (*ApprovalResponse, error)
+func (t *trade.Client) ApproveBuilderFee(builder string, maxFeeRate string) (*trade.ApprovalResponse, error)
 ```
 
 ### `SetReferrer` {#setreferrer}
@@ -533,7 +541,7 @@ func (t *Trader) ApproveBuilderFee(builder string, maxFeeRate string) (*Approval
 Set the caller's referrer code (once per account, irreversibly).
 
 ```go
-func (t *Trader) SetReferrer(code string) (*SetReferrerResponse, error)
+func (t *trade.Client) SetReferrer(code string) (*trade.SetReferrerResponse, error)
 ```
 
 ### `UseBigBlocks` {#usebigblocks}
@@ -541,7 +549,7 @@ func (t *Trader) SetReferrer(code string) (*SetReferrerResponse, error)
 Opt the caller's address into "big block" inclusion.
 
 ```go
-func (t *Trader) UseBigBlocks(enable bool) (*ApprovalResponse, error)
+func (t *trade.Client) UseBigBlocks(enable bool) (*trade.ApprovalResponse, error)
 ```
 
 ---
@@ -553,22 +561,22 @@ Rare expert operations. All methods return `*SpotDeployResponse` (spot) or `*Per
 ### Spot deploy {#spot-deploy}
 
 ```go
-func (t *Trader) SpotDeployRegisterToken(tokenName string, szDecimals, weiDecimals, maxGas int, fullName string) (*SpotDeployResponse, error)
-func (t *Trader) SpotDeployUserGenesis(balances map[string]float64) (*SpotDeployResponse, error)
-func (t *Trader) SpotDeployEnableFreezePrivilege() (*SpotDeployResponse, error)
-func (t *Trader) SpotDeployFreezeUser(userAddress string) (*SpotDeployResponse, error)
-func (t *Trader) SpotDeployRevokeFreezePrivilege() (*SpotDeployResponse, error)
-func (t *Trader) SpotDeployGenesis(deployer string, dexName string) (*SpotDeployResponse, error)
-func (t *Trader) SpotDeployRegisterSpot(baseToken, quoteToken string) (*SpotDeployResponse, error)
-func (t *Trader) SpotDeployRegisterHyperliquidity(name string, tokens []string) (*SpotDeployResponse, error)
-func (t *Trader) SpotDeploySetDeployerTradingFeeShare(feeShare float64) (*SpotDeployResponse, error)
+func (t *trade.Client) SpotDeployRegisterToken(tokenName string, szDecimals, weiDecimals, maxGas int, fullName string) (*trade.SpotDeployResponse, error)
+func (t *trade.Client) SpotDeployUserGenesis(balances map[string]float64) (*trade.SpotDeployResponse, error)
+func (t *trade.Client) SpotDeployEnableFreezePrivilege() (*trade.SpotDeployResponse, error)
+func (t *trade.Client) SpotDeployFreezeUser(userAddress string) (*trade.SpotDeployResponse, error)
+func (t *trade.Client) SpotDeployRevokeFreezePrivilege() (*trade.SpotDeployResponse, error)
+func (t *trade.Client) SpotDeployGenesis(deployer string, dexName string) (*trade.SpotDeployResponse, error)
+func (t *trade.Client) SpotDeployRegisterSpot(baseToken, quoteToken string) (*trade.SpotDeployResponse, error)
+func (t *trade.Client) SpotDeployRegisterHyperliquidity(name string, tokens []string) (*trade.SpotDeployResponse, error)
+func (t *trade.Client) SpotDeploySetDeployerTradingFeeShare(feeShare float64) (*trade.SpotDeployResponse, error)
 ```
 
 ### Perp deploy {#perp-deploy}
 
 ```go
-func (t *Trader) PerpDeployRegisterAsset(asset string, perpDexInput PerpDexSchemaInput) (*PerpDeployResponse, error)
-func (t *Trader) PerpDeploySetOracle(asset string, oracleAddress string) (*SpotDeployResponse, error)
+func (t *trade.Client) PerpDeployRegisterAsset(asset string, perpDexInput info.PerpDexSchemaInput) (*trade.PerpDeployResponse, error)
+func (t *trade.Client) PerpDeploySetOracle(asset string, oracleAddress string) (*trade.SpotDeployResponse, error)
 ```
 
 ---
@@ -578,10 +586,10 @@ func (t *Trader) PerpDeploySetOracle(asset string, oracleAddress string) (*SpotD
 Validator-only actions; pass-through wrappers around the signed-action endpoint.
 
 ```go
-func (t *Trader) CSignerJailSelf() (*ValidatorResponse, error)
-func (t *Trader) CSignerUnjailSelf() (*ValidatorResponse, error)
-func (t *Trader) CSignerInner(innerAction map[string]any) (*ValidatorResponse, error)
-func (t *Trader) CValidatorRegister(validatorProfile map[string]any) (*ValidatorResponse, error)
-func (t *Trader) CValidatorChangeProfile(newProfile map[string]any) (*ValidatorResponse, error)
-func (t *Trader) CValidatorUnregister() (*ValidatorResponse, error)
+func (t *trade.Client) CSignerJailSelf() (*trade.ValidatorResponse, error)
+func (t *trade.Client) CSignerUnjailSelf() (*trade.ValidatorResponse, error)
+func (t *trade.Client) CSignerInner(innerAction map[string]any) (*trade.ValidatorResponse, error)
+func (t *trade.Client) CValidatorRegister(validatorProfile map[string]any) (*trade.ValidatorResponse, error)
+func (t *trade.Client) CValidatorChangeProfile(newProfile map[string]any) (*trade.ValidatorResponse, error)
+func (t *trade.Client) CValidatorUnregister() (*trade.ValidatorResponse, error)
 ```

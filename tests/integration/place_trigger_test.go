@@ -5,7 +5,9 @@ package integration
 import (
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
 // TestPlaceTrigger_Cancel places a far-away stop-market trigger, asserts
@@ -22,7 +24,7 @@ func TestPlaceTrigger_Cancel(t *testing.T) {
 	trigger := snapPrice(m*1.5, c, coin)
 	size := testSizeForLimit(t, c, coin, trigger)
 
-	res, err := c.Trade.PlaceTrigger(coin, hl.Buy, size, trigger, hl.AsMarket())
+	res, err := c.Trade.PlaceTrigger(coin, types.Buy, size, trigger, trade.AsMarket())
 	if err != nil {
 		t.Fatalf("PlaceTrigger: %v", err)
 	}

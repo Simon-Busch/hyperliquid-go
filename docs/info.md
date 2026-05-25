@@ -2,7 +2,7 @@
 
 `c.Info` is the read-only surface. Every method here issues a single POST to `/info`, parses the response, and returns a typed value. No signing, no caching beyond what the HTTP client does, no rate-limit handling — wrap calls in your own backoff if you hammer the endpoint.
 
-`c.Info` is always non-`nil` on a `Client` built by `hyperliquid.New`.
+`c.Info` is always non-`nil` on a `Client` built by `hyperliquid.New`. Its underlying type is `*info.Client` from the [`info`](https://pkg.go.dev/github.com/Simon-Busch/hyperliquid-go/info) subpackage; advanced callers can construct one directly via `info.New(baseURL, skipWS, meta, spotMeta, perpDexs, perpDexName)`. Response types (`UserState`, `Fill`, `Meta`, `L2Book`, …) live in the same subpackage.
 
 ## Contents
 
@@ -23,7 +23,7 @@
 Return the current mid price for `coin`, parsed from the wire's string-encoded format.
 
 ```go
-func (i *Info) Mid(coin string) (float64, error)
+func (c *info.Client) Mid(coin string) (float64, error)
 ```
 
 **Example**
@@ -37,8 +37,8 @@ mid, err := c.Info.Mid("ETH")
 Return mids for every coin in a single snapshot. `AllMids` accepts an optional dex argument; `AllMidsOn` is the explicit single-dex variant.
 
 ```go
-func (i *Info) AllMids(dex ...string) (map[string]string, error)
-func (i *Info) AllMidsOn(dex string) (map[string]string, error)
+func (c *info.Client) AllMids(dex ...string) (map[string]string, error)
+func (c *info.Client) AllMidsOn(dex string) (map[string]string, error)
 ```
 
 **Example**
@@ -53,17 +53,17 @@ flx, err   := c.Info.AllMidsOn("flx")  // HIP-3 dex
 Return the current L2 order book for `coin`.
 
 ```go
-func (i *Info) Book(coin string) (*L2Book, error)
+func (c *info.Client) Book(coin string) (*info.L2Book, error)
 ```
 
-`L2Book.Levels` is a `[2][]Level` — index 0 = bids, index 1 = asks.
+`info.L2Book.Levels` is a `[2][]info.Level` — index 0 = bids, index 1 = asks.
 
 ### `Candles` {#candles}
 
 Return historical candles for `coin` at `interval` between `start` and `end` (Unix millis).
 
 ```go
-func (i *Info) Candles(coin, interval string, start, end int64) ([]Candle, error)
+func (c *info.Client) Candles(coin, interval string, start, end int64) ([]info.Candle, error)
 ```
 
 **Example**
@@ -79,8 +79,8 @@ candles, err := c.Info.Candles("ETH", "1h", last, now)
 Fetch perp (or spot) metadata together with the per-asset context snapshot in one call.
 
 ```go
-func (i *Info) MetaAndAssetCtxs() (*MetaAndAssetCtxsResponse, error)
-func (i *Info) SpotMetaAndAssetCtxs() (map[string]any, error)
+func (c *info.Client) MetaAndAssetCtxs() (*info.MetaAndAssetCtxsResponse, error)
+func (c *info.Client) SpotMetaAndAssetCtxs() (map[string]any, error)
 ```
 
 `SpotMetaAndAssetCtxs` returns a raw map for now — the typed envelope is a follow-up.
@@ -94,7 +94,7 @@ func (i *Info) SpotMetaAndAssetCtxs() (map[string]any, error)
 Return the caller's perpetuals account summary (positions, margin, withdrawable).
 
 ```go
-func (i *Info) UserState(address string, dex ...string) (*UserState, error)
+func (c *info.Client) UserState(address string, dex ...string) (*info.UserState, error)
 ```
 
 ### `SpotBalances` {#spotbalances}
@@ -102,7 +102,7 @@ func (i *Info) UserState(address string, dex ...string) (*UserState, error)
 Return the caller's spot clearinghouse state.
 
 ```go
-func (i *Info) SpotBalances(addr string) (*SpotClearinghouseState, error)
+func (c *info.Client) SpotBalances(addr string) (*info.SpotClearinghouseState, error)
 ```
 
 ### `Positions`, `Position` {#positions}
@@ -110,8 +110,8 @@ func (i *Info) SpotBalances(addr string) (*SpotClearinghouseState, error)
 `Positions` returns every open position for `addr`. `Position` returns the single position on `coin`, or `(nil, nil)` if none.
 
 ```go
-func (i *Info) Positions(addr string, dex ...string) ([]Position, error)
-func (i *Info) Position(addr, coin string) (*Position, error)
+func (c *info.Client) Positions(addr string, dex ...string) ([]info.Position, error)
+func (c *info.Client) Position(addr, coin string) (*info.Position, error)
 ```
 
 **Example**
@@ -127,7 +127,7 @@ if pos == nil  { fmt.Println("no ETH position") }
 Return the fee snapshot for `addr`.
 
 ```go
-func (i *Info) Fees(addr string) (*UserFees, error)
+func (c *info.Client) Fees(addr string) (*info.UserFees, error)
 ```
 
 ### `Asset`, `AssetID` {#asset}
@@ -135,8 +135,8 @@ func (i *Info) Fees(addr string) (*UserFees, error)
 `Asset` returns the per-coin metadata snapshot used by `validate()`: asset id, size decimals, tick size, minimum size, and the asset class (perp / spot / HIP-3 / outcome). `AssetID` returns just the numeric id.
 
 ```go
-func (i *Info) Asset(coin string) (AssetMeta, error)
-func (i *Info) AssetID(coin string) int
+func (c *info.Client) Asset(coin string) (info.AssetMeta, error)
+func (c *info.Client) AssetID(coin string) int
 ```
 
 **Example**
@@ -155,8 +155,8 @@ fmt.Printf("tick=%v min=%v dec=%d\n", meta.TickSize, meta.MinSize, meta.SzDecima
 `OpenOrders` returns the wire-shape open orders. `FrontendOpenOrders` returns the richer UI-shape variant which includes TP/SL leg metadata.
 
 ```go
-func (i *Info) OpenOrders(address string, dex ...string) ([]OpenOrder, error)
-func (i *Info) FrontendOpenOrders(address string, dex ...string) ([]FrontendOpenOrder, error)
+func (c *info.Client) OpenOrders(address string, dex ...string) ([]info.OpenOrder, error)
+func (c *info.Client) FrontendOpenOrders(address string, dex ...string) ([]info.FrontendOpenOrder, error)
 ```
 
 ### `Fills`, `FillsBetween` {#fills}
@@ -164,8 +164,8 @@ func (i *Info) FrontendOpenOrders(address string, dex ...string) ([]FrontendOpen
 `Fills` returns all fills for `addr`. `FillsBetween` filters by time range (Unix millis); `end == nil` means "until now".
 
 ```go
-func (i *Info) Fills(addr string) ([]Fill, error)
-func (i *Info) FillsBetween(addr string, start int64, end *int64) ([]Fill, error)
+func (c *info.Client) Fills(addr string) ([]info.Fill, error)
+func (c *info.Client) FillsBetween(addr string, start int64, end *int64) ([]info.Fill, error)
 ```
 
 ### `Order`, `OrderByCloid`, `Fill` {#order}
@@ -173,9 +173,9 @@ func (i *Info) FillsBetween(addr string, start int64, end *int64) ([]Fill, error
 Look up a specific order or fill by id.
 
 ```go
-func (i *Info) Order(addr string, oid int64) (*OrderStatusResponse, error)
-func (i *Info) OrderByCloid(addr, cloid string) (*OpenOrder, error)
-func (i *Info) Fill(addr string, oid int64) (*Fill, error)
+func (c *info.Client) Order(addr string, oid int64) (*info.OrderStatusResponse, error)
+func (c *info.Client) OrderByCloid(addr, cloid string) (*info.OpenOrder, error)
+func (c *info.Client) Fill(addr string, oid int64) (*info.Fill, error)
 ```
 
 ---
@@ -187,8 +187,8 @@ func (i *Info) Fill(addr string, oid int64) (*Fill, error)
 `Funding` returns the historical funding rates for `coin`. `UserFunding` returns the per-user funding payments for `addr`. Both accept a `*int64` end timestamp (`nil` = now).
 
 ```go
-func (i *Info) Funding(coin string, start int64, end *int64) ([]FundingHistory, error)
-func (i *Info) UserFunding(addr string, start int64, end *int64) ([]UserFundingHistory, error)
+func (c *info.Client) Funding(coin string, start int64, end *int64) ([]info.FundingHistory, error)
+func (c *info.Client) UserFunding(addr string, start int64, end *int64) ([]info.UserFundingHistory, error)
 ```
 
 ---
@@ -200,9 +200,9 @@ Accessible via `c.Info.Stake`.
 ### `Stake.Summary`, `Stake.Delegations`, `Stake.Rewards` {#staking}
 
 ```go
-func (g *InfoStakeGroup) Summary(addr string) (*StakingSummary, error)
-func (g *InfoStakeGroup) Delegations(addr string) ([]StakingDelegation, error)
-func (g *InfoStakeGroup) Rewards(addr string) ([]StakingReward, error)
+func (g *info.StakeGroup) Summary(addr string) (*info.StakingSummary, error)
+func (g *info.StakeGroup) Delegations(addr string) ([]info.StakingDelegation, error)
+func (g *info.StakeGroup) Rewards(addr string) ([]info.StakingReward, error)
 ```
 
 ---
@@ -214,13 +214,13 @@ func (g *InfoStakeGroup) Rewards(addr string) ([]StakingReward, error)
 Raw metadata endpoints. `OutcomeMeta` covers HIP-4 binary-prediction markets.
 
 ```go
-func (i *Info) Meta(dex ...string) (*Meta, error)
-func (i *Info) SpotMeta() (*SpotMeta, error)
-func (i *Info) OutcomeMeta() (*OutcomeMeta, error)
-func (i *Info) PerpDexs() (MixedArray, error)
+func (c *info.Client) Meta(dex ...string) (*info.Meta, error)
+func (c *info.Client) SpotMeta() (*info.SpotMeta, error)
+func (c *info.Client) OutcomeMeta() (*info.OutcomeMeta, error)
+func (c *info.Client) PerpDexs() (types.MixedArray, error)
 ```
 
-`Info.Meta` accepts an optional dex name; pass it to fetch a HIP-3 dex's universe.
+`c.Info.Meta` accepts an optional dex name; pass it to fetch a HIP-3 dex's universe.
 
 ---
 
@@ -229,7 +229,7 @@ func (i *Info) PerpDexs() (MixedArray, error)
 ### `SubAccounts`, `Referral`, `MultiSigSigners` {#account-directory}
 
 ```go
-func (i *Info) SubAccounts(addr string) ([]SubAccount, error)
-func (i *Info) Referral(addr string) (*ReferralState, error)
-func (i *Info) MultiSigSigners(multiSigAddr string) ([]MultiSigSigner, error)
+func (c *info.Client) SubAccounts(addr string) ([]info.SubAccount, error)
+func (c *info.Client) Referral(addr string) (*info.ReferralState, error)
+func (c *info.Client) MultiSigSigners(multiSigAddr string) ([]info.MultiSigSigner, error)
 ```

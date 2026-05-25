@@ -5,6 +5,8 @@ package integration
 import (
 	"testing"
 
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 	hl "github.com/Simon-Busch/hyperliquid-go"
 )
 
@@ -37,7 +39,7 @@ func TestHIP3_PlaceALO(t *testing.T) {
 	px := snapPrice(m*0.5, c, coin)
 	size := testSizeForLimit(t, c, coin, px)
 
-	res, err := c.Trade.PlaceALO(coin, hl.Buy, size, px)
+	res, err := c.Trade.PlaceALO(coin, types.Buy, size, px)
 	if err != nil {
 		t.Fatalf("PlaceALO on dex %q: %v", dex, err)
 	}

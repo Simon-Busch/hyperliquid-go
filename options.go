@@ -4,6 +4,10 @@ import (
 	"crypto/ecdsa"
 	"net/http"
 	"time"
+
+	"github.com/Simon-Busch/hyperliquid-go/info"
+	"github.com/Simon-Busch/hyperliquid-go/stream"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // Option configures the top-level Client. Pass options to New.
@@ -11,12 +15,12 @@ type Option func(*clientConfig)
 
 // WithMainnet targets the production Hyperliquid endpoint.
 func WithMainnet() Option {
-	return func(c *clientConfig) { c.baseURL = MainnetAPIURL }
+	return func(c *clientConfig) { c.baseURL = types.MainnetAPIURL }
 }
 
 // WithTestnet targets the Hyperliquid testnet endpoint.
 func WithTestnet() Option {
-	return func(c *clientConfig) { c.baseURL = TestnetAPIURL }
+	return func(c *clientConfig) { c.baseURL = types.TestnetAPIURL }
 }
 
 // WithBaseURL targets the supplied REST endpoint. Use for custom or local
@@ -55,7 +59,7 @@ func WithHTTPClient(httpClient *http.Client) Option {
 
 // WithMeta supplies pre-fetched metadata (perp meta, spot meta, perp dex
 // list) so New does not need to round-trip to /info during construction.
-func WithMeta(meta *Meta, spotMeta *SpotMeta, perpDexs *MixedArray) Option {
+func WithMeta(meta *info.Meta, spotMeta *info.SpotMeta, perpDexs *types.MixedArray) Option {
 	return func(c *clientConfig) {
 		c.meta = meta
 		c.spotMeta = spotMeta
@@ -70,7 +74,7 @@ func WithSkipStream(skip bool) Option {
 }
 
 // WithLogger plugs in a Logger. The default is a no-op logger.
-func WithLogger(l Logger) Option {
+func WithLogger(l stream.Logger) Option {
 	return func(c *clientConfig) {
 		if l != nil {
 			c.logger = l

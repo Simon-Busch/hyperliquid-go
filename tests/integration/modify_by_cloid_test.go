@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
 // TestModifyByCloid places a resting ALO pinned to a fresh cloid and
@@ -36,7 +38,7 @@ func TestModifyByCloid(t *testing.T) {
 	cloid := newCloid(t)
 	t.Cleanup(func() { cleanupCloid(t, c, coin, cloid) })
 
-	res, err := c.Trade.PlaceALO(coin, hl.Buy, size, entry, hl.WithCloid(cloid))
+	res, err := c.Trade.PlaceALO(coin, types.Buy, size, entry, trade.WithCloid(cloid))
 	if err != nil {
 		t.Fatalf("PlaceALO: %v", err)
 	}
@@ -45,7 +47,7 @@ func TestModifyByCloid(t *testing.T) {
 	}
 	t.Cleanup(func() { cancelIfResting(t, c, coin, res.OID) })
 
-	mod, err := c.Trade.ModifyByCloid(cloid, hl.WithLimit(entry), hl.WithSize(newSize))
+	mod, err := c.Trade.ModifyByCloid(cloid, trade.WithLimit(entry), trade.WithSize(newSize))
 	if err != nil {
 		if strings.Contains(err.Error(), "95% away from the reference price") {
 			t.Skipf("ModifyByCloid rejected by oracle-anchored reference-price rule: %v", err)

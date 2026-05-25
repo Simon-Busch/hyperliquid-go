@@ -6,7 +6,8 @@ import (
 	"strconv"
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // TestPlaceMarket opens a small market long, asserts the position
@@ -19,7 +20,7 @@ func TestPlaceMarket(t *testing.T) {
 	coin := testCoin(t)
 	size := testSize(t, c, coin)
 
-	if _, err := c.Trade.PlaceMarket(coin, hl.Buy, size); err != nil {
+	if _, err := c.Trade.PlaceMarket(coin, types.Buy, size); err != nil {
 		t.Fatalf("PlaceMarket: %v", err)
 	}
 	t.Cleanup(func() { _, _ = c.Trade.ClosePosition(coin) })

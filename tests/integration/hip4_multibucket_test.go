@@ -8,7 +8,10 @@ import (
 	"testing"
 	"time"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
+	"github.com/Simon-Busch/hyperliquid-go/info"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
 )
 
 // TestHIP4_MultiBucketDiagnostic dumps the full wire shape of every
@@ -63,7 +66,7 @@ func TestHIP4_MultiBucketDiagnostic(t *testing.T) {
 		t.Logf("  fallbackOutcome=%d  namedOutcomes=%v  settled=%v",
 			q.FallbackOutcome, q.NamedOutcomes, q.SettledNamedOutcomes)
 
-		desc := hl.ParseOutcomeDescription(q.Description)
+		desc := info.ParseOutcomeDescription(q.Description)
 		if len(desc) > 0 {
 			t.Logf("  parsed: %+v", desc)
 		}
@@ -112,7 +115,7 @@ func TestHIP4_MultiBucketDiagnostic(t *testing.T) {
 				t.Logf("    book %s: empty/err=%v", b.YesCanonical, err)
 				continue
 			}
-			top := func(side []hl.Level) string {
+			top := func(side []info.Level) string {
 				if len(side) == 0 {
 					return "—"
 				}
@@ -181,7 +184,7 @@ func TestHIP4_MultiBucketRoundTrip(t *testing.T) {
 
 	t.Logf("buying %v contracts of %s (%s) at ~%.4f (~$%.2f USDH)",
 		size, pick.YesCanonical, pick.Label, pick.Mid, notional)
-	buy, err := c.Trade.PlaceMarket(pick.YesCanonical, hl.Buy, size, hl.WithSlippage(0.05))
+	buy, err := c.Trade.PlaceMarket(pick.YesCanonical, types.Buy, size, trade.WithSlippage(0.05))
 	if err != nil {
 		t.Fatalf("PlaceMarket buy: %v", err)
 	}
@@ -199,7 +202,7 @@ func TestHIP4_MultiBucketRoundTrip(t *testing.T) {
 		if flattened {
 			return
 		}
-		if _, err := c.Trade.PlaceMarket(pick.YesCanonical, hl.Sell, filled, hl.WithSlippage(0.10)); err != nil {
+		if _, err := c.Trade.PlaceMarket(pick.YesCanonical, types.Sell, filled, trade.WithSlippage(0.10)); err != nil {
 			t.Logf("cleanup sell %v: %v (best-effort)", filled, err)
 		}
 	})
@@ -207,7 +210,7 @@ func TestHIP4_MultiBucketRoundTrip(t *testing.T) {
 	t.Log("holding 10s...")
 	time.Sleep(10 * time.Second)
 
-	sell, err := c.Trade.PlaceMarket(pick.YesCanonical, hl.Sell, filled, hl.WithSlippage(0.10))
+	sell, err := c.Trade.PlaceMarket(pick.YesCanonical, types.Sell, filled, trade.WithSlippage(0.10))
 	if err != nil {
 		t.Fatalf("PlaceMarket sell: %v", err)
 	}

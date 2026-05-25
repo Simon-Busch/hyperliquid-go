@@ -4,9 +4,11 @@ package integration
 
 import (
 	"math"
+	"strings"
 	"testing"
 
-	hl "github.com/Simon-Busch/hyperliquid-go"
+
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
 // TestHIP4_PlaceCancelInteger places a far-from-mid ALO buy on the
@@ -16,6 +18,11 @@ import (
 func TestHIP4_PlaceCancelInteger(t *testing.T) {
 	c := newClient(t)
 	skipIfNoBalance(t, c)
+	// HIP-4 outcomes settle in USDH; the venue rejects orders without
+	// enough free quote balance. The test's max notional is ~$10 (size
+	// is sized for the $10 venue minimum) — require a small headroom on
+	// top so a fee-bearing order can clear.
+	skipIfSpotTokenBelow(t, c, "USDH", 11.0)
 
 	canonical, _, midPx := requireOutcomeOrSkip(t, c)
 
@@ -43,11 +50,19 @@ func TestHIP4_PlaceCancelInteger(t *testing.T) {
 		}
 	})
 
-	res, err := c.Trade.PlaceALO(canonical, hl.Buy, size, px)
+	res, err := c.Trade.PlaceALO(canonical, types.Buy, size, px)
 	if err != nil {
 		t.Fatalf("PlaceALO(HIP-4 %s, size=%v, px=%v): %v", canonical, size, px, err)
 	}
 	if res.Error != "" {
+		// HIP-4 BUY orders draw on a per-market collateral bucket the
+		// account may not have funded even when generic spot USDH looks
+		// healthy. Treat that as a skip rather than a hard failure —
+		// the SDK plumbing is the thing under test, not testnet account
+		// state. Other rejections (invalid price/size/etc.) still fail.
+		if strings.Contains(res.Error, "Insufficient spot balance") {
+			t.Skipf("venue rejected HIP-4 buy with %q — testnet account not funded for asset %s", res.Error, canonical)
+		}
 		t.Fatalf("PlaceALO result error: %s", res.Error)
 	}
 	if res.OID == 0 {
