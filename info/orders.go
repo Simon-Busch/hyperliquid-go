@@ -3,6 +3,7 @@ package info
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 // OpenOrder is the slim open-orders row returned by /info
@@ -232,8 +233,12 @@ func (c *Client) Fill(addr string, oid int64) (*Fill, error) {
 	return nil, fmt.Errorf("fill with OID %d not found for user %s", oid, addr)
 }
 
-// OrderByCloid returns the order status for the supplied (addr, cloid)
-// pair.
+// OrderByCloid returns the open-order row for the supplied (addr, cloid)
+// pair, or nil when no live order matches the cloid. The Hyperliquid
+// /info orderStatus endpoint returns a nested {status, order:{order,…}}
+// envelope; we project the inner order fields into the slim OpenOrder
+// shape so callers can compare oid / coin / limit price uniformly with
+// Info.OpenOrders results.
 func (c *Client) OrderByCloid(addr, cloid string) (*OpenOrder, error) {
 	resp, err := c.client.Post("/info", map[string]any{
 		"type": "orderStatus",
@@ -244,11 +249,26 @@ func (c *Client) OrderByCloid(addr, cloid string) (*OpenOrder, error) {
 		return nil, fmt.Errorf("failed to fetch order status by cloid: %w", err)
 	}
 
-	var result OpenOrder
-	if err := json.Unmarshal(resp, &result); err != nil {
+	var status OrderStatusResponse
+	if err := json.Unmarshal(resp, &status); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal order status: %w", err)
 	}
-	return &result, nil
+	// Hyperliquid replies with status="order" when the cloid resolves
+	// to a live order; "unknownOid" (or absence) means no match.
+	if status.Status != "order" || status.Order.Order.Oid == 0 {
+		return nil, nil
+	}
+	o := status.Order.Order
+	limitPx, _ := strconv.ParseFloat(o.LimitPx, 64)
+	size, _ := strconv.ParseFloat(o.Sz, 64)
+	return &OpenOrder{
+		Coin:      o.Coin,
+		LimitPx:   limitPx,
+		Oid:       o.Oid,
+		Side:      o.Side,
+		Size:      size,
+		Timestamp: o.Timestamp,
+	}, nil
 }
 
 // Referral returns the referral state for addr.
