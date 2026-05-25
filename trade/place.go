@@ -54,6 +54,24 @@ func (c *Client) SlippagePrice(
 	szDecimals := c.info.SzDecimals(asset)
 	class := types.ClassifyAsset(asset)
 
+	// HIP-4 outcome prices are bounded by the venue to (0, 1]; an
+	// aggressive slippage multiplier on a near-1.0 buy mid will produce
+	// a price the venue rejects with "Price too large". Clamp to the
+	// tick-aligned bounds (0.0001 .. 0.9999) before tick rounding so a
+	// post-rounding tick step can't push it back out of range.
+	if class == types.AssetClassOutcome {
+		const (
+			outcomeMaxPrice = 0.9999
+			outcomeMinPrice = 0.0001
+		)
+		if price > outcomeMaxPrice {
+			price = outcomeMaxPrice
+		}
+		if price < outcomeMinPrice {
+			price = outcomeMinPrice
+		}
+	}
+
 	price = formatPriceToTickSize(price, szDecimals, class)
 
 	adjustedPrice, err := validateAndAdjustPrice(price, asset)
