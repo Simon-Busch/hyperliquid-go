@@ -70,16 +70,16 @@ func TestHIP4_MultiBucketDiagnostic(t *testing.T) {
 		if len(desc) > 0 {
 			t.Logf("  parsed: %+v", desc)
 		}
-		labels := q.BucketLabels()
+		labels := meta.QuestionLabels(q)
 		if labels != nil {
 			t.Logf("  bucket labels: %v", labels)
 		} else {
-			t.Logf("  bucket labels: (could not derive — non-priceBucket question or threshold/outcome mismatch)")
+			t.Logf("  bucket labels: (could not derive — at least one named outcome missing from OutcomeMeta)")
 		}
 
 		t.Logf("  buckets:")
 		totalYesMid := 0.0
-		for _, b := range q.Buckets() {
+		for _, b := range meta.QuestionBuckets(q) {
 			yesMidStr := "—"
 			noMidStr := "—"
 			if yes, err := c.Info.Mid(b.YesCanonical); err == nil && yes > 0 {
@@ -98,7 +98,7 @@ func TestHIP4_MultiBucketDiagnostic(t *testing.T) {
 		// Friendly-name registration assertions: each bucket's YES side
 		// should be addressable under the parent question name + bucket
 		// label, not just under "<outcome name>:Yes".
-		for _, b := range q.Buckets() {
+		for _, b := range meta.QuestionBuckets(q) {
 			friendly := q.Name + ":" + b.Label + ":Yes"
 			id := c.Info.AssetID(friendly)
 			if id == 0 {
@@ -109,7 +109,7 @@ func TestHIP4_MultiBucketDiagnostic(t *testing.T) {
 		}
 
 		// Top of book for each bucket's YES side.
-		for _, b := range q.Buckets() {
+		for _, b := range meta.QuestionBuckets(q) {
 			book, err := c.Info.Book(b.YesCanonical)
 			if err != nil || len(book.Levels) < 2 {
 				t.Logf("    book %s: empty/err=%v", b.YesCanonical, err)
