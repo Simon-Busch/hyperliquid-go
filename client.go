@@ -1,122 +1,101 @@
-// Package hyperliquid provides a Go client library for the Hyperliquid exchange API.
-// It includes support for both REST API and WebSocket connections, allowing users to
-// access market data, manage orders, and handle user account operations.
+// Package hyperliquid provides a Go client library for the Hyperliquid
+// exchange API. It includes support for both REST API and WebSocket
+// connections, allowing users to access market data, manage orders, and
+// handle user account operations.
 package hyperliquid
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net"
+	"crypto/ecdsa"
+	"errors"
 	"net/http"
 	"time"
+
+	"github.com/Simon-Busch/hyperliquid-go/info"
+	"github.com/Simon-Busch/hyperliquid-go/internal/transport"
+	"github.com/Simon-Busch/hyperliquid-go/stream"
+	"github.com/Simon-Busch/hyperliquid-go/trade"
+	"github.com/Simon-Busch/hyperliquid-go/types"
 )
 
-const (
-	MainnetAPIURL = "https://api.hyperliquid.xyz"
-	TestnetAPIURL = "https://api.hyperliquid-testnet.xyz"
-	LocalAPIURL   = "http://localhost:3001"
-
-	// httpErrorStatusCode is the minimum status code considered an error
-	httpErrorStatusCode = 400
-)
-
+// Client is the top-level Hyperliquid client. It exposes three handles:
+//
+//	c.Info   — read-only queries
+//	c.Trade  — signed actions (requires a private key)
+//	c.Stream — websocket subscriptions and POST requests
+//
+// Construct it with New and a list of options.
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
+	Info   *info.Client
+	Trade  *trade.Client
+	Stream *stream.Client
 }
 
-// defaultTransport returns an http.Transport tuned for low-latency API calls.
-func defaultTransport() *http.Transport {
-	return &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   5 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		ForceAttemptHTTP2:   true, // required when custom DialContext/TLSClientConfig is set
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-		TLSHandshakeTimeout: 5 * time.Second,
-		DisableCompression:  true, // skip gzip overhead on small payloads
-	}
-}
-
-func NewClient(baseURL string) *Client {
-	if baseURL == "" {
-		baseURL = MainnetAPIURL
+// New builds a Client configured by the supplied options. At minimum either
+// WithMainnet, WithTestnet, or WithBaseURL must be specified for non-default
+// behaviour. Signed actions on Trade require WithPrivateKey.
+func New(opts ...Option) (*Client, error) {
+	cfg := defaultClientConfig()
+	for _, o := range opts {
+		o(cfg)
 	}
 
-	return &Client{
-		baseURL: baseURL,
-		httpClient: &http.Client{
-			Transport: defaultTransport(),
-		},
-	}
-}
+	api := transport.New(cfg.baseURL, cfg.httpClient)
 
-// NewClientWithHTTPClient creates a Client with a caller-provided http.Client,
-// allowing full control over transport, timeouts, and connection pooling.
-func NewClientWithHTTPClient(baseURL string, httpClient *http.Client) *Client {
-	if baseURL == "" {
-		baseURL = MainnetAPIURL
-	}
-	if httpClient == nil {
-		httpClient = &http.Client{Transport: defaultTransport()}
-	}
+	infoC := info.New(cfg.baseURL, true, cfg.meta, cfg.spotMeta, cfg.perpDexs, cfg.builderDex)
 
-	return &Client{
-		baseURL:    baseURL,
-		httpClient: httpClient,
-	}
-}
+	c := &Client{Info: infoC}
 
-func (c *Client) post(path string, payload any) ([]byte, error) {
-	jsonData, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	if cfg.privateKey != nil {
+		c.Trade = trade.New(trade.Config{
+			Client:       api,
+			PrivateKey:   cfg.privateKey,
+			Vault:        cfg.vault,
+			AccountAddr:  cfg.account,
+			Dex:          cfg.builderDex,
+			Info:         infoC,
+			ExpiresAfter: cfg.expiresAfter,
+		})
 	}
 
-	url := c.baseURL + path
-	req, err := http.NewRequestWithContext(
-		context.Background(),
-		"POST",
-		url,
-		bytes.NewBuffer(jsonData),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if resp.StatusCode >= 400 {
-		return nil, &APIError{
-			Code:    resp.StatusCode,
-			Message: string(body),
+	if !cfg.skipStream {
+		s, err := stream.New(cfg.baseURL)
+		if err != nil {
+			return nil, err
 		}
+		s.SetLogger(cfg.logger)
+		s.SetMaxReconnectAttempts(cfg.maxReconnectAttempts)
+		s.SetReconnectWait(cfg.reconnectWait)
+		c.Stream = s
 	}
 
-	return body, nil
+	return c, nil
 }
 
-// WarmUp sends a lightweight request to establish and warm the HTTP/2 connection
-// (TCP + TLS handshake + ALPN negotiation). Call this once at startup so the first
-// real order doesn't pay the cold-connection penalty.
-func (c *Client) WarmUp() error {
-	_, err := c.post("/info", map[string]any{"type": "meta"})
-	return err
+// clientConfig holds the options accumulated by New.
+type clientConfig struct {
+	baseURL              string
+	httpClient           *http.Client
+	privateKey           *ecdsa.PrivateKey
+	account              string
+	vault                string
+	builderDex           string
+	meta                 *info.Meta
+	spotMeta             *info.SpotMeta
+	perpDexs             *types.MixedArray
+	skipStream           bool
+	logger               stream.Logger
+	maxReconnectAttempts int
+	reconnectWait        time.Duration
+	expiresAfter         *int64
 }
+
+func defaultClientConfig() *clientConfig {
+	return &clientConfig{
+		baseURL: types.MainnetAPIURL,
+		logger:  nil, // stream.Client falls back to its internal nop logger
+	}
+}
+
+// ErrMissingPrivateKey is returned by Trader methods called on a Client
+// constructed without WithPrivateKey.
+var ErrMissingPrivateKey = errors.New("hyperliquid: trader requires WithPrivateKey")
