@@ -395,7 +395,7 @@ func pickMultiBucketQuestionOrSkip(t *testing.T, client *hl.Client, minBuckets i
 		if want != "" && q.Name != want {
 			continue
 		}
-		raw := q.Buckets()
+		raw := meta.QuestionBuckets(q)
 		if raw == nil {
 			continue
 		}
