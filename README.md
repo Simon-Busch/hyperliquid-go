@@ -2,10 +2,6 @@
 
 Idiomatic Go SDK for the [Hyperliquid](https://hyperliquid.xyz) exchange.
 
-> **Status.** The public API documented here landed on `refactor/ux-api` and will graduate to `main` once the network integration suite is green. The interface is intentionally narrow: one constructor, three handles (`Info`, `Trade`, `Stream`), and a single shared validation pipeline behind every signed action. The handles are typed against focused subpackages (`info`, `trade`, `stream`, `signing`, `types`) which can also be imported directly.
->
-> Forked from [`sonirico/go-hyperliquid`](https://github.com/sonirico/go-hyperliquid). The fork rewrites the public surface, isolates the EIP-712 signing and msgpack/wire code under `internal/`, and removes the residual Python-bridge shape.
-
 ## What's covered
 
 - Perps trading (placement, modify, cancel, brackets, triggers, close).
@@ -17,7 +13,13 @@ Idiomatic Go SDK for the [Hyperliquid](https://hyperliquid.xyz) exchange.
 - Native Go EIP-712 signing — no Python bridge.
 - Pre-flight validation against the cached `UserState` and per-asset metadata.
 
+## Status
+
+Active fork of [`sonirico/go-hyperliquid`](https://github.com/sonirico/go-hyperliquid), restructured around the three-handle facade (`Info` / `Trade` / `Stream`) and extended with HIP-3 / HIP-4 support, pre-flight validation, and POST-over-WebSocket. The integration suite runs against testnet — see [docs/integration-testing.md](./docs/integration-testing.md).
+
 ## Install
+
+Requires Go 1.23 or newer.
 
 ```bash
 go get github.com/Simon-Busch/hyperliquid-go@latest
@@ -118,6 +120,37 @@ res, err := c.Trade.PlaceMany(
 )
 ```
 
+**HIP-3 builder-deployed dex.** Pin the client to a builder dex with `WithBuilderDex` — every read, signing path, and validation step targets that dex.
+
+```go
+c, err := hl.New(
+    hl.WithTestnet(),
+    hl.WithPrivateKey(pk),
+    hl.WithBuilderDex("flx"),
+)
+mids, err := c.Info.AllMidsOn("flx")
+res, err  := c.Trade.PlaceALO("FLX-PERP", types.Buy, 1, mids["FLX-PERP"]*0.99)
+```
+
+**HIP-4 outcome markets.** Outcomes are addressed by their friendly `<question>:<side>` name or canonical `#<enc>` id. `Info.OutcomeMeta` returns the catalogue; orders go through the regular placement verbs with integer sizes.
+
+```go
+meta, err := c.Info.OutcomeMeta()
+mid, err  := c.Info.Mid("BTC > 100k by Dec 31:Yes")
+res, err  := c.Trade.PlaceALO("BTC > 100k by Dec 31:Yes", types.Buy, 1, mid*0.5)
+```
+
+See [docs/hip.md](./docs/hip.md) for the full HIP-2 / HIP-3 / HIP-4 walkthrough.
+
+**Streaming with reconnect diagnostics.** `c.Stream` automatically resubscribes after a reconnect. Plug in a `stream.Logger` to surface backoff and resub events.
+
+```go
+c, err := hl.New(hl.WithTestnet(), hl.WithLogger(myLogger))
+_      = c.Stream.Connect(ctx)
+sub, _ := c.Stream.Subscribe(stream.UserEvents(addr), handler)
+// On disconnect: backoff -> reconnect -> resubscribe the open sub. No caller action needed.
+```
+
 ## Validation
 
 Every placement, modify, cancel, and close call runs `validate()` before signing. The validator refreshes the cached `UserState` and checks the spec against the asset metadata: size step, tick alignment, significant figures, reduce-only direction, bracket TP/SL placement, close direction, option/method compatibility. Failures surface as `*hyperliquid.ValidationError` with a stable machine-readable `Code` — see [docs/errors.md](./docs/errors.md) for the full table.
@@ -159,6 +192,7 @@ Required env: `HL_PRIVATE_KEY`. Optional: `HL_ACCOUNT_ADDRESS`, `HL_BASE_URL` (d
 - [`docs/trading.md`](./docs/trading.md) — every method on `c.Trade`.
 - [`docs/info.md`](./docs/info.md) — every method on `c.Info`.
 - [`docs/stream.md`](./docs/stream.md) — `c.Stream` and the subscription constructors.
+- [`docs/hip.md`](./docs/hip.md) — HIP-2 (spot deploy), HIP-3 (builder dex), HIP-4 (outcome markets) end-to-end.
 - [`docs/signing.md`](./docs/signing.md) — `SignL1Action`, `SignUserSignedAction`, and friends.
 - [`docs/errors.md`](./docs/errors.md) — `ValidationError` codes, `APIError`, sentinel errors.
 - [`docs/integration-testing.md`](./docs/integration-testing.md) — env, scenarios, troubleshooting.
@@ -177,7 +211,6 @@ hyperliquid/                # facade — re-exports New, Client, options, errors
 ├── client.go               # New(), Client, c.Info / c.Trade / c.Stream wiring
 ├── options.go              # WithMainnet/Testnet/PrivateKey/Account/...
 ├── doc.go                  # package doc
-├── compat.go               # transitional aliases — deleted in the next phase
 │
 ├── types/                  # shared domain types
 │   ├── side.go             # Side (Buy/Sell), TIF, MarginMode
@@ -186,14 +219,16 @@ hyperliquid/                # facade — re-exports New, Client, options, errors
 │   ├── order_type.go       # OrderType / OrderTypeWire family
 │   ├── grouping.go         # Grouping enum + DefaultSlippage
 │   ├── asset_class.go      # AssetClass + ClassifyAsset
-│   ├── errors.go           # ValidationError
+│   ├── api_response.go     # APIError, raw APIResponse envelope
+│   ├── urls.go             # MainnetAPIURL, TestnetAPIURL
+│   ├── errors.go           # ValidationError, ErrMissingPrivateKey
 │   └── mixed.go            # MixedArray / MixedValue
 │
 ├── signing/                # EIP-712 signing helpers + wire action structs
 │   ├── signing.go          # SignL1Action, SignUserSignedAction, FloatToUsdInt, GetTimestampMs, SignatureResult
 │   └── actions.go          # OrderWire, CancelAction, TWAPOrderAction, ...
 │
-├── info/                   # read-only REST surface (was hl.Info)
+├── info/                   # read-only REST surface
 │   ├── info.go             # info.New + Client core
 │   ├── market.go           # Mid, AllMids, Book, Candles, MetaAndAssetCtxs
 │   ├── account.go          # UserState, SpotBalances, Positions, Asset
@@ -201,37 +236,43 @@ hyperliquid/                # facade — re-exports New, Client, options, errors
 │   ├── meta.go             # Meta, SpotMeta, OutcomeMeta, PerpDexs
 │   ├── funding.go          # Funding, UserFunding
 │   ├── staking.go          # Info.Stake group
-│   └── outcome_question.go # HIP-4 outcome metadata helpers
+│   └── outcome_question.go # HIP-4 outcome metadata helpers (ParseOutcomeDescription, QuestionLabels, ...)
 │
-├── trade/                  # signed-action surface (was hl.Trader)
-│   ├── trade.go            # trade.New + Client core
-│   ├── place.go            # PlaceALO/IOC/GTC/Market/Trigger/Many
+├── trade/                  # signed-action surface
+│   ├── exchange.go         # trade.Client struct + subgroup wiring
+│   ├── trade.go            # internal place() pipeline shared by every placement verb
+│   ├── place.go            # PlaceALO/IOC/GTC/Market/Trigger/Many + OrderSpec constructors
+│   ├── exchange_orders.go  # Modify, ModifyByCloid, ScheduleCancelAll
+│   ├── exchange_orders_cancel.go  # Cancel / CancelByCloid / CancelAll
+│   ├── modify_cancel.go    # ClosePosition, SetLeverage, AdjustMargin, RefreshState
 │   ├── opts.go             # PlaceOpt + WithBracket/WithLimit/.../SkipValidation
-│   ├── modify_cancel.go    # Modify, Cancel, CancelAll, ClosePosition, SetLeverage
 │   ├── transfer.go         # Trade.Transfer group
+│   ├── withdraw.go         # Withdraw off-ramp to L1
+│   ├── convert.go          # Trade.Convert (USDC <-> USDH)
 │   ├── subaccount.go       # Trade.SubAccount group
 │   ├── stake.go            # Trade.Stake group
 │   ├── multisig.go         # Trade.MultiSig group
 │   ├── account.go          # ApproveAgent, ApproveBuilderFee, SetReferrer, UseBigBlocks
 │   ├── deploy_spot.go      # HIP-2 spot deploy
 │   ├── deploy_perp.go      # HIP-3 perp deploy
-│   ├── outcome.go          # HIP-4 split / merge / negate
+│   ├── outcome.go          # HIP-4 split / merge / mergeQuestion / negate
 │   ├── validators.go       # CSigner / CValidator pass-throughs
 │   ├── validate.go         # single validate() pipeline
 │   ├── bracket.go          # bracket-leg builder
 │   └── wire.go             # price/size formatting
 │
-├── stream/                 # websocket surface (was hl.Stream)
+├── stream/                 # websocket surface
 │   ├── stream.go           # stream.New + Client core
 │   ├── subscriptions.go    # Trades/Book/BBO/Candles/.../UserFills/...
+│   ├── ws_types.go         # WSMessage, Subscription, payload structs
 │   ├── post.go             # PostInfo, PostAction, Post
-│   ├── reconnect.go        # reconnect state machine
+│   ├── reconnect.go        # reconnect + automatic resubscribe state machine
 │   └── logger.go           # Logger interface
 │
 └── internal/               # not part of the public API
     ├── eip712/             # EIP-712 hash, sign, phantom agent
-    ├── msgpack/            # msgpack + price/size rounding helpers
-    └── transport/          # HTTP client, MainnetAPIURL/TestnetAPIURL, APIError
+    ├── wire/               # price/size rounding + wire-format helpers
+    └── transport/          # HTTP client, request plumbing
 ```
 
 ### Importing the subpackages directly

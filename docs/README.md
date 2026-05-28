@@ -13,6 +13,7 @@ The SDK exposes one top-level constructor — `hyperliquid.New(...)` — which r
 Cross-cutting:
 
 - [quickstart.md](./quickstart.md) — end-to-end first-trade walkthrough.
+- [hip.md](./hip.md) — HIP-2 (spot deploy), HIP-3 (builder dex), HIP-4 (outcome markets) end-to-end.
 - [signing.md](./signing.md) — the four exported `Sign*` helpers and when to use them directly.
 - [errors.md](./errors.md) — `ValidationError` codes, `APIError`, sentinel errors.
 - [integration-testing.md](./integration-testing.md) — env vars, scenarios, and how to run the network suite.
