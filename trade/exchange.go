@@ -52,8 +52,9 @@ type Client struct {
 	// Convert exposes spot-token conversion helpers (e.g. USDC <-> USDH).
 	Convert *ConvertGroup
 	// Outcome exposes HIP-4 user-outcome actions (split, merge,
-	// mergeQuestion, negate) — mint and burn outcome shares against USDH
-	// without crossing the order book.
+	// mergeQuestion, negate) — mint and burn outcome shares against the
+	// market's quote token (USDC since the USDH sunset) without crossing
+	// the order book.
 	Outcome *OutcomeGroup
 }
 

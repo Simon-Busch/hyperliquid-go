@@ -454,6 +454,47 @@ func requireYesOutcomeOrSkip(t *testing.T, client *hl.Client) (canonical, friend
 	return "", "", 0
 }
 
+// requireQuoteTokenOutcomeOrSkip restricts requireYesOutcomeOrSkip to a
+// YES-side outcome whose collateral/settlement token equals quoteToken
+// (case-insensitive). Use it to prove a flow works against a specific
+// stablecoin — the USDH→USDC migration means a generic "first live
+// outcome" could be quoted in either token. Returns the canonical name,
+// friendly name and current YES mid, or skips when no live outcome with
+// that quote token exists on the environment.
+func requireQuoteTokenOutcomeOrSkip(t *testing.T, client *hl.Client, quoteToken string) (canonical, friendly string, midPx float64) {
+	t.Helper()
+	meta, err := client.Info.OutcomeMeta()
+	if err != nil {
+		t.Skipf("OutcomeMeta failed: %v", err)
+	}
+	if meta == nil || len(meta.Outcomes) == 0 {
+		t.Skip("no HIP-4 outcomes available on this environment")
+	}
+	cfg, _ := loadConfig()
+	want := cfg.HIP4Outcome
+	for _, oc := range meta.Outcomes {
+		if !strings.EqualFold(oc.QuoteToken, quoteToken) {
+			continue
+		}
+		if len(oc.SideSpecs) == 0 {
+			continue
+		}
+		spec := oc.SideSpecs[0] // YES
+		f := oc.Name + ":" + spec.Name
+		c := "#" + strconv.Itoa(10*oc.Outcome+0)
+		if want != "" && want != f && want != c {
+			continue
+		}
+		px, err := client.Info.Mid(c)
+		if err != nil || px <= 0 || px >= 1 {
+			continue
+		}
+		return c, f, px
+	}
+	t.Skipf("no HIP-4 outcome quoted in %s with a live YES-side mid found", quoteToken)
+	return "", "", 0
+}
+
 // requireOutcomeOrSkip looks up an active HIP-4 outcome and returns the
 // canonical name ("#<enc>"), friendly name ("<question>:<side>") and the
 // current mid price. The caller can place / cancel against the canonical

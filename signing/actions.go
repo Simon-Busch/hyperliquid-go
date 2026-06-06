@@ -263,23 +263,26 @@ type ReserveRequestWeightAction struct {
 // type:"userOutcome" plus exactly one inner body keyed by the verb. The
 // venue parses by which inner key is present.
 
-// SplitOutcomeWire is the inner body for splitting USDH into Yes+No
-// shares of an outcome. Amount is the USDH notional, as a decimal string.
+// SplitOutcomeWire is the inner body for splitting the market's quote
+// token (USDC since the USDH sunset) into Yes+No shares of an outcome.
+// Amount is the quote-token notional, as a decimal string. The wire
+// carries no token field — the collateral is implicit in the market.
 type SplitOutcomeWire struct {
 	Outcome uint64 `json:"outcome" msgpack:"outcome"`
 	Amount  string `json:"amount"  msgpack:"amount"`
 }
 
 // MergeOutcomeWire is the inner body for merging Yes+No shares back into
-// USDH for a single outcome. Amount=nil burns the maximum holdable.
+// the market's quote token (USDC) for a single outcome. Amount=nil burns
+// the maximum holdable.
 type MergeOutcomeWire struct {
 	Outcome uint64  `json:"outcome" msgpack:"outcome"`
 	Amount  *string `json:"amount"  msgpack:"amount"`
 }
 
 // MergeQuestionWire is the inner body for collapsing X Yes shares from
-// every named outcome of a question into X USDH. Amount=nil burns the
-// maximum the caller holds across all buckets (min Yes balance).
+// every named outcome of a question into X quote tokens (USDC). Amount=nil
+// burns the maximum the caller holds across all buckets (min Yes balance).
 type MergeQuestionWire struct {
 	Question uint64  `json:"question" msgpack:"question"`
 	Amount   *string `json:"amount"   msgpack:"amount"`

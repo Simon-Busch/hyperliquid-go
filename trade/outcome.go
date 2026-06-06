@@ -9,13 +9,20 @@ import (
 )
 
 // OutcomeGroup is the HIP-4 user-outcome subgroup on Client. The four
-// methods mint or burn outcome shares against USDH without touching the
-// order book — they're the prediction-market equivalent of conversion
-// between collateral and synthetic positions.
+// methods mint or burn outcome shares against the market's quote-token
+// collateral without touching the order book — they're the
+// prediction-market equivalent of conversion between collateral and
+// synthetic positions.
 //
-//   - Split:        X USDH -> X Yes + X No of one outcome
-//   - Merge:        X Yes + X No of one outcome -> X USDH (amount nil = max)
-//   - MergeQuestion: X Yes of every named outcome -> X USDH (amount nil = max)
+// HIP-4 launched quoting in USDH; the venue has since migrated outcome
+// markets to USDC as USDH is sunset, so `amount` is denominated in
+// whatever token the outcome reports as OutcomeInfo.QuoteToken (USDC on
+// current markets) rather than a hardcoded stablecoin. The wire schema
+// carries no collateral field — the token is implicit in the market.
+//
+//   - Split:        X quote -> X Yes + X No of one outcome
+//   - Merge:        X Yes + X No of one outcome -> X quote (amount nil = max)
+//   - MergeQuestion: X Yes of every named outcome -> X quote (amount nil = max)
 //   - Negate:       X No of one bucket -> X Yes of every OTHER bucket in
 //     the same question
 //
@@ -26,7 +33,8 @@ type OutcomeGroup struct {
 }
 
 // Split mints `amount` Yes shares and `amount` No shares of `outcome`
-// by burning `amount` USDH from the caller's wallet.
+// by burning `amount` of the market's quote token (USDC) from the
+// caller's wallet.
 func (g *OutcomeGroup) Split(outcome uint64, amount float64) (*TransferResponse, error) {
 	if amount <= 0 {
 		return nil, fmt.Errorf("split: amount must be > 0, got %v", amount)
@@ -42,7 +50,8 @@ func (g *OutcomeGroup) Split(outcome uint64, amount float64) (*TransferResponse,
 }
 
 // Merge burns `amount` Yes + `amount` No of `outcome` back into
-// `amount` USDH. Pass nil to burn the maximum holdable (min(Yes, No)).
+// `amount` of the market's quote token (USDC). Pass nil to burn the
+// maximum holdable (min(Yes, No)).
 func (g *OutcomeGroup) Merge(outcome uint64, amount *float64) (*TransferResponse, error) {
 	wire := signing.MergeOutcomeWire{Outcome: outcome}
 	if amount != nil {
@@ -57,10 +66,10 @@ func (g *OutcomeGroup) Merge(outcome uint64, amount *float64) (*TransferResponse
 }
 
 // MergeQuestion burns `amount` Yes from each named outcome of `question`
-// into `amount` USDH. Since exactly one bucket of a question resolves
-// true, holding one Yes per bucket guarantees one USDH payout — Merge
-// realises that early. Pass nil to burn the maximum (the min Yes
-// balance across buckets).
+// into `amount` of the quote token (USDC). Since exactly one bucket of a
+// question resolves true, holding one Yes per bucket guarantees one unit
+// of quote-token payout — Merge realises that early. Pass nil to burn
+// the maximum (the min Yes balance across buckets).
 func (g *OutcomeGroup) MergeQuestion(question uint64, amount *float64) (*TransferResponse, error) {
 	wire := signing.MergeQuestionWire{Question: question}
 	if amount != nil {
@@ -77,7 +86,7 @@ func (g *OutcomeGroup) MergeQuestion(question uint64, amount *float64) (*Transfe
 // Negate converts `amount` No shares of `outcome` (a bucket of
 // `question`) into `amount` Yes shares of every OTHER bucket in the
 // same question. The total share count grows by (numBuckets-2) * amount;
-// the USDH-equivalent value is preserved by the protocol.
+// the quote-token-equivalent value is preserved by the protocol.
 func (g *OutcomeGroup) Negate(question, outcome uint64, amount float64) (*TransferResponse, error) {
 	if amount <= 0 {
 		return nil, fmt.Errorf("negate: amount must be > 0, got %v", amount)

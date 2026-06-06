@@ -71,6 +71,12 @@ type OutcomeInfo struct {
 	Name        string            `json:"name"`        // e.g. "Recurring"
 	Description string            `json:"description"` // structured metadata (see above)
 	SideSpecs   []OutcomeSideSpec `json:"sideSpecs"`   // [YES, NO] in that order
+	// QuoteToken is the spot token the market is collateralized and
+	// settled in (e.g. "USDC"). HIP-4 launched quoting in USDH; the venue
+	// has since migrated outcome markets to USDC as USDH is sunset, so a
+	// Split mints / a buy pays in this token, not a hardcoded stablecoin.
+	// Empty when the venue omits the field (older snapshots).
+	QuoteToken string `json:"quoteToken"`
 }
 
 // Question groups several binary outcomes into a multi-bucket market.

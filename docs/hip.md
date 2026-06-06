@@ -113,22 +113,24 @@ Subscriptions take the **canonical** name (the human-readable form is rejected b
 sub, err := c.Stream.Subscribe(stream.Trades("#abcd1234"), handler)
 ```
 
-### Mint / burn outcome shares against USDH
+### Mint / burn outcome shares against the quote token
 
-The HIP-4 conversion verbs live on `c.Trade.Outcome`. They never touch the order book — they mint or burn outcome shares against USDH collateral.
+The HIP-4 conversion verbs live on `c.Trade.Outcome`. They never touch the order book — they mint or burn outcome shares against the market's **quote-token** collateral.
 
-| Verb              | Effect                                                                          |
-|-------------------|---------------------------------------------------------------------------------|
-| `Split`           | `X USDH -> X Yes + X No` of one outcome.                                        |
-| `Merge`           | `X Yes + X No` of one outcome `-> X USDH`. Pass `nil` amount for max.           |
-| `MergeQuestion`   | `X Yes` of every named outcome of a question `-> X USDH`. Pass `nil` for max.   |
-| `Negate`          | `X No` of one bucket `-> X Yes` of every OTHER bucket in the same question.    |
+> **Collateral token.** HIP-4 launched quoting in USDH. The venue has since migrated outcome markets to **USDC** as USDH is sunset, so the amounts below are denominated in whatever token the market reports as `OutcomeInfo.QuoteToken` (USDC on current markets). The wire action carries no collateral field — the token is implicit in the market — so the SDK calls are unchanged across the migration. Read `OutcomeInfo.QuoteToken` to confirm what a given market settles in.
+
+| Verb              | Effect                                                                            |
+|-------------------|-----------------------------------------------------------------------------------|
+| `Split`           | `X quote -> X Yes + X No` of one outcome.                                         |
+| `Merge`           | `X Yes + X No` of one outcome `-> X quote`. Pass `nil` amount for max.            |
+| `MergeQuestion`   | `X Yes` of every named outcome of a question `-> X quote`. Pass `nil` for max.    |
+| `Negate`          | `X No` of one bucket `-> X Yes` of every OTHER bucket in the same question.      |
 
 ```go
-// Mint 10 Yes + 10 No of outcome #abcd1234 from 10 USDH.
+// Mint 10 Yes + 10 No of outcome #abcd1234 from 10 units of quote token (USDC).
 _, err := c.Trade.Outcome.Split(outcomeID, 10)
 
-// Burn the max holdable Yes/No pair back to USDH.
+// Burn the max holdable Yes/No pair back to the quote token.
 _, err = c.Trade.Outcome.Merge(outcomeID, nil)
 ```
 
