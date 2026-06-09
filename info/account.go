@@ -3,6 +3,7 @@ package info
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/Simon-Busch/hyperliquid-go/types"
 )
@@ -122,10 +123,76 @@ type SpotBalance struct {
 	EntryNtl string `json:"entryNtl"`
 }
 
+// TokenAvailable is one entry of
+// SpotClearinghouseState.TokenToAvailableAfterMaintenance: the amount of
+// a spot token (by index) that is free to use as cross-collateral or
+// withdraw after covering maintenance margin on open positions. It is
+// the unified-account view of usable balance.
+//
+// The venue encodes each entry as a positional [tokenIndex, "amount"]
+// tuple, which UnmarshalJSON decodes into these named fields.
+type TokenAvailable struct {
+	Token     int    // spot token index (0 == USDC)
+	Available string // amount available after maintenance margin (decimal string)
+}
+
+// UnmarshalJSON decodes the positional [tokenIndex, "amount"] tuple the
+// venue emits into the named TokenAvailable fields.
+func (t *TokenAvailable) UnmarshalJSON(b []byte) error {
+	var tuple []json.RawMessage
+	if err := json.Unmarshal(b, &tuple); err != nil {
+		return fmt.Errorf("tokenAvailable: %w", err)
+	}
+	if len(tuple) != 2 {
+		return fmt.Errorf("tokenAvailable: expected [token, amount], got %d elements", len(tuple))
+	}
+	if err := json.Unmarshal(tuple[0], &t.Token); err != nil {
+		return fmt.Errorf("tokenAvailable token index: %w", err)
+	}
+	if err := json.Unmarshal(tuple[1], &t.Available); err != nil {
+		return fmt.Errorf("tokenAvailable amount: %w", err)
+	}
+	return nil
+}
+
 // SpotClearinghouseState is the response model for the spot balances
 // endpoint.
+//
+// TokenToAvailableAfterMaintenance is populated for unified accounts (the
+// single spot/perp balance model): it lists, per token, the amount free
+// to use as cross-collateral after maintenance margin. It is empty for
+// classic accounts, where usable balance is Total minus Hold per token.
+// The Available / AvailableAfterMaintenance accessors read this field.
 type SpotClearinghouseState struct {
-	Balances []SpotBalance `json:"balances"`
+	Balances                         []SpotBalance    `json:"balances"`
+	TokenToAvailableAfterMaintenance []TokenAvailable `json:"tokenToAvailableAfterMaintenance,omitempty"`
+}
+
+// AvailableAfterMaintenance returns the amount of the spot token (by
+// index) that is usable as cross-collateral or withdrawable after
+// maintenance margin — the unified-account notion of usable balance. ok
+// is false when the venue reports no entry for the token, which happens
+// for a classic account or for a token with nothing available.
+func (s *SpotClearinghouseState) AvailableAfterMaintenance(token int) (amount string, ok bool) {
+	for _, ta := range s.TokenToAvailableAfterMaintenance {
+		if ta.Token == token {
+			return ta.Available, true
+		}
+	}
+	return "", false
+}
+
+// Available resolves coin (e.g. "USDC") to its token index via Balances
+// and returns its available-after-maintenance amount. ok is false when
+// coin has no spot balance entry or no availability entry (e.g. a
+// classic account, where callers should fall back to Total minus Hold).
+func (s *SpotClearinghouseState) Available(coin string) (amount string, ok bool) {
+	for _, b := range s.Balances {
+		if strings.EqualFold(b.Coin, coin) {
+			return s.AvailableAfterMaintenance(b.Token)
+		}
+	}
+	return "", false
 }
 
 // AssetMeta is the per-asset metadata snapshot exposed by Asset. MinSize
