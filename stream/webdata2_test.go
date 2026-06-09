@@ -55,6 +55,10 @@ const webData2Fixture = `{
     "universe": [
       {"name": "BTC", "szDecimals": 5, "maxLeverage": 50, "marginTableId": 1},
       {"name": "ETH", "szDecimals": 4, "maxLeverage": 50, "marginTableId": 1, "isDelisted": false}
+    ],
+    "marginTables": [
+      [50, {"description": "", "marginTiers": [{"lowerBound": "0.0", "maxLeverage": 50}]}],
+      [55, {"description": "tier2", "marginTiers": [{"lowerBound": "10000.0", "maxLeverage": 25}]}]
     ]
   },
   "user": "0xdef0000000000000000000000000000000000002"
@@ -141,6 +145,62 @@ func TestDecodeWebData2(t *testing.T) {
 	}
 	if wd.Meta.Universe[0].Name != "BTC" || wd.Meta.Universe[0].SzDecimals != 5 {
 		t.Errorf("Meta.Universe[0] = %+v", wd.Meta.Universe[0])
+	}
+
+	// Meta marginTables — the [id, {table}] tuple form that previously
+	// crashed the whole decode. It must populate via MarginTable.UnmarshalJSON.
+	if len(wd.Meta.MarginTables) != 2 {
+		t.Fatalf("Meta.MarginTables len = %d, want 2", len(wd.Meta.MarginTables))
+	}
+	mt := wd.Meta.MarginTables[1]
+	if mt.ID != 55 || mt.Description != "tier2" {
+		t.Errorf("MarginTables[1] = {ID:%d Description:%q}, want {55 tier2}", mt.ID, mt.Description)
+	}
+	if len(mt.MarginTiers) != 1 || mt.MarginTiers[0].MaxLeverage != 25 {
+		t.Errorf("MarginTables[1].MarginTiers = %+v", mt.MarginTiers)
+	}
+}
+
+// TestDecodeWebData2_LiveFrameWithMarginTables is the regression test for
+// the reported bug: a real webData2 frame carries meta.marginTables as
+// [id, {table}] tuples AND top-level keys not modelled by WebData2
+// (serverTime, assetCtxs, spotState, isVault, …). DecodeWebData2 must
+// decode the tuples and silently ignore the unknown keys — before
+// MarginTable.UnmarshalJSON existed it died with "cannot unmarshal array
+// into Go struct field Meta.meta.marginTables".
+func TestDecodeWebData2_LiveFrameWithMarginTables(t *testing.T) {
+	const liveFrame = `{
+      "clearinghouseState": {
+        "marginSummary": {"accountValue": "405.44", "totalNtlPos": "0", "totalRawUsd": "405.44", "totalMarginUsed": "0"},
+        "withdrawable": "405.44",
+        "assetPositions": []
+      },
+      "meta": {
+        "universe": [{"name": "BTC", "szDecimals": 5, "maxLeverage": 50, "marginTableId": 50}],
+        "marginTables": [[50, {"description": "", "marginTiers": [{"lowerBound": "0.0", "maxLeverage": 50}]}]]
+      },
+      "serverTime": 1781930462815,
+      "assetCtxs": [{"markPx": "100000.0"}],
+      "twapStates": [],
+      "spotState": {"balances": []},
+      "perpsAtOpenInterestCap": [],
+      "spotAssetCtxs": [],
+      "isVault": false,
+      "user": "0xdef0000000000000000000000000000000000002"
+    }`
+
+	wd, err := DecodeWebData2(WSMessage{Channel: "webData2", Data: json.RawMessage(liveFrame)})
+	if err != nil {
+		t.Fatalf("DecodeWebData2 on live-shaped frame: %v", err)
+	}
+	if len(wd.Meta.MarginTables) != 1 || wd.Meta.MarginTables[0].ID != 50 {
+		t.Fatalf("MarginTables = %+v, want one table id=50", wd.Meta.MarginTables)
+	}
+	if wd.ClearinghouseState.MarginSummary.AccountValue != "405.44" {
+		t.Errorf("AccountValue = %q, want 405.44", wd.ClearinghouseState.MarginSummary.AccountValue)
+	}
+	if wd.User != "0xdef0000000000000000000000000000000000002" {
+		t.Errorf("User = %q", wd.User)
 	}
 }
 

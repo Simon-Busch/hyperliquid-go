@@ -133,11 +133,39 @@ type MarginTier struct {
 	MaxLeverage int    `json:"maxLeverage"`
 }
 
-// MarginTable represents a margin table with description and tiers
+// MarginTable represents a margin table with description and tiers.
 type MarginTable struct {
 	ID          int
 	Description string       `json:"description"`
 	MarginTiers []MarginTier `json:"marginTiers"`
+}
+
+// UnmarshalJSON decodes Hyperliquid's positional
+// [id, {description, marginTiers}] tuple form for a margin table. The id
+// lives at index 0 and the table body at index 1, so a MarginTable is
+// not a plain JSON object on the wire. Implementing this makes Meta
+// default-unmarshalable everywhere (e.g. the webData2 frame), not just
+// via the bespoke unpacking in parseMetaResponse.
+func (m *MarginTable) UnmarshalJSON(b []byte) error {
+	var tuple []json.RawMessage
+	if err := json.Unmarshal(b, &tuple); err != nil {
+		return fmt.Errorf("marginTable: expected [id, table] tuple: %w", err)
+	}
+	if len(tuple) != 2 {
+		return fmt.Errorf("marginTable: expected 2 elements, got %d", len(tuple))
+	}
+	if err := json.Unmarshal(tuple[0], &m.ID); err != nil {
+		return fmt.Errorf("marginTable id: %w", err)
+	}
+	var body struct {
+		Description string       `json:"description"`
+		MarginTiers []MarginTier `json:"marginTiers"`
+	}
+	if err := json.Unmarshal(tuple[1], &body); err != nil {
+		return fmt.Errorf("marginTable body: %w", err)
+	}
+	m.Description, m.MarginTiers = body.Description, body.MarginTiers
+	return nil
 }
 
 // MetaAndAssetCtxsResponse represents the response from the metaAndAssetCtxs endpoint
